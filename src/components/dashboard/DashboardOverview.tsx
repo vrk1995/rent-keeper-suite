@@ -9,52 +9,58 @@ import {
   TrendingUp,
   Plus,
   ArrowUpRight,
+  Users,
 } from "lucide-react";
-
-const stats = [
-  {
-    title: "Total Properties",
-    value: "12",
-    change: "+2 this month",
-    icon: Building2,
-    trend: "up",
-  },
-  {
-    title: "Monthly Revenue",
-    value: "₹2,45,000",
-    change: "+8.2% from last month",
-    icon: DollarSign,
-    trend: "up",
-  },
-  {
-    title: "Pending Payments",
-    value: "3",
-    change: "₹42,000 outstanding",
-    icon: AlertCircle,
-    trend: "neutral",
-  },
-  {
-    title: "Renewals Due",
-    value: "2",
-    change: "Within 30 days",
-    icon: Calendar,
-    trend: "warning",
-  },
-];
-
-const upcomingPayments = [
-  { property: "Sunset Apartments #101", tenant: "Rahul Sharma", amount: 25000, dueDate: "Jan 15, 2026", status: "upcoming" },
-  { property: "Oak Street House", tenant: "Priya Patel", amount: 35000, dueDate: "Jan 18, 2026", status: "upcoming" },
-  { property: "Downtown Loft #3B", tenant: "Amit Kumar", amount: 28000, dueDate: "Jan 20, 2026", status: "overdue" },
-];
-
-const recentActivity = [
-  { action: "Payment received", detail: "Sunset Apartments #102 - ₹25,000", time: "2 hours ago" },
-  { action: "Document uploaded", detail: "Lease agreement for Oak Street", time: "5 hours ago" },
-  { action: "Reminder sent", detail: "Rent due notification to 5 tenants", time: "1 day ago" },
-];
+import { useProperties } from "@/hooks/useProperties";
+import { useTenants } from "@/hooks/useTenants";
+import { useUpcomingPayments } from "@/hooks/usePayments";
+import { formatINR } from "@/lib/currency";
+import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const DashboardOverview = () => {
+  const navigate = useNavigate();
+  const { data: properties = [], isLoading: propertiesLoading } = useProperties();
+  const { data: tenants = [], isLoading: tenantsLoading } = useTenants();
+  const { data: upcomingPayments = [], isLoading: paymentsLoading } = useUpcomingPayments();
+
+  const totalMonthlyRent = properties.reduce((sum, p) => sum + (p.monthly_rent || 0), 0);
+  const pendingPayments = upcomingPayments.filter(p => p.status === 'pending' || p.status === 'overdue');
+  const pendingAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  const stats = [
+    {
+      title: "Total Properties",
+      value: properties.length.toString(),
+      change: properties.length > 0 ? `${properties.length} active` : "No properties yet",
+      icon: Building2,
+      trend: "up",
+    },
+    {
+      title: "Total Tenants",
+      value: tenants.length.toString(),
+      change: tenants.length > 0 ? `${tenants.length} active` : "No tenants yet",
+      icon: Users,
+      trend: "up",
+    },
+    {
+      title: "Monthly Rent Total",
+      value: formatINR(totalMonthlyRent),
+      change: "Across all properties",
+      icon: DollarSign,
+      trend: "up",
+    },
+    {
+      title: "Pending Payments",
+      value: pendingPayments.length.toString(),
+      change: pendingAmount > 0 ? `${formatINR(pendingAmount)} outstanding` : "All clear",
+      icon: AlertCircle,
+      trend: pendingPayments.length > 0 ? "warning" : "up",
+    },
+  ];
+
+  const isLoading = propertiesLoading || tenantsLoading || paymentsLoading;
+
   return (
     <div className="space-y-6">
       {/* Welcome message */}
@@ -63,7 +69,7 @@ const DashboardOverview = () => {
           <h1 className="text-3xl font-display font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's your rental overview.</p>
         </div>
-        <Button variant="hero">
+        <Button variant="hero" onClick={() => navigate('/dashboard/properties')}>
           <Plus className="w-4 h-4 mr-2" />
           Add Property
         </Button>
@@ -82,7 +88,9 @@ const DashboardOverview = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-display font-bold">{stat.value}</div>
+              <div className="text-3xl font-display font-bold">
+                {isLoading ? "..." : stat.value}
+              </div>
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 {stat.trend === "up" && <TrendingUp className="w-3 h-3 text-success" />}
                 {stat.change}
@@ -97,61 +105,80 @@ const DashboardOverview = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Upcoming Payments</CardTitle>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/payments')}>
               View All
               <ArrowUpRight className="w-4 h-4 ml-1" />
             </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {upcomingPayments.map((payment, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-white/5"
-                >
-                  <div>
-                    <p className="font-medium">{payment.property}</p>
-                    <p className="text-sm text-muted-foreground">{payment.tenant}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display font-semibold">₹{payment.amount.toLocaleString('en-IN')}</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">{payment.dueDate}</p>
-                      <Badge variant={payment.status === "overdue" ? "destructive" : "glow"}>
-                        {payment.status}
-                      </Badge>
+              {isLoading ? (
+                <p className="text-muted-foreground text-sm">Loading...</p>
+              ) : upcomingPayments.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No upcoming payments</p>
+              ) : (
+                upcomingPayments.slice(0, 3).map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-white/5"
+                  >
+                    <div>
+                      <p className="font-medium">{payment.property?.name || "Unknown Property"}</p>
+                      <p className="text-sm text-muted-foreground">{payment.tenant?.name || "Unknown Tenant"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display font-semibold">{formatINR(payment.amount)}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(payment.due_date), "MMM d, yyyy")}
+                        </p>
+                        <Badge variant={payment.status === "overdue" ? "destructive" : "glow"}>
+                          {payment.status}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Recent activity */}
+        {/* Properties overview */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Activity</CardTitle>
-            <Button variant="ghost" size="sm">
+            <CardTitle>Properties</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/properties')}>
               View All
               <ArrowUpRight className="w-4 h-4 ml-1" />
             </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-4 p-4 rounded-xl bg-secondary/30 border border-white/5"
-                >
-                  <div className="w-2 h-2 mt-2 rounded-full bg-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">{activity.detail}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">{activity.time}</p>
+              {isLoading ? (
+                <p className="text-muted-foreground text-sm">Loading...</p>
+              ) : properties.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No properties added yet. Add your first property to get started!</p>
+              ) : (
+                properties.slice(0, 3).map((property) => (
+                  <div
+                    key={property.id}
+                    className="flex items-start gap-4 p-4 rounded-xl bg-secondary/30 border border-white/5"
+                  >
+                    <div className="w-2 h-2 mt-2 rounded-full bg-primary" />
+                    <div className="flex-1">
+                      <p className="font-medium">{property.name}</p>
+                      <p className="text-sm text-muted-foreground">{property.address}</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">
+                        {formatINR(property.monthly_rent)}/month
+                      </p>
+                    </div>
+                    <Badge variant={property.status === "occupied" ? "glow" : "secondary"}>
+                      {property.status}
+                    </Badge>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
