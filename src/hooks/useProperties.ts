@@ -1,0 +1,113 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+export interface Property {
+  id: string;
+  owner_id: string;
+  name: string;
+  address: string;
+  property_type: string;
+  monthly_rent: number;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePropertyInput {
+  name: string;
+  address: string;
+  property_type: string;
+  monthly_rent: number;
+  status?: string;
+  notes?: string;
+}
+
+export const useProperties = () => {
+  return useQuery({
+    queryKey: ["properties"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as Property[];
+    },
+  });
+};
+
+export const useCreateProperty = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreatePropertyInput) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("properties")
+        .insert({
+          ...input,
+          owner_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast.success("Property added successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to add property: " + error.message);
+    },
+  });
+};
+
+export const useUpdateProperty = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Property> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("properties")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast.success("Property updated successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to update property: " + error.message);
+    },
+  });
+};
+
+export const useDeleteProperty = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("properties").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast.success("Property deleted successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to delete property: " + error.message);
+    },
+  });
+};

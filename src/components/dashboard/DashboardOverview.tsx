@@ -21,7 +21,7 @@ const stats = [
   },
   {
     title: "Monthly Revenue",
-    value: "$24,500",
+    value: "₹2,45,000",
     change: "+8.2% from last month",
     icon: DollarSign,
     trend: "up",
@@ -29,7 +29,7 @@ const stats = [
   {
     title: "Pending Payments",
     value: "3",
-    change: "$4,200 outstanding",
+    change: "₹42,000 outstanding",
     icon: AlertCircle,
     trend: "neutral",
   },
@@ -43,13 +43,13 @@ const stats = [
 ];
 
 const upcomingPayments = [
-  { property: "Sunset Apartments #101", tenant: "John Smith", amount: 1500, dueDate: "Jan 15, 2026", status: "upcoming" },
-  { property: "Oak Street House", tenant: "Sarah Johnson", amount: 2200, dueDate: "Jan 18, 2026", status: "upcoming" },
-  { property: "Downtown Loft #3B", tenant: "Mike Chen", amount: 1800, dueDate: "Jan 20, 2026", status: "overdue" },
+  { property: "Sunset Apartments #101", tenant: "Rahul Sharma", amount: 25000, dueDate: "Jan 15, 2026", status: "upcoming" },
+  { property: "Oak Street House", tenant: "Priya Patel", amount: 35000, dueDate: "Jan 18, 2026", status: "upcoming" },
+  { property: "Downtown Loft #3B", tenant: "Amit Kumar", amount: 28000, dueDate: "Jan 20, 2026", status: "overdue" },
 ];
 
 const recentActivity = [
-  { action: "Payment received", detail: "Sunset Apartments #102 - $1,500", time: "2 hours ago" },
+  { action: "Payment received", detail: "Sunset Apartments #102 - ₹25,000", time: "2 hours ago" },
   { action: "Document uploaded", detail: "Lease agreement for Oak Street", time: "5 hours ago" },
   { action: "Reminder sent", detail: "Rent due notification to 5 tenants", time: "1 day ago" },
 ];
@@ -114,7 +114,7 @@ const DashboardOverview = () => {
                     <p className="text-sm text-muted-foreground">{payment.tenant}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-display font-semibold">${payment.amount.toLocaleString()}</p>
+                    <p className="font-display font-semibold">₹{payment.amount.toLocaleString('en-IN')}</p>
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-muted-foreground">{payment.dueDate}</p>
                       <Badge variant={payment.status === "overdue" ? "destructive" : "glow"}>
