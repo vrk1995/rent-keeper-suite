@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProperties, useDeleteProperty, Property } from "@/hooks/useProperties";
 import { useTenants } from "@/hooks/useTenants";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import PropertyCard from "@/components/properties/PropertyCard";
 import AddPropertyDialog from "@/components/properties/AddPropertyDialog";
 import {
@@ -27,17 +29,44 @@ const Properties = () => {
   const [editProperty, setEditProperty] = useState<Property | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Calculate rented sqft per property
-  const propertyRentedSqft = useMemo(() => {
-    const map = new Map<string, number>();
+  // Fetch all floors for all properties
+  const { data: allFloors } = useQuery({
+    queryKey: ["all-property-floors"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_floors")
+        .select("*")
+        .order("floor_name", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Calculate rented sqft per property and per floor
+  const { propertyRentedSqft, floorRentedMap } = useMemo(() => {
+    const propMap = new Map<string, number>();
+    const floorMap = new Map<string, number>();
+    
     tenants?.forEach((tenant) => {
       if (tenant.property_id && !tenant.unit_id) {
-        const current = map.get(tenant.property_id) || 0;
-        map.set(tenant.property_id, current + (tenant.rented_sqft || 0));
+        const current = propMap.get(tenant.property_id) || 0;
+        propMap.set(tenant.property_id, current + (tenant.rented_sqft || 0));
       }
+      // Note: floor_id would be used here once we add it to the tenant form
+    });
+    
+    return { propertyRentedSqft: propMap, floorRentedMap: floorMap };
+  }, [tenants]);
+
+  // Group floors by property
+  const floorsByProperty = useMemo(() => {
+    const map = new Map<string, typeof allFloors>();
+    allFloors?.forEach((floor) => {
+      const existing = map.get(floor.property_id) || [];
+      map.set(floor.property_id, [...existing, floor]);
     });
     return map;
-  }, [tenants]);
+  }, [allFloors]);
 
   const filteredProperties = properties?.filter(
     (p) =>
@@ -124,7 +153,9 @@ const Properties = () => {
             >
               <PropertyCard
                 property={property}
+                floors={floorsByProperty.get(property.id) || []}
                 rentedSqft={propertyRentedSqft.get(property.id) || 0}
+                floorRentedMap={floorRentedMap}
                 onEdit={handleEdit}
                 onDelete={(id) => setDeleteId(id)}
                 onViewTenants={() => {}}

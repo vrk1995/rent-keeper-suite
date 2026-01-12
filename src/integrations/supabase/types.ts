@@ -230,6 +230,44 @@ export type Database = {
         }
         Relationships: []
       }
+      property_floors: {
+        Row: {
+          created_at: string
+          floor_name: string
+          floor_sqft: number
+          id: string
+          notes: string | null
+          property_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          floor_name: string
+          floor_sqft?: number
+          id?: string
+          notes?: string | null
+          property_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          floor_name?: string
+          floor_sqft?: number
+          id?: string
+          notes?: string | null
+          property_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_floors_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           created_at: string
@@ -358,6 +396,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          floor_id: string | null
           id: string
           lease_end_date: string
           lease_start_date: string
@@ -374,6 +413,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email?: string | null
+          floor_id?: string | null
           id?: string
           lease_end_date: string
           lease_start_date: string
@@ -390,6 +430,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string | null
+          floor_id?: string | null
           id?: string
           lease_end_date?: string
           lease_start_date?: string
@@ -404,6 +445,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenants_floor_id_fkey"
+            columns: ["floor_id"]
+            isOneToOne: false
+            referencedRelation: "property_floors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenants_property_id_fkey"
             columns: ["property_id"]
