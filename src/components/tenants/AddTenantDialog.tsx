@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,12 +29,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateTenant, useUpdateTenant, Tenant } from "@/hooks/useTenants";
 import { useProperties } from "@/hooks/useProperties";
+import { useBuildingsWithUnits } from "@/hooks/useBuildings";
 import { cn } from "@/lib/utils";
 
 const tenantSchema = z.object({
-  property_id: z.string().min(1, "Property is required"),
+  assignment_type: z.enum(["property", "unit"]),
+  property_id: z.string().optional(),
+  unit_id: z.string().optional(),
   name: z.string().min(1, "Tenant name is required").max(100),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().max(15).optional(),
@@ -42,6 +46,13 @@ const tenantSchema = z.object({
   lease_start_date: z.date({ required_error: "Lease start date is required" }),
   lease_end_date: z.date({ required_error: "Lease end date is required" }),
   security_deposit: z.coerce.number().min(0).optional(),
+}).refine((data) => {
+  if (data.assignment_type === "property") return !!data.property_id;
+  if (data.assignment_type === "unit") return !!data.unit_id;
+  return true;
+}, {
+  message: "Please select a property or unit",
+  path: ["property_id"],
 });
 
 type TenantFormValues = z.infer<typeof tenantSchema>;
@@ -51,17 +62,32 @@ interface AddTenantDialogProps {
   onOpenChange: (open: boolean) => void;
   editTenant?: Tenant | null;
   defaultPropertyId?: string;
+  defaultUnitId?: string;
 }
 
-const AddTenantDialog = ({ open, onOpenChange, editTenant, defaultPropertyId }: AddTenantDialogProps) => {
+const AddTenantDialog = ({ 
+  open, 
+  onOpenChange, 
+  editTenant, 
+  defaultPropertyId,
+  defaultUnitId 
+}: AddTenantDialogProps) => {
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
   const { data: properties } = useProperties();
+  const { data: buildings } = useBuildingsWithUnits();
+  
+  const getDefaultAssignmentType = () => {
+    if (editTenant?.unit_id || defaultUnitId) return "unit";
+    return "property";
+  };
   
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
     defaultValues: {
+      assignment_type: getDefaultAssignmentType(),
       property_id: editTenant?.property_id || defaultPropertyId || "",
+      unit_id: editTenant?.unit_id || defaultUnitId || "",
       name: editTenant?.name || "",
       email: editTenant?.email || "",
       phone: editTenant?.phone || "",
@@ -72,10 +98,14 @@ const AddTenantDialog = ({ open, onOpenChange, editTenant, defaultPropertyId }: 
     },
   });
 
+  const assignmentType = form.watch("assignment_type");
+
   useEffect(() => {
     if (open) {
       form.reset({
+        assignment_type: getDefaultAssignmentType(),
         property_id: editTenant?.property_id || defaultPropertyId || "",
+        unit_id: editTenant?.unit_id || defaultUnitId || "",
         name: editTenant?.name || "",
         email: editTenant?.email || "",
         phone: editTenant?.phone || "",
@@ -85,11 +115,12 @@ const AddTenantDialog = ({ open, onOpenChange, editTenant, defaultPropertyId }: 
         security_deposit: editTenant?.security_deposit || 0,
       });
     }
-  }, [open, editTenant, defaultPropertyId, form]);
+  }, [open, editTenant, defaultPropertyId, defaultUnitId, form]);
 
   const onSubmit = async (values: TenantFormValues) => {
     const payload = {
-      property_id: values.property_id,
+      property_id: values.assignment_type === "property" ? values.property_id! : properties?.[0]?.id || "",
+      unit_id: values.assignment_type === "unit" ? values.unit_id : undefined,
       name: values.name,
       email: values.email || undefined,
       phone: values.phone,
@@ -108,6 +139,14 @@ const AddTenantDialog = ({ open, onOpenChange, editTenant, defaultPropertyId }: 
     onOpenChange(false);
   };
 
+  // Flatten units for easy selection
+  const allUnits = buildings?.flatMap(building => 
+    building.units?.map(unit => ({
+      ...unit,
+      displayName: `${building.name} - ${unit.name}`,
+    })) || []
+  ) || [];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -118,28 +157,72 @@ const AddTenantDialog = ({ open, onOpenChange, editTenant, defaultPropertyId }: 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="property_id"
+              name="assignment_type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Property</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select property" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {properties?.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                  <FormLabel>Assign To</FormLabel>
+                  <Tabs value={field.value} onValueChange={field.onChange} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="property">Property</TabsTrigger>
+                      <TabsTrigger value="unit">Building Unit</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </FormItem>
               )}
             />
+
+            {assignmentType === "property" ? (
+              <FormField
+                control={form.control}
+                name="property_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Property</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select property" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {properties?.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <FormField
+                control={form.control}
+                name="unit_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Building Unit</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {allUnits.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.displayName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="name"
