@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Plus, Search, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProperties, useDeleteProperty, Property } from "@/hooks/useProperties";
+import { useTenants } from "@/hooks/useTenants";
 import PropertyCard from "@/components/properties/PropertyCard";
 import AddPropertyDialog from "@/components/properties/AddPropertyDialog";
 import {
@@ -19,11 +20,24 @@ import {
 
 const Properties = () => {
   const { data: properties, isLoading } = useProperties();
+  const { data: tenants } = useTenants();
   const deleteProperty = useDeleteProperty();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editProperty, setEditProperty] = useState<Property | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Calculate rented sqft per property
+  const propertyRentedSqft = useMemo(() => {
+    const map = new Map<string, number>();
+    tenants?.forEach((tenant) => {
+      if (tenant.property_id && !tenant.unit_id) {
+        const current = map.get(tenant.property_id) || 0;
+        map.set(tenant.property_id, current + (tenant.rented_sqft || 0));
+      }
+    });
+    return map;
+  }, [tenants]);
 
   const filteredProperties = properties?.filter(
     (p) =>
@@ -110,6 +124,7 @@ const Properties = () => {
             >
               <PropertyCard
                 property={property}
+                rentedSqft={propertyRentedSqft.get(property.id) || 0}
                 onEdit={handleEdit}
                 onDelete={(id) => setDeleteId(id)}
                 onViewTenants={() => {}}

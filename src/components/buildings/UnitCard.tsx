@@ -1,13 +1,15 @@
-import { DoorOpen, Store, Layers, Pencil, Trash2, UserPlus, User } from "lucide-react";
+import { DoorOpen, Store, Layers, Pencil, Trash2, UserPlus, User, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Unit } from "@/hooks/useBuildings";
 import { formatINR } from "@/lib/currency";
 
 interface UnitCardProps {
   unit: Unit;
   tenantName?: string;
+  rentedSqft?: number;
   onEdit: () => void;
   onDelete: () => void;
   onAddTenant?: () => void;
@@ -35,7 +37,10 @@ const statusColors: Record<string, "default" | "secondary" | "destructive" | "ou
   maintenance: "destructive",
 };
 
-export const UnitCard = ({ unit, tenantName, onEdit, onDelete, onAddTenant }: UnitCardProps) => {
+export const UnitCard = ({ unit, tenantName, rentedSqft = 0, onEdit, onDelete, onAddTenant }: UnitCardProps) => {
+  const totalSqft = unit.total_sqft || 0;
+  const utilizationPercent = totalSqft > 0 ? Math.min(100, (rentedSqft / totalSqft) * 100) : 0;
+
   return (
     <Card className="group hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -56,6 +61,18 @@ export const UnitCard = ({ unit, tenantName, onEdit, onDelete, onAddTenant }: Un
             {unit.status}
           </Badge>
         </div>
+        
+        {/* Sqft info */}
+        {totalSqft > 0 && (
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Square className="h-3 w-3" />
+              {totalSqft.toLocaleString()} sq.ft
+              {rentedSqft > 0 && ` (${rentedSqft.toLocaleString()} rented)`}
+            </div>
+            <Progress value={utilizationPercent} className="h-1" />
+          </div>
+        )}
         
         {tenantName && (
           <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">

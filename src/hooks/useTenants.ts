@@ -13,15 +13,18 @@ export interface Tenant {
   lease_start_date: string;
   lease_end_date: string;
   security_deposit: number;
+  rented_sqft: number;
   status: string;
   created_at: string;
   updated_at: string;
   property?: {
     name: string;
     address: string;
+    total_sqft: number;
   };
   unit?: {
     name: string;
+    total_sqft: number;
     building?: {
       name: string;
     };
@@ -38,6 +41,7 @@ export interface CreateTenantInput {
   lease_start_date: string;
   lease_end_date: string;
   security_deposit?: number;
+  rented_sqft?: number;
   status?: string;
 }
 
@@ -49,8 +53,8 @@ export const useTenants = () => {
         .from("tenants")
         .select(`
           *,
-          property:properties(name, address),
-          unit:units(name, building:buildings(name))
+          property:properties(name, address, total_sqft),
+          unit:units(name, total_sqft, building:buildings(name))
         `)
         .order("created_at", { ascending: false });
 

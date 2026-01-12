@@ -35,6 +35,7 @@ const unitSchema = z.object({
   floor_number: z.coerce.number().min(0).optional(),
   unit_type: z.string().min(1, "Unit type is required"),
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
+  total_sqft: z.coerce.number().min(0).optional(),
   status: z.string().default("vacant"),
   notes: z.string().max(1000).optional(),
 });
@@ -78,6 +79,7 @@ export const AddUnitDialog = ({
       floor_number: undefined,
       unit_type: "room",
       monthly_rent: 0,
+      total_sqft: 0,
       status: "vacant",
       notes: "",
     },
@@ -90,6 +92,7 @@ export const AddUnitDialog = ({
         floor_number: editUnit.floor_number ?? undefined,
         unit_type: editUnit.unit_type,
         monthly_rent: editUnit.monthly_rent,
+        total_sqft: editUnit.total_sqft || 0,
         status: editUnit.status,
         notes: editUnit.notes || "",
       });
@@ -99,6 +102,7 @@ export const AddUnitDialog = ({
         floor_number: undefined,
         unit_type: "room",
         monthly_rent: 0,
+        total_sqft: 0,
         status: "vacant",
         notes: "",
       });
@@ -118,6 +122,7 @@ export const AddUnitDialog = ({
           name: values.name,
           unit_type: values.unit_type,
           monthly_rent: values.monthly_rent,
+          total_sqft: values.total_sqft,
           floor_number: values.floor_number,
           status: values.status,
           notes: values.notes,
@@ -201,7 +206,7 @@ export const AddUnitDialog = ({
                 )}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="monthly_rent"
@@ -210,6 +215,19 @@ export const AddUnitDialog = ({
                     <FormLabel>Monthly Rent (₹)</FormLabel>
                     <FormControl>
                       <Input type="number" min={0} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="total_sqft"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Sq. Ft.</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} placeholder="2000" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -21,6 +21,7 @@ export interface Unit {
   floor_number: number | null;
   unit_type: string;
   monthly_rent: number;
+  total_sqft: number;
   status: string;
   notes: string | null;
   created_at: string;
@@ -44,6 +45,7 @@ export interface CreateUnitInput {
   floor_number?: number;
   unit_type: string;
   monthly_rent: number;
+  total_sqft?: number;
   status?: string;
   notes?: string;
 }

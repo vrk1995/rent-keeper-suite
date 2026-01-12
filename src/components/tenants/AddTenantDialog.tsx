@@ -46,6 +46,7 @@ const tenantSchema = z.object({
   lease_start_date: z.date({ required_error: "Lease start date is required" }),
   lease_end_date: z.date({ required_error: "Lease end date is required" }),
   security_deposit: z.coerce.number().min(0).optional(),
+  rented_sqft: z.coerce.number().min(0).optional(),
 }).refine((data) => {
   if (data.assignment_type === "property") return !!data.property_id;
   if (data.assignment_type === "unit") return !!data.unit_id;
@@ -95,6 +96,7 @@ const AddTenantDialog = ({
       lease_start_date: editTenant?.lease_start_date ? new Date(editTenant.lease_start_date) : undefined,
       lease_end_date: editTenant?.lease_end_date ? new Date(editTenant.lease_end_date) : undefined,
       security_deposit: editTenant?.security_deposit || 0,
+      rented_sqft: editTenant?.rented_sqft || 0,
     },
   });
 
@@ -113,6 +115,7 @@ const AddTenantDialog = ({
         lease_start_date: editTenant?.lease_start_date ? new Date(editTenant.lease_start_date) : undefined,
         lease_end_date: editTenant?.lease_end_date ? new Date(editTenant.lease_end_date) : undefined,
         security_deposit: editTenant?.security_deposit || 0,
+        rented_sqft: editTenant?.rented_sqft || 0,
       });
     }
   }, [open, editTenant, defaultPropertyId, defaultUnitId, form]);
@@ -128,6 +131,7 @@ const AddTenantDialog = ({
       lease_start_date: format(values.lease_start_date, "yyyy-MM-dd"),
       lease_end_date: format(values.lease_end_date, "yyyy-MM-dd"),
       security_deposit: values.security_deposit,
+      rented_sqft: values.rented_sqft,
     };
 
     if (editTenant) {
@@ -371,19 +375,34 @@ const AddTenantDialog = ({
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="security_deposit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Security Deposit (₹)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="50000" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="security_deposit"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Security Deposit (₹)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="50000" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="rented_sqft"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rented Sq. Ft.</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} placeholder="1500" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
