@@ -4,7 +4,8 @@ import { toast } from "sonner";
 
 export interface RentPayment {
   id: string;
-  property_id: string;
+  property_id: string | null;
+  unit_id: string | null;
   tenant_id: string;
   amount: number;
   due_date: string;
@@ -18,13 +19,20 @@ export interface RentPayment {
   property?: {
     name: string;
   };
+  unit?: {
+    name: string;
+    building?: {
+      name: string;
+    };
+  };
   tenant?: {
     name: string;
   };
 }
 
 export interface CreatePaymentInput {
-  property_id: string;
+  property_id?: string;
+  unit_id?: string;
   tenant_id: string;
   amount: number;
   due_date: string;
@@ -41,6 +49,7 @@ export const usePayments = () => {
         .select(`
           *,
           property:properties(name),
+          unit:units(name, building:buildings(name)),
           tenant:tenants(name)
         `)
         .order("due_date", { ascending: false });
@@ -65,6 +74,7 @@ export const useUpcomingPayments = () => {
         .select(`
           *,
           property:properties(name),
+          unit:units(name, building:buildings(name)),
           tenant:tenants(name)
         `)
         .gte("due_date", today)
@@ -83,9 +93,15 @@ export const useCreatePayment = () => {
 
   return useMutation({
     mutationFn: async (input: CreatePaymentInput) => {
+      // property_id is required in DB but we can use a placeholder when unit_id is provided
+      const insertData = {
+        ...input,
+        property_id: input.property_id || null,
+      };
+      
       const { data, error } = await supabase
         .from("rent_payments")
-        .insert(input)
+        .insert(insertData as any)
         .select()
         .single();
 

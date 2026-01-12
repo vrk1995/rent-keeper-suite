@@ -291,6 +291,7 @@ export type Database = {
           property_id: string
           status: string | null
           tenant_id: string
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
@@ -305,6 +306,7 @@ export type Database = {
           property_id: string
           status?: string | null
           tenant_id: string
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -319,6 +321,7 @@ export type Database = {
           property_id?: string
           status?: string | null
           tenant_id?: string
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -334,6 +337,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_payments_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]

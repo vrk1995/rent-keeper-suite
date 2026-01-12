@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, Search, CreditCard, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Plus, Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,9 +38,17 @@ const Payments = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const filteredPayments = payments?.filter((p) => {
+    const propertyName = p.property?.name?.toLowerCase() || "";
+    const unitName = p.unit?.name?.toLowerCase() || "";
+    const buildingName = p.unit?.building?.name?.toLowerCase() || "";
+    const tenantName = p.tenant?.name?.toLowerCase() || "";
+    const searchLower = searchQuery.toLowerCase();
+    
     const matchesSearch =
-      p.property?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.tenant?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      propertyName.includes(searchLower) ||
+      unitName.includes(searchLower) ||
+      buildingName.includes(searchLower) ||
+      tenantName.includes(searchLower);
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -166,9 +174,15 @@ const Payments = () => {
               <TableBody>
                 {filteredPayments?.map((payment) => {
                   const StatusIcon = statusConfig[payment.status]?.icon || Clock;
+                  const locationDisplay = payment.unit 
+                    ? `${payment.unit.building?.name} - ${payment.unit.name}`
+                    : payment.property?.name;
                   return (
                     <TableRow key={payment.id}>
-                      <TableCell className="font-medium">{payment.property?.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {payment.unit && <Building2 className="w-3 h-3 inline mr-1 text-muted-foreground" />}
+                        {locationDisplay}
+                      </TableCell>
                       <TableCell>{payment.tenant?.name}</TableCell>
                       <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
                       <TableCell>{format(new Date(payment.due_date), "MMM d, yyyy")}</TableCell>

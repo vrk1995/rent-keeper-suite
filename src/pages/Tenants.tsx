@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,7 +125,16 @@ const Tenants = () => {
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div>
                       <CardTitle className="text-lg">{tenant.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{tenant.property?.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {tenant.unit ? (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {tenant.unit.building?.name} - {tenant.unit.name}
+                          </span>
+                        ) : (
+                          tenant.property?.name
+                        )}
+                      </p>
                     </div>
                     <Badge variant={leaseStatus.variant}>
                       {leaseStatus.label}

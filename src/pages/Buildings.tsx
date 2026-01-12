@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Building2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBuildingsWithUnits, useDeleteBuilding, useDeleteUnit, Building, Unit } from "@/hooks/useBuildings";
+import { useTenants } from "@/hooks/useTenants";
 import { AddBuildingDialog } from "@/components/buildings/AddBuildingDialog";
 import { AddUnitDialog } from "@/components/buildings/AddUnitDialog";
 import { BuildingCard } from "@/components/buildings/BuildingCard";
 import { UnitCard } from "@/components/buildings/UnitCard";
+import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,18 +28,29 @@ import {
 
 const Buildings = () => {
   const { data: buildings, isLoading } = useBuildingsWithUnits();
+  const { data: tenants } = useTenants();
   const deleteBuilding = useDeleteBuilding();
   const deleteUnit = useDeleteUnit();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [buildingDialogOpen, setBuildingDialogOpen] = useState(false);
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
   const [editBuilding, setEditBuilding] = useState<Building | null>(null);
   const [editUnit, setEditUnit] = useState<Unit | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [deleteBuilding_, setDeleteBuilding] = useState<Building | null>(null);
   const [deleteUnit_, setDeleteUnit] = useState<Unit | null>(null);
   const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set());
+
+  // Create a map of unit_id to tenant name for quick lookup
+  const unitTenantMap = new Map<string, string>();
+  tenants?.forEach((tenant) => {
+    if (tenant.unit_id) {
+      unitTenantMap.set(tenant.unit_id, tenant.name);
+    }
+  });
 
   const filteredBuildings = buildings?.filter(
     (building) =>
@@ -74,6 +87,11 @@ const Buildings = () => {
     setUnitDialogOpen(true);
   };
 
+  const handleAddTenantToUnit = (unitId: string) => {
+    setSelectedUnitId(unitId);
+    setTenantDialogOpen(true);
+  };
+
   const handleDeleteBuilding = async () => {
     if (deleteBuilding_) {
       await deleteBuilding.mutateAsync(deleteBuilding_.id);
@@ -98,6 +116,13 @@ const Buildings = () => {
     if (!open) {
       setEditUnit(null);
       setSelectedBuildingId(null);
+    }
+  };
+
+  const handleTenantDialogClose = (open: boolean) => {
+    setTenantDialogOpen(open);
+    if (!open) {
+      setSelectedUnitId(null);
     }
   };
 
@@ -184,8 +209,10 @@ const Buildings = () => {
                             <UnitCard
                               key={unit.id}
                               unit={unit}
+                              tenantName={unitTenantMap.get(unit.id)}
                               onEdit={() => handleEditUnit(unit)}
                               onDelete={() => setDeleteUnit(unit)}
+                              onAddTenant={() => handleAddTenantToUnit(unit.id)}
                             />
                           ))}
                         </div>
@@ -223,6 +250,12 @@ const Buildings = () => {
         onOpenChange={handleUnitDialogClose}
         buildingId={selectedBuildingId}
         editUnit={editUnit}
+      />
+
+      <AddTenantDialog
+        open={tenantDialogOpen}
+        onOpenChange={handleTenantDialogClose}
+        defaultUnitId={selectedUnitId || undefined}
       />
 
       <AlertDialog open={!!deleteBuilding_} onOpenChange={() => setDeleteBuilding(null)}>

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 export interface Tenant {
   id: string;
   property_id: string;
+  unit_id: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -19,10 +20,17 @@ export interface Tenant {
     name: string;
     address: string;
   };
+  unit?: {
+    name: string;
+    building?: {
+      name: string;
+    };
+  };
 }
 
 export interface CreateTenantInput {
   property_id: string;
+  unit_id?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -41,7 +49,8 @@ export const useTenants = () => {
         .from("tenants")
         .select(`
           *,
-          property:properties(name, address)
+          property:properties(name, address),
+          unit:units(name, building:buildings(name))
         `)
         .order("created_at", { ascending: false });
 
