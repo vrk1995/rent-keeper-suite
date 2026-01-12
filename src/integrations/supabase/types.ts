@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      buildings: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          owner_id: string
+          total_floors: number | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          owner_id: string
+          total_floors?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          owner_id?: string
+          total_floors?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
@@ -318,6 +351,7 @@ export type Database = {
           property_id: string
           security_deposit: number | null
           status: string | null
+          unit_id: string | null
           updated_at: string
         }
         Insert: {
@@ -332,6 +366,7 @@ export type Database = {
           property_id: string
           security_deposit?: number | null
           status?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -346,6 +381,7 @@ export type Database = {
           property_id?: string
           security_deposit?: number | null
           status?: string | null
+          unit_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -354,6 +390,60 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenants_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units: {
+        Row: {
+          building_id: string
+          created_at: string
+          floor_number: number | null
+          id: string
+          monthly_rent: number
+          name: string
+          notes: string | null
+          status: string | null
+          unit_type: string
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          floor_number?: number | null
+          id?: string
+          monthly_rent?: number
+          name: string
+          notes?: string | null
+          status?: string | null
+          unit_type?: string
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          floor_number?: number | null
+          id?: string
+          monthly_rent?: number
+          name?: string
+          notes?: string | null
+          status?: string | null
+          unit_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
             referencedColumns: ["id"]
           },
         ]
