@@ -189,6 +189,7 @@ export type Database = {
         Row: {
           address: string
           created_at: string
+          floors_owned: number | null
           id: string
           monthly_rent: number
           name: string
@@ -196,11 +197,13 @@ export type Database = {
           owner_id: string
           property_type: string | null
           status: string | null
+          total_sqft: number | null
           updated_at: string
         }
         Insert: {
           address: string
           created_at?: string
+          floors_owned?: number | null
           id?: string
           monthly_rent?: number
           name: string
@@ -208,11 +211,13 @@ export type Database = {
           owner_id: string
           property_type?: string | null
           status?: string | null
+          total_sqft?: number | null
           updated_at?: string
         }
         Update: {
           address?: string
           created_at?: string
+          floors_owned?: number | null
           id?: string
           monthly_rent?: number
           name?: string
@@ -220,6 +225,7 @@ export type Database = {
           owner_id?: string
           property_type?: string | null
           status?: string | null
+          total_sqft?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -359,6 +365,7 @@ export type Database = {
           name: string
           phone: string | null
           property_id: string
+          rented_sqft: number | null
           security_deposit: number | null
           status: string | null
           unit_id: string | null
@@ -374,6 +381,7 @@ export type Database = {
           name: string
           phone?: string | null
           property_id: string
+          rented_sqft?: number | null
           security_deposit?: number | null
           status?: string | null
           unit_id?: string | null
@@ -389,6 +397,7 @@ export type Database = {
           name?: string
           phone?: string | null
           property_id?: string
+          rented_sqft?: number | null
           security_deposit?: number | null
           status?: string | null
           unit_id?: string | null
@@ -421,6 +430,7 @@ export type Database = {
           name: string
           notes: string | null
           status: string | null
+          total_sqft: number | null
           unit_type: string
           updated_at: string
         }
@@ -433,6 +443,7 @@ export type Database = {
           name: string
           notes?: string | null
           status?: string | null
+          total_sqft?: number | null
           unit_type?: string
           updated_at?: string
         }
@@ -445,6 +456,7 @@ export type Database = {
           name?: string
           notes?: string | null
           status?: string | null
+          total_sqft?: number | null
           unit_type?: string
           updated_at?: string
         }

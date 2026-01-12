@@ -44,11 +44,14 @@ const Buildings = () => {
   const [deleteUnit_, setDeleteUnit] = useState<Unit | null>(null);
   const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set());
 
-  // Create a map of unit_id to tenant name for quick lookup
+  // Create maps for unit data
   const unitTenantMap = new Map<string, string>();
+  const unitRentedSqftMap = new Map<string, number>();
   tenants?.forEach((tenant) => {
     if (tenant.unit_id) {
       unitTenantMap.set(tenant.unit_id, tenant.name);
+      const current = unitRentedSqftMap.get(tenant.unit_id) || 0;
+      unitRentedSqftMap.set(tenant.unit_id, current + (tenant.rented_sqft || 0));
     }
   });
 
@@ -210,6 +213,7 @@ const Buildings = () => {
                               key={unit.id}
                               unit={unit}
                               tenantName={unitTenantMap.get(unit.id)}
+                              rentedSqft={unitRentedSqftMap.get(unit.id) || 0}
                               onEdit={() => handleEditUnit(unit)}
                               onDelete={() => setDeleteUnit(unit)}
                               onAddTenant={() => handleAddTenantToUnit(unit.id)}

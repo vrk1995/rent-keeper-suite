@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +33,8 @@ const propertySchema = z.object({
   address: z.string().min(1, "Address is required").max(255),
   property_type: z.string().min(1, "Property type is required"),
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
+  floors_owned: z.coerce.number().min(1, "Must own at least 1 floor").optional(),
+  total_sqft: z.coerce.number().min(0, "Square feet must be positive").optional(),
   status: z.string().optional(),
   notes: z.string().max(500).optional(),
 });
@@ -52,14 +54,31 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
-      name: editProperty?.name || "",
-      address: editProperty?.address || "",
-      property_type: editProperty?.property_type || "apartment",
-      monthly_rent: editProperty?.monthly_rent || 0,
-      status: editProperty?.status || "vacant",
-      notes: editProperty?.notes || "",
+      name: "",
+      address: "",
+      property_type: "apartment",
+      monthly_rent: 0,
+      floors_owned: 1,
+      total_sqft: 0,
+      status: "vacant",
+      notes: "",
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        name: editProperty?.name || "",
+        address: editProperty?.address || "",
+        property_type: editProperty?.property_type || "apartment",
+        monthly_rent: editProperty?.monthly_rent || 0,
+        floors_owned: editProperty?.floors_owned || 1,
+        total_sqft: editProperty?.total_sqft || 0,
+        status: editProperty?.status || "vacant",
+        notes: editProperty?.notes || "",
+      });
+    }
+  }, [open, editProperty, form]);
 
   const onSubmit = async (values: PropertyFormValues) => {
     if (editProperty) {
@@ -70,6 +89,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         address: values.address,
         property_type: values.property_type,
         monthly_rent: values.monthly_rent,
+        floors_owned: values.floors_owned,
+        total_sqft: values.total_sqft,
         status: values.status,
         notes: values.notes,
       });
@@ -119,7 +140,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Property Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
@@ -130,6 +151,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                         <SelectItem value="house">House</SelectItem>
                         <SelectItem value="commercial">Commercial</SelectItem>
                         <SelectItem value="land">Land</SelectItem>
+                        <SelectItem value="floor">Floor (in building)</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -143,7 +165,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
@@ -152,9 +174,38 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                       <SelectContent>
                         <SelectItem value="vacant">Vacant</SelectItem>
                         <SelectItem value="occupied">Occupied</SelectItem>
+                        <SelectItem value="partial">Partially Occupied</SelectItem>
                         <SelectItem value="maintenance">Maintenance</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="floors_owned"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Floors Owned</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={1} placeholder="1" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="total_sqft"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Sq. Ft.</FormLabel>
+                    <FormControl>
+                      <Input type="number" min={0} placeholder="2000" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

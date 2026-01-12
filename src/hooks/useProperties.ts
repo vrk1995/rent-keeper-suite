@@ -11,6 +11,8 @@ export interface Property {
   monthly_rent: number;
   status: string;
   notes: string | null;
+  floors_owned: number;
+  total_sqft: number;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +24,8 @@ export interface CreatePropertyInput {
   monthly_rent: number;
   status?: string;
   notes?: string;
+  floors_owned?: number;
+  total_sqft?: number;
 }
 
 export const useProperties = () => {
