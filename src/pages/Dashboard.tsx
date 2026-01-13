@@ -12,6 +12,7 @@ import Payments from "@/pages/Payments";
 import Invoices from "@/pages/Invoices";
 import Documents from "@/pages/Documents";
 import Reminders from "@/pages/Reminders";
+import Team from "@/pages/Team";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -70,6 +71,7 @@ const Dashboard = () => {
     if (path === "/dashboard/invoices") return <Invoices />;
     if (path === "/dashboard/documents") return <Documents />;
     if (path === "/dashboard/reminders") return <Reminders />;
+    if (path === "/dashboard/team") return <Team />;
     
     return <DashboardOverview />;
   };
