@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,10 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateTenant, useUpdateTenant, Tenant } from "@/hooks/useTenants";
 import { useProperties } from "@/hooks/useProperties";
-import { useBuildingsWithUnits } from "@/hooks/useBuildings";
+import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { cn } from "@/lib/utils";
 
 const tenantSchema = z.object({
@@ -76,7 +76,7 @@ const AddTenantDialog = ({
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
   const { data: properties } = useProperties();
-  const { data: buildings } = useBuildingsWithUnits();
+  const { data: propertiesWithUnits } = usePropertiesWithUnits();
   
   const getDefaultAssignmentType = () => {
     if (editTenant?.unit_id || defaultUnitId) return "unit";
@@ -144,10 +144,10 @@ const AddTenantDialog = ({
   };
 
   // Flatten units for easy selection
-  const allUnits = buildings?.flatMap(building => 
-    building.units?.map(unit => ({
+  const allUnits = propertiesWithUnits?.flatMap(property => 
+    property.units?.map((unit: any) => ({
       ...unit,
-      displayName: `${building.name} - ${unit.name}`,
+      displayName: `${property.name} - ${unit.name}`,
     })) || []
   ) || [];
 
@@ -168,7 +168,7 @@ const AddTenantDialog = ({
                   <Tabs value={field.value} onValueChange={field.onChange} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="property">Property</TabsTrigger>
-                      <TabsTrigger value="unit">Building Unit</TabsTrigger>
+                      <TabsTrigger value="unit">Property Unit</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </FormItem>
@@ -206,7 +206,7 @@ const AddTenantDialog = ({
                 name="unit_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Building Unit</FormLabel>
+                    <FormLabel>Property Unit</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -214,7 +214,7 @@ const AddTenantDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {allUnits.map((unit) => (
+                        {allUnits.map((unit: any) => (
                           <SelectItem key={unit.id} value={unit.id}>
                             {unit.displayName}
                           </SelectItem>

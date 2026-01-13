@@ -477,6 +477,7 @@ export type Database = {
           monthly_rent: number
           name: string
           notes: string | null
+          property_id: string | null
           status: string | null
           total_sqft: number | null
           unit_type: string
@@ -490,6 +491,7 @@ export type Database = {
           monthly_rent?: number
           name: string
           notes?: string | null
+          property_id?: string | null
           status?: string | null
           total_sqft?: number | null
           unit_type?: string
@@ -503,6 +505,7 @@ export type Database = {
           monthly_rent?: number
           name?: string
           notes?: string | null
+          property_id?: string | null
           status?: string | null
           total_sqft?: number | null
           unit_type?: string
@@ -514,6 +517,13 @@ export type Database = {
             columns: ["building_id"]
             isOneToOne: false
             referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
