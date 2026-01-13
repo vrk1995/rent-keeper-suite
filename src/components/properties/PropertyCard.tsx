@@ -98,9 +98,18 @@ const PropertyCard = ({
                 </span>
               )}
               {totalSqft > 0 && (
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-2">
                   <Square className="w-3 h-3" />
-                  {rentedSqft.toLocaleString()}/{totalSqft.toLocaleString()} sq.ft ({utilizationPercent.toFixed(0)}%)
+                  {rentedSqft.toLocaleString()}/{totalSqft.toLocaleString()} sq.ft
+                  <span className="flex items-center gap-1.5">
+                    <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-500 rounded-full transition-all"
+                        style={{ width: `${utilizationPercent}%` }}
+                      />
+                    </div>
+                    <span className="text-xs">{utilizationPercent.toFixed(0)}%</span>
+                  </span>
                 </span>
               )}
               {unitCount > 0 && (
