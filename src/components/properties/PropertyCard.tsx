@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Property } from "@/hooks/useProperties";
 import { PropertyFloor } from "@/hooks/usePropertyFloors";
-import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import {
   Collapsible,
@@ -21,7 +21,6 @@ interface PropertyCardProps {
   onEdit: (property: Property) => void;
   onDelete: (id: string) => void;
   onViewTenants: (property: Property) => void;
-  onAddUnit?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -50,7 +49,6 @@ const PropertyCard = ({
   onEdit, 
   onDelete, 
   onViewTenants,
-  onAddUnit,
 }: PropertyCardProps) => {
   const [floorExpanded, setFloorExpanded] = useState(floors.length > 0);
   const totalSqft = property.total_sqft || 0;
@@ -105,19 +103,6 @@ const PropertyCard = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {onAddUnit && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddUnit();
-              }}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Unit
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="icon"
