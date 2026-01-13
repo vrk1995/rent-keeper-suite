@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Building2, ChevronDown, ChevronRight, Layers, IndianRupee, TrendingUp, Clock, Users } from "lucide-react";
+import { Plus, Search, Building2, IndianRupee, TrendingUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,13 +11,12 @@ import { usePayments } from "@/hooks/usePayments";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import PropertyCard from "@/components/properties/PropertyCard";
+import { PropertyDetailSheet } from "@/components/properties/PropertyDetailSheet";
 import AddPropertyDialog from "@/components/properties/AddPropertyDialog";
 import { AddUnitDialog } from "@/components/units/AddUnitDialog";
-import { UnitCard } from "@/components/units/UnitCard";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
 import { Tenant } from "@/hooks/useTenants";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,11 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
 const Properties = () => {
   const { data: propertiesWithUnits, isLoading } = usePropertiesWithUnits();
@@ -51,7 +45,8 @@ const Properties = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteUnitData, setDeleteUnitData] = useState<Unit | null>(null);
-  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(new Set());
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   // Fetch all floors for all properties
   const { data: allFloors } = useQuery({
@@ -166,16 +161,9 @@ const Properties = () => {
       p.address.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleProperty = (propertyId: string) => {
-    setExpandedProperties((prev) => {
-      const next = new Set(prev);
-      if (next.has(propertyId)) {
-        next.delete(propertyId);
-      } else {
-        next.add(propertyId);
-      }
-      return next;
-    });
+  const handlePropertyClick = (property: Property) => {
+    setSelectedProperty(property);
+    setDetailSheetOpen(true);
   };
 
   const handleEdit = (property: Property) => {
@@ -325,12 +313,9 @@ const Properties = () => {
           </Button>
         </motion.div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           {filteredProperties?.map((property, index) => {
-            const hasUnits = property.units && property.units.length > 0;
-            const isExpanded = expandedProperties.has(property.id);
             const rentData = propertyRentData.get(property.id);
-            const propertyTenants = tenantsByProperty.get(property.id) || [];
             
             return (
               <motion.div
@@ -339,115 +324,42 @@ const Properties = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Collapsible
-                  open={isExpanded}
-                  onOpenChange={() => toggleProperty(property.id)}
+                <div 
+                  className="border rounded-xl bg-card overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => handlePropertyClick(property)}
                 >
-                  <div className="border rounded-xl bg-card overflow-hidden">
-                    <CollapsibleTrigger asChild>
-                      <div className="cursor-pointer">
-                        <PropertyCard
-                          property={property}
-                          floors={floorsByProperty.get(property.id) || []}
-                          rentedSqft={propertyRentedSqft.get(property.id) || 0}
-                          floorRentedMap={floorRentedMap}
-                          unitCount={property.units?.length || 0}
-                          isExpanded={isExpanded}
-                          totalRentWithoutGST={rentData?.withoutGST || 0}
-                          totalRentWithGST={rentData?.withGST || 0}
-                          hasGSTTenants={rentData?.hasGST || false}
-                          onEdit={handleEdit}
-                          onDelete={(id) => setDeleteId(id)}
-                          onViewTenants={() => {}}
-                        />
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="px-4 pb-4 pt-2 border-t space-y-4">
-                        {/* Tenants Section */}
-                        {propertyTenants.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
-                              <Users className="w-4 h-4" />
-                              Tenants ({propertyTenants.length})
-                            </h4>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {propertyTenants.map((tenant) => (
-                                <div
-                                  key={tenant.id}
-                                  className="p-3 rounded-lg border bg-muted/30 space-y-2"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium">{tenant.name}</span>
-                                    <Badge variant={tenant.status === 'active' ? 'glow' : 'secondary'}>
-                                      {tenant.status}
-                                    </Badge>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground space-y-1">
-                                    {tenant.floor && (
-                                      <p>Floor: {tenant.floor.floor_name}</p>
-                                    )}
-                                    <p>Rent: {formatINR(tenant.monthly_rent || 0)}</p>
-                                    {tenant.requires_gst && (
-                                      <Badge variant="outline" className="text-xs">GST</Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {propertyTenants.length === 0 && !hasUnits && (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No tenants in this property yet
-                          </p>
-                        )}
-
-                        {/* Units Section */}
-                        {hasUnits && (
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                                <Layers className="w-4 h-4" />
-                                Units ({property.units?.length})
-                              </h4>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAddUnit(property.id);
-                                }}
-                              >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Add Unit
-                              </Button>
-                            </div>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {property.units?.map((unit: Unit) => (
-                                <UnitCard
-                                  key={unit.id}
-                                  unit={unit}
-                                  tenantName={unitTenantMap.get(unit.id)}
-                                  rentedSqft={unitRentedSqftMap.get(unit.id) || 0}
-                                  onEdit={() => handleEditUnit(unit)}
-                                  onDelete={() => setDeleteUnitData(unit)}
-                                  onAddTenant={() => handleAddTenantToUnit(unit.id)}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
+                  <PropertyCard
+                    property={property}
+                    floors={floorsByProperty.get(property.id) || []}
+                    rentedSqft={propertyRentedSqft.get(property.id) || 0}
+                    floorRentedMap={floorRentedMap}
+                    unitCount={property.units?.length || 0}
+                    isExpanded={false}
+                    totalRentWithoutGST={rentData?.withoutGST || 0}
+                    totalRentWithGST={rentData?.withGST || 0}
+                    hasGSTTenants={rentData?.hasGST || false}
+                    onEdit={handleEdit}
+                    onDelete={(id) => setDeleteId(id)}
+                    onViewTenants={() => {}}
+                  />
+                </div>
               </motion.div>
             );
           })}
         </div>
       )}
+
+      {/* Property Detail Sheet */}
+      <PropertyDetailSheet
+        property={selectedProperty}
+        tenants={selectedProperty ? tenantsByProperty.get(selectedProperty.id) || [] : []}
+        floors={selectedProperty ? floorsByProperty.get(selectedProperty.id) || [] : []}
+        floorRentedMap={floorRentedMap}
+        rentData={selectedProperty ? propertyRentData.get(selectedProperty.id) : undefined}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        onDeleteProperty={(id) => setDeleteId(id)}
+      />
 
       <AddPropertyDialog
         open={dialogOpen}
