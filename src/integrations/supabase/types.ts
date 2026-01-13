@@ -230,6 +230,65 @@ export type Database = {
         }
         Relationships: []
       }
+      property_expenses: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          expense_date: string
+          id: string
+          payment_method: string | null
+          property_id: string
+          receipt_url: string | null
+          title: string
+          updated_at: string
+          vendor_contact: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_method?: string | null
+          property_id: string
+          receipt_url?: string | null
+          title: string
+          updated_at?: string
+          vendor_contact?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          payment_method?: string | null
+          property_id?: string
+          receipt_url?: string | null
+          title?: string
+          updated_at?: string
+          vendor_contact?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_expenses_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_floors: {
         Row: {
           created_at: string
