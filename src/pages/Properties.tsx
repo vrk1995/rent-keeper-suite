@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Building2, ChevronDown, ChevronRight, Layers, IndianRupee, TrendingUp, Clock } from "lucide-react";
+import { Plus, Search, Building2, ChevronDown, ChevronRight, Layers, IndianRupee, TrendingUp, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,8 @@ import { AddUnitDialog } from "@/components/units/AddUnitDialog";
 import { UnitCard } from "@/components/units/UnitCard";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
+import { Tenant } from "@/hooks/useTenants";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,15 +66,34 @@ const Properties = () => {
     },
   });
 
-  // Create maps for tenant data
-  const { propertyRentedSqft, floorRentedMap, unitTenantMap, unitRentedSqftMap } = useMemo(() => {
+  // Create maps for tenant data and rent calculations
+  const { propertyRentedSqft, floorRentedMap, unitTenantMap, unitRentedSqftMap, propertyRentData, tenantsByProperty } = useMemo(() => {
     const propMap = new Map<string, number>();
     const floorMap = new Map<string, number>();
     const tenantMap = new Map<string, string>();
     const unitSqftMap = new Map<string, number>();
+    const rentData = new Map<string, { withoutGST: number; withGST: number; hasGST: boolean }>();
+    const tenantsByProp = new Map<string, Tenant[]>();
     
     tenants?.forEach((tenant) => {
       const rentedSqft = tenant.rented_sqft || 0;
+      const monthlyRent = tenant.monthly_rent || 0;
+      const requiresGST = tenant.requires_gst || false;
+      
+      // Group tenants by property
+      if (tenant.property_id) {
+        const existing = tenantsByProp.get(tenant.property_id) || [];
+        tenantsByProp.set(tenant.property_id, [...existing, tenant]);
+      }
+      
+      // Calculate rent per property
+      if (tenant.property_id && tenant.status === 'active') {
+        const current = rentData.get(tenant.property_id) || { withoutGST: 0, withGST: 0, hasGST: false };
+        current.withoutGST += monthlyRent;
+        current.withGST += requiresGST ? monthlyRent * 1.18 : monthlyRent;
+        if (requiresGST) current.hasGST = true;
+        rentData.set(tenant.property_id, current);
+      }
       
       // Aggregate by property (for tenants not assigned to units)
       if (tenant.property_id && !tenant.unit_id) {
@@ -104,7 +125,9 @@ const Properties = () => {
       propertyRentedSqft: propMap, 
       floorRentedMap: floorMap,
       unitTenantMap: tenantMap,
-      unitRentedSqftMap: unitSqftMap
+      unitRentedSqftMap: unitSqftMap,
+      propertyRentData: rentData,
+      tenantsByProperty: tenantsByProp
     };
   }, [tenants]);
 
@@ -312,6 +335,8 @@ const Properties = () => {
           {filteredProperties?.map((property, index) => {
             const hasUnits = property.units && property.units.length > 0;
             const isExpanded = expandedProperties.has(property.id);
+            const rentData = propertyRentData.get(property.id);
+            const propertyTenants = tenantsByProperty.get(property.id) || [];
             
             return (
               <motion.div
@@ -334,48 +359,94 @@ const Properties = () => {
                           floorRentedMap={floorRentedMap}
                           unitCount={property.units?.length || 0}
                           isExpanded={isExpanded}
+                          totalRentWithoutGST={rentData?.withoutGST || 0}
+                          totalRentWithGST={rentData?.withGST || 0}
+                          hasGSTTenants={rentData?.hasGST || false}
                           onEdit={handleEdit}
                           onDelete={(id) => setDeleteId(id)}
                           onViewTenants={() => {}}
                         />
                       </div>
                     </CollapsibleTrigger>
-                    {hasUnits && (
-                      <CollapsibleContent>
-                        <div className="px-4 pb-4 pt-2 border-t">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                              <Layers className="w-4 h-4" />
-                              Units ({property.units?.length})
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 pt-2 border-t space-y-4">
+                        {/* Tenants Section */}
+                        {propertyTenants.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-3">
+                              <Users className="w-4 h-4" />
+                              Tenants ({propertyTenants.length})
                             </h4>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddUnit(property.id);
-                              }}
-                            >
-                              <Plus className="w-4 h-4 mr-1" />
-                              Add Unit
-                            </Button>
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {propertyTenants.map((tenant) => (
+                                <div
+                                  key={tenant.id}
+                                  className="p-3 rounded-lg border bg-muted/30 space-y-2"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{tenant.name}</span>
+                                    <Badge variant={tenant.status === 'active' ? 'glow' : 'secondary'}>
+                                      {tenant.status}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground space-y-1">
+                                    {tenant.floor && (
+                                      <p>Floor: {tenant.floor.floor_name}</p>
+                                    )}
+                                    <p>Rent: {formatINR(tenant.monthly_rent || 0)}</p>
+                                    {tenant.requires_gst && (
+                                      <Badge variant="outline" className="text-xs">GST</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            {property.units?.map((unit: Unit) => (
-                              <UnitCard
-                                key={unit.id}
-                                unit={unit}
-                                tenantName={unitTenantMap.get(unit.id)}
-                                rentedSqft={unitRentedSqftMap.get(unit.id) || 0}
-                                onEdit={() => handleEditUnit(unit)}
-                                onDelete={() => setDeleteUnitData(unit)}
-                                onAddTenant={() => handleAddTenantToUnit(unit.id)}
-                              />
-                            ))}
+                        )}
+                        
+                        {propertyTenants.length === 0 && !hasUnits && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No tenants in this property yet
+                          </p>
+                        )}
+
+                        {/* Units Section */}
+                        {hasUnits && (
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Layers className="w-4 h-4" />
+                                Units ({property.units?.length})
+                              </h4>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddUnit(property.id);
+                                }}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Unit
+                              </Button>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {property.units?.map((unit: Unit) => (
+                                <UnitCard
+                                  key={unit.id}
+                                  unit={unit}
+                                  tenantName={unitTenantMap.get(unit.id)}
+                                  rentedSqft={unitRentedSqftMap.get(unit.id) || 0}
+                                  onEdit={() => handleEditUnit(unit)}
+                                  onDelete={() => setDeleteUnitData(unit)}
+                                  onAddTenant={() => handleAddTenantToUnit(unit.id)}
+                                />
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      </CollapsibleContent>
-                    )}
+                        )}
+                      </div>
+                    </CollapsibleContent>
                   </div>
                 </Collapsible>
               </motion.div>
