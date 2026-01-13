@@ -13,6 +13,7 @@ import Invoices from "@/pages/Invoices";
 import Documents from "@/pages/Documents";
 import Reminders from "@/pages/Reminders";
 import Team from "@/pages/Team";
+import BillingAddresses from "@/pages/BillingAddresses";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -72,6 +73,7 @@ const Dashboard = () => {
     if (path === "/dashboard/documents") return <Documents />;
     if (path === "/dashboard/reminders") return <Reminders />;
     if (path === "/dashboard/team") return <Team />;
+    if (path === "/dashboard/billing-addresses") return <BillingAddresses />;
     
     return <DashboardOverview />;
   };

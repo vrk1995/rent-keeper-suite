@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   Bell,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ const navItems = [
   { icon: FileText, label: "Documents", href: "/dashboard/documents" },
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
   { icon: Users, label: "Team", href: "/dashboard/team" },
+  { icon: Receipt, label: "Billing Addresses", href: "/dashboard/billing-addresses" },
 ];
 
 const DashboardSidebar = () => {

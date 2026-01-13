@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, AlertCircle, Info } from "lucide-react";
+import { CalendarIcon, AlertCircle, Info, Building2, Plus, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,10 +32,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useCreateTenant, useUpdateTenant, Tenant, useTenants } from "@/hooks/useTenants";
 import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
+import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
 import { cn } from "@/lib/utils";
 
 const tenantSchema = z.object({
@@ -92,6 +95,11 @@ const AddTenantDialog = ({
   const { data: properties } = useProperties();
   const { data: propertiesWithUnits } = usePropertiesWithUnits();
   const { data: allTenants } = useTenants();
+  const { data: billingAddresses } = useBillingAddresses();
+  const createBillingAddress = useCreateBillingAddress();
+  
+  const [saveAsNewAddress, setSaveAsNewAddress] = useState(false);
+  const [selectedBillingAddressId, setSelectedBillingAddressId] = useState<string | null>(null);
   
   const getDefaultAssignmentType = () => {
     if (editTenant?.unit_id || defaultUnitId) return "unit";
@@ -106,6 +114,28 @@ const AddTenantDialog = ({
   );
   
   const { data: floors } = usePropertyFloors(selectedPropertyId);
+
+  // Get default billing address
+  const defaultBillingAddress = billingAddresses?.find(a => a.is_default);
+
+  // Handle selecting a saved billing address
+  const handleSelectBillingAddress = (addressId: string) => {
+    if (addressId === "new") {
+      setSelectedBillingAddressId(null);
+      form.setValue("bill_from_name", "");
+      form.setValue("bill_from_address", "");
+      form.setValue("bill_from_gstin", "");
+      return;
+    }
+    
+    const address = billingAddresses?.find(a => a.id === addressId);
+    if (address) {
+      setSelectedBillingAddressId(addressId);
+      form.setValue("bill_from_name", address.name);
+      form.setValue("bill_from_address", address.address || "");
+      form.setValue("bill_from_gstin", address.gstin || "");
+    }
+  };
 
   // Calculate available capacity for the selected property/floor
   const capacityInfo = useMemo(() => {
@@ -215,6 +245,23 @@ const AddTenantDialog = ({
     if (open) {
       setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || null);
       setSelectedFloorId(editTenant?.floor_id || null);
+      setSaveAsNewAddress(false);
+      
+      // Pre-select billing address if editing or use default
+      if (editTenant?.bill_from_name) {
+        // Try to find matching saved address
+        const matchingAddress = billingAddresses?.find(
+          a => a.name === editTenant.bill_from_name && 
+               a.address === editTenant.bill_from_address &&
+               a.gstin === editTenant.bill_from_gstin
+        );
+        setSelectedBillingAddressId(matchingAddress?.id || null);
+      } else if (defaultBillingAddress) {
+        setSelectedBillingAddressId(defaultBillingAddress.id);
+      } else {
+        setSelectedBillingAddressId(null);
+      }
+      
       form.reset({
         assignment_type: getDefaultAssignmentType(),
         property_id: editTenant?.property_id || defaultPropertyId || "",
@@ -231,17 +278,38 @@ const AddTenantDialog = ({
         monthly_rent: editTenant?.monthly_rent || 0,
         rent_due_day: editTenant?.rent_due_day || 1,
         requires_gst: editTenant?.requires_gst || false,
-        bill_from_name: editTenant?.bill_from_name || "",
-        bill_from_address: editTenant?.bill_from_address || "",
-        bill_from_gstin: editTenant?.bill_from_gstin || "",
+        bill_from_name: editTenant?.bill_from_name || defaultBillingAddress?.name || "",
+        bill_from_address: editTenant?.bill_from_address || defaultBillingAddress?.address || "",
+        bill_from_gstin: editTenant?.bill_from_gstin || defaultBillingAddress?.gstin || "",
         bill_to_name: editTenant?.bill_to_name || "",
         bill_to_address: editTenant?.bill_to_address || "",
         bill_to_gstin: editTenant?.bill_to_gstin || "",
       });
     }
-  }, [open, editTenant, defaultPropertyId, defaultUnitId, form]);
+  }, [open, editTenant, defaultPropertyId, defaultUnitId, form, billingAddresses, defaultBillingAddress]);
 
   const onSubmit = async (values: TenantFormValues) => {
+    // Auto-save billing address if checkbox is checked and address has a name
+    if (saveAsNewAddress && values.bill_from_name && !selectedBillingAddressId) {
+      // Check if this address already exists
+      const existingAddress = billingAddresses?.find(
+        a => a.name === values.bill_from_name
+      );
+      
+      if (!existingAddress) {
+        try {
+          await createBillingAddress.mutateAsync({
+            name: values.bill_from_name,
+            address: values.bill_from_address || undefined,
+            gstin: values.bill_from_gstin || undefined,
+          });
+        } catch (error) {
+          // Continue even if saving billing address fails
+          console.error("Failed to save billing address:", error);
+        }
+      }
+    }
+
     // Get property_id from unit if assignment type is unit
     let propertyId = values.property_id;
     if (values.assignment_type === "unit" && values.unit_id) {
@@ -278,6 +346,7 @@ const AddTenantDialog = ({
       await createTenant.mutateAsync(payload);
     }
     form.reset();
+    setSaveAsNewAddress(false);
     onOpenChange(false);
   };
 
@@ -544,7 +613,7 @@ const AddTenantDialog = ({
             </div>
 
             {/* Billing Details Section - Collapsible */}
-            <details className="border rounded-lg bg-muted/30 group">
+            <details className="border rounded-lg bg-muted/30 group" open={billingAddresses && billingAddresses.length > 0}>
               <summary className="p-4 cursor-pointer font-medium text-sm flex items-center justify-between list-none">
                 <span>Billing Details (Optional)</span>
                 <span className="text-xs text-muted-foreground group-open:hidden">Click to expand</span>
@@ -553,6 +622,53 @@ const AddTenantDialog = ({
                 {/* Bill From Section */}
                 <div className="space-y-3">
                   <h5 className="text-sm font-medium text-muted-foreground">Bill From (Your details)</h5>
+                  
+                  {/* Saved Billing Address Selector */}
+                  {billingAddresses && billingAddresses.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Select Saved Address</Label>
+                      <Select 
+                        value={selectedBillingAddressId || "new"} 
+                        onValueChange={handleSelectBillingAddress}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a saved address">
+                            {selectedBillingAddressId ? (
+                              <div className="flex items-center gap-2">
+                                <Building2 className="w-4 h-4" />
+                                {billingAddresses.find(a => a.id === selectedBillingAddressId)?.name}
+                                {billingAddresses.find(a => a.id === selectedBillingAddressId)?.is_default && (
+                                  <span className="text-xs text-primary">(Default)</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Enter new address</span>
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">
+                            <div className="flex items-center gap-2">
+                              <Plus className="w-4 h-4" />
+                              Enter new address
+                            </div>
+                          </SelectItem>
+                          {billingAddresses.map((address) => (
+                            <SelectItem key={address.id} value={address.id}>
+                              <div className="flex items-center gap-2">
+                                <Building2 className="w-4 h-4" />
+                                <span>{address.name}</span>
+                                {address.is_default && (
+                                  <Check className="w-3 h-3 text-primary" />
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <FormField
                     control={form.control}
                     name="bill_from_name"
@@ -560,7 +676,17 @@ const AddTenantDialog = ({
                       <FormItem>
                         <FormLabel>Company / Person Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="ABC Properties Pvt. Ltd." {...field} />
+                          <Input 
+                            placeholder="ABC Properties Pvt. Ltd." 
+                            {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Clear selected address if user starts typing
+                              if (selectedBillingAddressId) {
+                                setSelectedBillingAddressId(null);
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -573,7 +699,16 @@ const AddTenantDialog = ({
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="123 Main Street, City - 400001" {...field} />
+                          <Input 
+                            placeholder="123 Main Street, City - 400001" 
+                            {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              if (selectedBillingAddressId) {
+                                setSelectedBillingAddressId(null);
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -586,12 +721,39 @@ const AddTenantDialog = ({
                       <FormItem>
                         <FormLabel>GSTIN (if applicable)</FormLabel>
                         <FormControl>
-                          <Input placeholder="22AAAAA0000A1Z5" maxLength={15} {...field} />
+                          <Input 
+                            placeholder="22AAAAA0000A1Z5" 
+                            maxLength={15} 
+                            {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              if (selectedBillingAddressId) {
+                                setSelectedBillingAddressId(null);
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {/* Save new address checkbox */}
+                  {!selectedBillingAddressId && form.watch("bill_from_name") && (
+                    <div className="flex items-center space-x-2 p-3 rounded-lg border bg-background">
+                      <Checkbox
+                        id="save-address"
+                        checked={saveAsNewAddress}
+                        onCheckedChange={(checked) => setSaveAsNewAddress(checked === true)}
+                      />
+                      <Label 
+                        htmlFor="save-address" 
+                        className="text-sm cursor-pointer flex-1"
+                      >
+                        Save this address for future use
+                      </Label>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bill To Section */}
