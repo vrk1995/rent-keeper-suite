@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
+import { useIsAdmin } from "@/hooks/useTeam";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
 import {
@@ -23,6 +24,7 @@ import {
 const Tenants = () => {
   const { data: tenants, isLoading } = useTenants();
   const deleteTenant = useDeleteTenant();
+  const { isAdmin } = useIsAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
@@ -136,9 +138,24 @@ const Tenants = () => {
                         )}
                       </p>
                     </div>
-                    <Badge variant={leaseStatus.variant}>
-                      {leaseStatus.label}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={leaseStatus.variant}>
+                        {leaseStatus.label}
+                      </Badge>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteId(tenant.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {/* Rent Details */}

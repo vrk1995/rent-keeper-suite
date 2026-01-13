@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, AlertCircle, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { useCreateTenant, useUpdateTenant, Tenant } from "@/hooks/useTenants";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useCreateTenant, useUpdateTenant, Tenant, useTenants } from "@/hooks/useTenants";
 import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
@@ -83,6 +84,7 @@ const AddTenantDialog = ({
   const updateTenant = useUpdateTenant();
   const { data: properties } = useProperties();
   const { data: propertiesWithUnits } = usePropertiesWithUnits();
+  const { data: allTenants } = useTenants();
   
   const getDefaultAssignmentType = () => {
     if (editTenant?.unit_id || defaultUnitId) return "unit";
@@ -92,8 +94,61 @@ const AddTenantDialog = ({
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
     editTenant?.property_id || defaultPropertyId || null
   );
+  const [selectedFloorId, setSelectedFloorId] = useState<string | null>(
+    editTenant?.floor_id || null
+  );
   
   const { data: floors } = usePropertyFloors(selectedPropertyId);
+
+  // Calculate available capacity for the selected property/floor
+  const capacityInfo = useMemo(() => {
+    if (!selectedPropertyId || !properties) return null;
+
+    const property = properties.find(p => p.id === selectedPropertyId);
+    if (!property) return null;
+
+    // Get all tenants for this property (excluding current tenant if editing)
+    const propertyTenants = allTenants?.filter(t => 
+      t.property_id === selectedPropertyId && 
+      t.id !== editTenant?.id
+    ) || [];
+
+    // Calculate total rented sqft at property level
+    const totalRentedSqft = propertyTenants.reduce((sum, t) => sum + (t.rented_sqft || 0), 0);
+    const propertyTotalSqft = Number(property.total_sqft) || 0;
+    const propertyAvailable = propertyTotalSqft - totalRentedSqft;
+
+    // Calculate floor-wise breakdown if floors exist
+    let floorBreakdown: { id: string; name: string; total: number; rented: number; available: number }[] = [];
+    
+    if (floors && floors.length > 0) {
+      floorBreakdown = floors.map(floor => {
+        const floorTenants = propertyTenants.filter(t => t.floor_id === floor.id);
+        const floorRented = floorTenants.reduce((sum, t) => sum + (t.rented_sqft || 0), 0);
+        const floorTotal = Number(floor.floor_sqft) || 0;
+        return {
+          id: floor.id,
+          name: floor.floor_name,
+          total: floorTotal,
+          rented: floorRented,
+          available: floorTotal - floorRented,
+        };
+      });
+    }
+
+    // Get specific floor info if selected
+    const selectedFloor = selectedFloorId 
+      ? floorBreakdown.find(f => f.id === selectedFloorId) 
+      : null;
+
+    return {
+      propertyTotal: propertyTotalSqft,
+      propertyRented: totalRentedSqft,
+      propertyAvailable,
+      floorBreakdown,
+      selectedFloor,
+    };
+  }, [selectedPropertyId, selectedFloorId, properties, floors, allTenants, editTenant?.id]);
   
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
@@ -137,9 +192,16 @@ const AddTenantDialog = ({
     }
   }, [form.watch("unit_id"), assignmentType, propertiesWithUnits]);
 
+  // Track floor selection
+  const watchedFloorId = form.watch("floor_id");
+  useEffect(() => {
+    setSelectedFloorId(watchedFloorId || null);
+  }, [watchedFloorId]);
+
   useEffect(() => {
     if (open) {
       setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || null);
+      setSelectedFloorId(editTenant?.floor_id || null);
       form.reset({
         assignment_type: getDefaultAssignmentType(),
         property_id: editTenant?.property_id || defaultPropertyId || "",
@@ -294,17 +356,60 @@ const AddTenantDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {floors.map((floor) => (
-                          <SelectItem key={floor.id} value={floor.id}>
-                            {floor.floor_name}
-                          </SelectItem>
-                        ))}
+                        {floors.map((floor) => {
+                          const floorInfo = capacityInfo?.floorBreakdown.find(f => f.id === floor.id);
+                          return (
+                            <SelectItem key={floor.id} value={floor.id}>
+                              {floor.floor_name}
+                              {floorInfo && (
+                                <span className="text-muted-foreground ml-2 text-xs">
+                                  ({floorInfo.available.toLocaleString()} sq.ft available)
+                                </span>
+                              )}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
+
+            {/* Available Capacity Info */}
+            {capacityInfo && assignmentType === "property" && (
+              <Alert className="bg-muted/50 border-primary/20">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <div className="font-medium">
+                      Property: {capacityInfo.propertyAvailable.toLocaleString()} sq.ft available 
+                      <span className="text-muted-foreground font-normal">
+                        {" "}(of {capacityInfo.propertyTotal.toLocaleString()} total)
+                      </span>
+                    </div>
+                    {capacityInfo.floorBreakdown.length > 0 && (
+                      <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 mt-2">
+                        {capacityInfo.floorBreakdown.map(floor => (
+                          <div 
+                            key={floor.id} 
+                            className={cn(
+                              "flex justify-between",
+                              selectedFloorId === floor.id && "text-foreground font-medium"
+                            )}
+                          >
+                            <span>{floor.name}:</span>
+                            <span className={floor.available <= 0 ? "text-destructive" : ""}>
+                              {floor.available.toLocaleString()} sq.ft
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
             )}
 
             <FormField
@@ -537,15 +642,39 @@ const AddTenantDialog = ({
               <FormField
                 control={form.control}
                 name="rented_sqft"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rented Sq. Ft.</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={0} placeholder="1500" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const maxAvailable = capacityInfo?.selectedFloor 
+                    ? capacityInfo.selectedFloor.available 
+                    : capacityInfo?.propertyAvailable;
+                  const isOverCapacity = maxAvailable !== undefined && (field.value || 0) > maxAvailable;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Rented Sq. Ft.</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={0}
+                          max={maxAvailable}
+                          placeholder="1500" 
+                          className={isOverCapacity ? "border-destructive focus-visible:ring-destructive" : ""}
+                          {...field} 
+                        />
+                      </FormControl>
+                      {maxAvailable !== undefined && (
+                        <p className={cn(
+                          "text-xs",
+                          isOverCapacity ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          {isOverCapacity 
+                            ? `Exceeds available capacity by ${((field.value || 0) - maxAvailable).toLocaleString()} sq.ft` 
+                            : `Max available: ${maxAvailable.toLocaleString()} sq.ft`}
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
             <div className="flex justify-end gap-3 pt-4">
