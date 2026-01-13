@@ -40,7 +40,6 @@ const propertySchema = z.object({
   name: z.string().min(1, "Property name is required").max(100),
   address: z.string().min(1, "Address is required").max(255),
   property_type: z.string().min(1, "Property type is required"),
-  monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
   floors_owned: z.coerce.number().min(1, "Must own at least 1 floor"),
   status: z.string().optional(),
   notes: z.string().max(500).optional(),
@@ -67,7 +66,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       name: "",
       address: "",
       property_type: "apartment",
-      monthly_rent: 0,
       floors_owned: 1,
       status: "vacant",
       notes: "",
@@ -123,7 +121,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: editProperty.name,
           address: editProperty.address,
           property_type: editProperty.property_type,
-          monthly_rent: editProperty.monthly_rent,
           floors_owned: editProperty.floors_owned || 1,
           status: editProperty.status,
           notes: editProperty.notes || "",
@@ -134,7 +131,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: "",
           address: "",
           property_type: "apartment",
-          monthly_rent: 0,
           floors_owned: 1,
           status: "vacant",
           notes: "",
@@ -154,7 +150,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
-        monthly_rent: values.monthly_rent,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
         status: values.status,
@@ -174,7 +169,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
-        monthly_rent: values.monthly_rent,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
         status: values.status,
@@ -281,34 +275,19 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="floors_owned"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Floors Owned</FormLabel>
-                    <FormControl>
-                      <Input type="number" min={1} max={50} placeholder="1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="monthly_rent"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Monthly Rent (₹)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="25000" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="floors_owned"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Floors Owned</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={1} max={50} placeholder="1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Floor Details Section */}
             <Separator />
