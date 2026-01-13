@@ -41,7 +41,6 @@ const propertySchema = z.object({
   address: z.string().min(1, "Address is required").max(255),
   property_type: z.string().min(1, "Property type is required"),
   floors_owned: z.coerce.number().min(1, "Must own at least 1 floor"),
-  status: z.string().optional(),
   notes: z.string().max(500).optional(),
   floors: z.array(floorSchema),
 });
@@ -67,7 +66,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       address: "",
       property_type: "apartment",
       floors_owned: 1,
-      status: "vacant",
       notes: "",
       floors: [{ floor_name: "G", floor_sqft: 0 }],
     },
@@ -122,7 +120,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           address: editProperty.address,
           property_type: editProperty.property_type,
           floors_owned: editProperty.floors_owned || 1,
-          status: editProperty.status,
           notes: editProperty.notes || "",
           floors: floorEntries,
         });
@@ -132,7 +129,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           address: "",
           property_type: "apartment",
           floors_owned: 1,
-          status: "vacant",
           notes: "",
           floors: [{ floor_name: "G", floor_sqft: 0 }],
         });
@@ -152,7 +148,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         property_type: values.property_type,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
-        status: values.status,
         notes: values.notes,
       });
       
@@ -171,7 +166,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         property_type: values.property_type,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
-        status: values.status,
         notes: values.notes,
       });
       
@@ -224,56 +218,31 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="property_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="apartment">Apartment</SelectItem>
-                        <SelectItem value="house">House</SelectItem>
-                        <SelectItem value="commercial">Commercial</SelectItem>
-                        <SelectItem value="land">Land</SelectItem>
-                        <SelectItem value="floor">Floor (in building)</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="vacant">Vacant</SelectItem>
-                        <SelectItem value="occupied">Occupied</SelectItem>
-                        <SelectItem value="partial">Partially Occupied</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="property_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Property Type</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="apartment">Apartment</SelectItem>
+                      <SelectItem value="house">House</SelectItem>
+                      <SelectItem value="commercial">Commercial</SelectItem>
+                      <SelectItem value="land">Land</SelectItem>
+                      <SelectItem value="floor">Floor (in building)</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}
