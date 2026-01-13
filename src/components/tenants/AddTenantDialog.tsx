@@ -54,6 +54,13 @@ const tenantSchema = z.object({
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
   rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
   requires_gst: z.boolean(),
+  // Billing details
+  bill_from_name: z.string().max(100).optional(),
+  bill_from_address: z.string().max(500).optional(),
+  bill_from_gstin: z.string().max(15).optional(),
+  bill_to_name: z.string().max(100).optional(),
+  bill_to_address: z.string().max(500).optional(),
+  bill_to_gstin: z.string().max(15).optional(),
 }).refine((data) => {
   if (data.assignment_type === "property") return !!data.property_id;
   if (data.assignment_type === "unit") return !!data.unit_id;
@@ -168,6 +175,12 @@ const AddTenantDialog = ({
       monthly_rent: editTenant?.monthly_rent || 0,
       rent_due_day: editTenant?.rent_due_day || 1,
       requires_gst: editTenant?.requires_gst || false,
+      bill_from_name: editTenant?.bill_from_name || "",
+      bill_from_address: editTenant?.bill_from_address || "",
+      bill_from_gstin: editTenant?.bill_from_gstin || "",
+      bill_to_name: editTenant?.bill_to_name || "",
+      bill_to_address: editTenant?.bill_to_address || "",
+      bill_to_gstin: editTenant?.bill_to_gstin || "",
     },
   });
 
@@ -218,6 +231,12 @@ const AddTenantDialog = ({
         monthly_rent: editTenant?.monthly_rent || 0,
         rent_due_day: editTenant?.rent_due_day || 1,
         requires_gst: editTenant?.requires_gst || false,
+        bill_from_name: editTenant?.bill_from_name || "",
+        bill_from_address: editTenant?.bill_from_address || "",
+        bill_from_gstin: editTenant?.bill_from_gstin || "",
+        bill_to_name: editTenant?.bill_to_name || "",
+        bill_to_address: editTenant?.bill_to_address || "",
+        bill_to_gstin: editTenant?.bill_to_gstin || "",
       });
     }
   }, [open, editTenant, defaultPropertyId, defaultUnitId, form]);
@@ -245,6 +264,12 @@ const AddTenantDialog = ({
       monthly_rent: values.monthly_rent,
       rent_due_day: values.rent_due_day,
       requires_gst: values.requires_gst,
+      bill_from_name: values.bill_from_name || undefined,
+      bill_from_address: values.bill_from_address || undefined,
+      bill_from_gstin: values.bill_from_gstin || undefined,
+      bill_to_name: values.bill_to_name || undefined,
+      bill_to_address: values.bill_to_address || undefined,
+      bill_to_gstin: values.bill_to_gstin || undefined,
     };
 
     if (editTenant) {
@@ -517,6 +542,103 @@ const AddTenantDialog = ({
                 )}
               />
             </div>
+
+            {/* Billing Details Section - Collapsible */}
+            <details className="border rounded-lg bg-muted/30 group">
+              <summary className="p-4 cursor-pointer font-medium text-sm flex items-center justify-between list-none">
+                <span>Billing Details (Optional)</span>
+                <span className="text-xs text-muted-foreground group-open:hidden">Click to expand</span>
+              </summary>
+              <div className="px-4 pb-4 space-y-4">
+                {/* Bill From Section */}
+                <div className="space-y-3">
+                  <h5 className="text-sm font-medium text-muted-foreground">Bill From (Your details)</h5>
+                  <FormField
+                    control={form.control}
+                    name="bill_from_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company / Person Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ABC Properties Pvt. Ltd." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bill_from_address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="123 Main Street, City - 400001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bill_from_gstin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GSTIN (if applicable)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="22AAAAA0000A1Z5" maxLength={15} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Bill To Section */}
+                <div className="space-y-3 pt-3 border-t">
+                  <h5 className="text-sm font-medium text-muted-foreground">Bill To (Tenant details)</h5>
+                  <FormField
+                    control={form.control}
+                    name="bill_to_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company / Person Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Tenant Company Pvt. Ltd." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bill_to_address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="456 Business Park, City - 400002" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bill_to_gstin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GSTIN (if applicable)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="22BBBBB0000B1Z5" maxLength={15} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </details>
 
             <FormField
               control={form.control}
