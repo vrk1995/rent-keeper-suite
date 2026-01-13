@@ -21,6 +21,13 @@ export interface Tenant {
   status: string;
   created_at: string;
   updated_at: string;
+  // Billing details
+  bill_from_name: string | null;
+  bill_from_address: string | null;
+  bill_from_gstin: string | null;
+  bill_to_name: string | null;
+  bill_to_address: string | null;
+  bill_to_gstin: string | null;
   property?: {
     name: string;
     address: string;
@@ -54,6 +61,13 @@ export interface CreateTenantInput {
   rent_due_day?: number;
   requires_gst?: boolean;
   status?: string;
+  // Billing details
+  bill_from_name?: string;
+  bill_from_address?: string;
+  bill_from_gstin?: string;
+  bill_to_name?: string;
+  bill_to_address?: string;
+  bill_to_gstin?: string;
 }
 
 export const useTenants = () => {

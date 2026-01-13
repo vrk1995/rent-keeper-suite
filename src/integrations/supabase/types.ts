@@ -394,6 +394,12 @@ export type Database = {
       }
       tenants: {
         Row: {
+          bill_from_address: string | null
+          bill_from_gstin: string | null
+          bill_from_name: string | null
+          bill_to_address: string | null
+          bill_to_gstin: string | null
+          bill_to_name: string | null
           created_at: string
           email: string | null
           floor_id: string | null
@@ -414,6 +420,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bill_from_address?: string | null
+          bill_from_gstin?: string | null
+          bill_from_name?: string | null
+          bill_to_address?: string | null
+          bill_to_gstin?: string | null
+          bill_to_name?: string | null
           created_at?: string
           email?: string | null
           floor_id?: string | null
@@ -434,6 +446,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bill_from_address?: string | null
+          bill_from_gstin?: string | null
+          bill_from_name?: string | null
+          bill_to_address?: string | null
+          bill_to_gstin?: string | null
+          bill_to_name?: string | null
           created_at?: string
           email?: string | null
           floor_id?: string | null
