@@ -44,6 +44,7 @@ import {
   Square,
   IndianRupee,
   Plus,
+  User,
 } from "lucide-react";
 import { Property } from "@/hooks/useProperties";
 import { Tenant } from "@/hooks/useTenants";
@@ -389,7 +390,7 @@ export function PropertyDetailSheet({
                     <p className="text-sm text-muted-foreground">Total Documents</p>
                     <p className="text-xl font-bold">{documents?.length || 0}</p>
                   </div>
-                  <UploadDocumentDialog propertyId={property.id} />
+                  <UploadDocumentDialog propertyId={property.id} tenants={tenants} />
                 </div>
 
                 {(!documents || documents.length === 0) ? (
@@ -398,38 +399,52 @@ export function PropertyDetailSheet({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {documents.map((doc) => (
-                      <Card key={doc.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <FileText className="w-5 h-5 text-muted-foreground" />
-                              <div>
-                                <p className="font-medium">{doc.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {doc.document_type} • {format(new Date(doc.created_at), "PPP")}
-                                </p>
+                    {documents.map((doc) => {
+                      const linkedTenant = tenants.find(t => t.id === doc.tenant_id);
+                      return (
+                        <Card key={doc.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <FileText className="w-5 h-5 text-muted-foreground" />
+                                <div>
+                                  <p className="font-medium">{doc.name}</p>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>{doc.document_type}</span>
+                                    <span>•</span>
+                                    <span>{format(new Date(doc.created_at), "PPP")}</span>
+                                    {linkedTenant && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="flex items-center gap-1 text-primary">
+                                          <User className="w-3 h-3" />
+                                          {linkedTenant.name}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                    <Download className="w-4 h-4 mr-1" />
+                                    View
+                                  </a>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteDocumentData({ id: doc.id, file_url: doc.file_url, name: doc.name })}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                  <Download className="w-4 h-4 mr-1" />
-                                  View
-                                </a>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteDocumentData({ id: doc.id, file_url: doc.file_url, name: doc.name })}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
