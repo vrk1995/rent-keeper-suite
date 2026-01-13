@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Building2, ChevronDown, ChevronRight, Layers } from "lucide-react";
+import { Plus, Search, Building2, ChevronDown, ChevronRight, Layers, IndianRupee, TrendingUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { useProperties, useDeleteProperty, Property } from "@/hooks/useProperties";
 import { useTenants } from "@/hooks/useTenants";
 import { usePropertiesWithUnits, useDeleteUnit, Unit } from "@/hooks/useUnits";
+import { usePayments } from "@/hooks/usePayments";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import PropertyCard from "@/components/properties/PropertyCard";
@@ -13,6 +15,7 @@ import AddPropertyDialog from "@/components/properties/AddPropertyDialog";
 import { AddUnitDialog } from "@/components/units/AddUnitDialog";
 import { UnitCard } from "@/components/units/UnitCard";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
+import { formatINR } from "@/lib/currency";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +35,7 @@ import {
 const Properties = () => {
   const { data: propertiesWithUnits, isLoading } = usePropertiesWithUnits();
   const { data: tenants } = useTenants();
+  const { data: payments } = usePayments();
   const deleteProperty = useDeleteProperty();
   const deleteUnit = useDeleteUnit();
   
@@ -103,6 +107,31 @@ const Properties = () => {
       unitRentedSqftMap: unitSqftMap
     };
   }, [tenants]);
+
+  // Calculate rent summary
+  const rentSummary = useMemo(() => {
+    const activeTenants = tenants?.filter(t => t.status === 'active') || [];
+    const totalCollectible = activeTenants.reduce((sum, t) => sum + (t.monthly_rent || 0), 0);
+    
+    const currentMonth = new Date();
+    const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).toISOString().split('T')[0];
+    const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).toISOString().split('T')[0];
+    
+    const currentMonthPayments = payments?.filter(p => {
+      const dueDate = p.due_date;
+      return dueDate >= monthStart && dueDate <= monthEnd;
+    }) || [];
+    
+    const totalReceived = currentMonthPayments
+      .filter(p => p.status === 'paid')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    const totalDue = currentMonthPayments
+      .filter(p => p.status === 'pending' || p.status === 'overdue')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    return { totalCollectible, totalReceived, totalDue };
+  }, [tenants, payments]);
 
   // Group floors by property
   const floorsByProperty = useMemo(() => {
@@ -201,6 +230,49 @@ const Properties = () => {
         </Button>
       </div>
 
+      {/* Rent Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <IndianRupee className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Collectible/Month</p>
+                <p className="text-xl font-bold">{formatINR(rentSummary.totalCollectible)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-500/10">
+                <Clock className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Due This Month</p>
+                <p className="text-xl font-bold text-orange-600">{formatINR(rentSummary.totalDue)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <TrendingUp className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Received This Month</p>
+                <p className="text-xl font-bold text-green-600">{formatINR(rentSummary.totalReceived)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -265,7 +337,6 @@ const Properties = () => {
                           onEdit={handleEdit}
                           onDelete={(id) => setDeleteId(id)}
                           onViewTenants={() => {}}
-                          onAddUnit={() => handleAddUnit(property.id)}
                         />
                       </div>
                     </CollapsibleTrigger>
