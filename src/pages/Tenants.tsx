@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2 } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -141,6 +141,30 @@ const Tenants = () => {
                     </Badge>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    {/* Rent Details */}
+                    <div className="flex items-center justify-between bg-primary/5 rounded-lg p-2">
+                      <div className="flex items-center gap-2">
+                        <IndianRupee className="w-4 h-4 text-primary" />
+                        <span className="font-semibold">{formatINR(tenant.monthly_rent || 0)}/mo</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        Due: {tenant.rent_due_day || 1}{tenant.rent_due_day === 1 ? "st" : tenant.rent_due_day === 2 ? "nd" : tenant.rent_due_day === 3 ? "rd" : "th"}
+                        {tenant.requires_gst && (
+                          <Badge variant="outline" className="text-xs ml-1">
+                            <Receipt className="w-3 h-3 mr-1" />
+                            GST
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Floor info */}
+                    {tenant.floor && (
+                      <div className="text-sm text-muted-foreground">
+                        Floor: {tenant.floor.floor_name}
+                      </div>
+                    )}
+
                     {tenant.email && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail className="w-4 h-4" />

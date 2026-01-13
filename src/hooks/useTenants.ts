@@ -6,6 +6,7 @@ export interface Tenant {
   id: string;
   property_id: string;
   unit_id: string | null;
+  floor_id: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -14,6 +15,9 @@ export interface Tenant {
   lease_end_date: string;
   security_deposit: number;
   rented_sqft: number;
+  monthly_rent: number;
+  rent_due_day: number;
+  requires_gst: boolean;
   status: string;
   created_at: string;
   updated_at: string;
@@ -29,11 +33,15 @@ export interface Tenant {
       name: string;
     };
   };
+  floor?: {
+    floor_name: string;
+  };
 }
 
 export interface CreateTenantInput {
   property_id: string;
   unit_id?: string;
+  floor_id?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -42,6 +50,9 @@ export interface CreateTenantInput {
   lease_end_date: string;
   security_deposit?: number;
   rented_sqft?: number;
+  monthly_rent?: number;
+  rent_due_day?: number;
+  requires_gst?: boolean;
   status?: string;
 }
 
@@ -54,7 +65,8 @@ export const useTenants = () => {
         .select(`
           *,
           property:properties(name, address, total_sqft),
-          unit:units(name, total_sqft, building:buildings(name))
+          unit:units(name, total_sqft, building:buildings(name)),
+          floor:property_floors(floor_name)
         `)
         .order("created_at", { ascending: false });
 

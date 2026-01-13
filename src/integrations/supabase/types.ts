@@ -400,11 +400,14 @@ export type Database = {
           id: string
           lease_end_date: string
           lease_start_date: string
+          monthly_rent: number | null
           move_in_date: string
           name: string
           phone: string | null
           property_id: string
+          rent_due_day: number | null
           rented_sqft: number | null
+          requires_gst: boolean | null
           security_deposit: number | null
           status: string | null
           unit_id: string | null
@@ -417,11 +420,14 @@ export type Database = {
           id?: string
           lease_end_date: string
           lease_start_date: string
+          monthly_rent?: number | null
           move_in_date: string
           name: string
           phone?: string | null
           property_id: string
+          rent_due_day?: number | null
           rented_sqft?: number | null
+          requires_gst?: boolean | null
           security_deposit?: number | null
           status?: string | null
           unit_id?: string | null
@@ -434,11 +440,14 @@ export type Database = {
           id?: string
           lease_end_date?: string
           lease_start_date?: string
+          monthly_rent?: number | null
           move_in_date?: string
           name?: string
           phone?: string | null
           property_id?: string
+          rent_due_day?: number | null
           rented_sqft?: number | null
+          requires_gst?: boolean | null
           security_deposit?: number | null
           status?: string | null
           unit_id?: string | null

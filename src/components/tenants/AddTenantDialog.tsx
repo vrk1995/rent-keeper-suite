@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,15 +30,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useCreateTenant, useUpdateTenant, Tenant } from "@/hooks/useTenants";
 import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
+import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { cn } from "@/lib/utils";
 
 const tenantSchema = z.object({
   assignment_type: z.enum(["property", "unit"]),
   property_id: z.string().optional(),
   unit_id: z.string().optional(),
+  floor_id: z.string().optional(),
   name: z.string().min(1, "Tenant name is required").max(100),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().max(15).optional(),
@@ -47,6 +50,9 @@ const tenantSchema = z.object({
   lease_end_date: z.date({ required_error: "Lease end date is required" }),
   security_deposit: z.coerce.number().min(0).optional(),
   rented_sqft: z.coerce.number().min(0).optional(),
+  monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
+  rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
+  requires_gst: z.boolean(),
 }).refine((data) => {
   if (data.assignment_type === "property") return !!data.property_id;
   if (data.assignment_type === "unit") return !!data.unit_id;
@@ -82,6 +88,12 @@ const AddTenantDialog = ({
     if (editTenant?.unit_id || defaultUnitId) return "unit";
     return "property";
   };
+
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
+    editTenant?.property_id || defaultPropertyId || null
+  );
+  
+  const { data: floors } = usePropertyFloors(selectedPropertyId);
   
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
@@ -89,6 +101,7 @@ const AddTenantDialog = ({
       assignment_type: getDefaultAssignmentType(),
       property_id: editTenant?.property_id || defaultPropertyId || "",
       unit_id: editTenant?.unit_id || defaultUnitId || "",
+      floor_id: editTenant?.floor_id || "",
       name: editTenant?.name || "",
       email: editTenant?.email || "",
       phone: editTenant?.phone || "",
@@ -97,17 +110,41 @@ const AddTenantDialog = ({
       lease_end_date: editTenant?.lease_end_date ? new Date(editTenant.lease_end_date) : undefined,
       security_deposit: editTenant?.security_deposit || 0,
       rented_sqft: editTenant?.rented_sqft || 0,
+      monthly_rent: editTenant?.monthly_rent || 0,
+      rent_due_day: editTenant?.rent_due_day || 1,
+      requires_gst: editTenant?.requires_gst || false,
     },
   });
 
   const assignmentType = form.watch("assignment_type");
+  const watchedPropertyId = form.watch("property_id");
+
+  // Update selectedPropertyId when property changes
+  useEffect(() => {
+    if (assignmentType === "property" && watchedPropertyId) {
+      setSelectedPropertyId(watchedPropertyId);
+    }
+  }, [watchedPropertyId, assignmentType]);
+
+  // When selecting a unit, get its property_id for floor selection
+  useEffect(() => {
+    if (assignmentType === "unit") {
+      const unitId = form.watch("unit_id");
+      const unit = propertiesWithUnits?.flatMap(p => p.units || []).find((u: any) => u.id === unitId);
+      if (unit) {
+        setSelectedPropertyId(unit.property_id);
+      }
+    }
+  }, [form.watch("unit_id"), assignmentType, propertiesWithUnits]);
 
   useEffect(() => {
     if (open) {
+      setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || null);
       form.reset({
         assignment_type: getDefaultAssignmentType(),
         property_id: editTenant?.property_id || defaultPropertyId || "",
         unit_id: editTenant?.unit_id || defaultUnitId || "",
+        floor_id: editTenant?.floor_id || "",
         name: editTenant?.name || "",
         email: editTenant?.email || "",
         phone: editTenant?.phone || "",
@@ -116,14 +153,25 @@ const AddTenantDialog = ({
         lease_end_date: editTenant?.lease_end_date ? new Date(editTenant.lease_end_date) : undefined,
         security_deposit: editTenant?.security_deposit || 0,
         rented_sqft: editTenant?.rented_sqft || 0,
+        monthly_rent: editTenant?.monthly_rent || 0,
+        rent_due_day: editTenant?.rent_due_day || 1,
+        requires_gst: editTenant?.requires_gst || false,
       });
     }
   }, [open, editTenant, defaultPropertyId, defaultUnitId, form]);
 
   const onSubmit = async (values: TenantFormValues) => {
+    // Get property_id from unit if assignment type is unit
+    let propertyId = values.property_id;
+    if (values.assignment_type === "unit" && values.unit_id) {
+      const unit = propertiesWithUnits?.flatMap(p => p.units || []).find((u: any) => u.id === values.unit_id);
+      propertyId = unit?.property_id || properties?.[0]?.id || "";
+    }
+
     const payload = {
-      property_id: values.assignment_type === "property" ? values.property_id! : properties?.[0]?.id || "",
+      property_id: propertyId!,
       unit_id: values.assignment_type === "unit" ? values.unit_id : undefined,
+      floor_id: values.floor_id || undefined,
       name: values.name,
       email: values.email || undefined,
       phone: values.phone,
@@ -132,6 +180,9 @@ const AddTenantDialog = ({
       lease_end_date: format(values.lease_end_date, "yyyy-MM-dd"),
       security_deposit: values.security_deposit,
       rented_sqft: values.rented_sqft,
+      monthly_rent: values.monthly_rent,
+      rent_due_day: values.rent_due_day,
+      requires_gst: values.requires_gst,
     };
 
     if (editTenant) {
@@ -147,13 +198,14 @@ const AddTenantDialog = ({
   const allUnits = propertiesWithUnits?.flatMap(property => 
     property.units?.map((unit: any) => ({
       ...unit,
+      property_id: property.id,
       displayName: `${property.name} - ${unit.name}`,
     })) || []
   ) || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editTenant ? "Edit Tenant" : "Add New Tenant"}</DialogTitle>
         </DialogHeader>
@@ -227,6 +279,34 @@ const AddTenantDialog = ({
               />
             )}
 
+            {/* Floor Selection - only show if property has floors */}
+            {floors && floors.length > 0 && (
+              <FormField
+                control={form.control}
+                name="floor_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Floor</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select floor (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {floors.map((floor) => (
+                          <SelectItem key={floor.id} value={floor.id}>
+                            {floor.floor_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="name"
@@ -268,6 +348,71 @@ const AddTenantDialog = ({
                 )}
               />
             </div>
+
+            {/* Rent Details Section */}
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <h4 className="font-medium text-sm">Rent Details</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="monthly_rent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Monthly Rent (₹)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="25000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="rent_due_day"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rent Due Day</FormLabel>
+                      <Select onValueChange={(v) => field.onChange(parseInt(v))} value={String(field.value)}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                            <SelectItem key={day} value={String(day)}>
+                              {day}{day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th"} of each month
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="requires_gst"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>GST Invoice Required</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Enable if tenant requires GST invoice for rent
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="move_in_date"
