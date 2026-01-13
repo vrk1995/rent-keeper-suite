@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw } from "lucide-react";
+import { Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,8 @@ import {
 import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const statusConfig: Record<string, { icon: React.ElementType; variant: "glow" | "secondary" | "destructive" }> = {
   paid: { icon: CheckCircle, variant: "glow" },
@@ -39,6 +41,7 @@ const Payments = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
 
   const filteredPayments = payments?.filter((p) => {
     const propertyName = p.property?.name?.toLowerCase() || "";
@@ -72,6 +75,43 @@ const Payments = () => {
 
   const handleGeneratePayments = () => {
     generatePayments.mutate();
+  };
+
+  const handleGenerateInvoice = async (paymentId: string) => {
+    setGeneratingInvoice(paymentId);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-invoice-pdf", {
+        body: { paymentId },
+      });
+
+      if (error) throw error;
+
+      // Convert base64 to blob and download
+      const byteCharacters = atob(data.pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = data.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Invoice downloaded successfully!");
+    } catch (error: any) {
+      console.error("Error generating invoice:", error);
+      toast.error("Failed to generate invoice: " + error.message);
+    } finally {
+      setGeneratingInvoice(null);
+    }
   };
 
   return (
@@ -219,7 +259,20 @@ const Payments = () => {
                       <TableCell className="max-w-[150px] truncate" title={payment.notes || undefined}>
                         {payment.notes || "-"}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleGenerateInvoice(payment.id)}
+                          disabled={generatingInvoice === payment.id}
+                        >
+                          {generatingInvoice === payment.id ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <FileText className="w-4 h-4 mr-1" />
+                          )}
+                          Invoice
+                        </Button>
                         {payment.status !== "paid" && (
                           <Button
                             variant="ghost"
