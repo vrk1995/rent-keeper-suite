@@ -100,50 +100,52 @@ const PropertyCard = ({
               {totalSqft > 0 && (
                 <span className="flex items-center gap-1">
                   <Square className="w-3 h-3" />
-                  {totalSqft.toLocaleString()} sq.ft
+                  {rentedSqft.toLocaleString()}/{totalSqft.toLocaleString()} sq.ft ({utilizationPercent.toFixed(0)}%)
                 </span>
               )}
               {unitCount > 0 && (
                 <span>{unitCount} unit{unitCount !== 1 ? "s" : ""}</span>
               )}
             </div>
-            {/* Rent Summary */}
-            {totalRentWithoutGST > 0 && (
-              <div className="flex items-center gap-3 mt-1 text-sm">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <IndianRupee className="w-3 h-3" />
-                  Rent: <span className="font-medium text-foreground">{formatINR(totalRentWithoutGST)}</span>
-                </span>
-                {hasGSTTenants && (
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    With GST: <span className="font-medium text-foreground">{formatINR(totalRentWithGST)}</span>
-                  </span>
-                )}
-              </div>
-            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(property);
-            }}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(property.id);
-            }}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+        <div className="flex items-center gap-4">
+          {/* Rent Summary - Right side, larger, green */}
+          {totalRentWithoutGST > 0 && (
+            <div className="text-right">
+              <div className="flex items-center gap-1 text-lg font-bold text-green-600 dark:text-green-400">
+                <IndianRupee className="w-4 h-4" />
+                {formatINR(totalRentWithoutGST)}
+              </div>
+              {hasGSTTenants && (
+                <div className="text-xs text-muted-foreground">
+                  With GST: {formatINR(totalRentWithGST)}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(property);
+              }}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(property.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
         </div>
       </div>
       
