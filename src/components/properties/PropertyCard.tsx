@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Property } from "@/hooks/useProperties";
 import { PropertyFloor } from "@/hooks/usePropertyFloors";
 import { formatINR } from "@/lib/currency";
-import { MapPin, Edit, Trash2, Users, Layers, Square, ChevronDown, ChevronRight } from "lucide-react";
+import { MapPin, Edit, Trash2, Users, Layers, Square, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useState } from "react";
 import {
   Collapsible,
@@ -18,9 +18,12 @@ interface PropertyCardProps {
   floors?: PropertyFloor[];
   rentedSqft?: number;
   floorRentedMap?: Map<string, number>; // floor_id -> rented sqft
+  unitCount?: number;
+  isExpanded?: boolean;
   onEdit: (property: Property) => void;
   onDelete: (id: string) => void;
   onViewTenants: (property: Property) => void;
+  onAddUnit?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -44,76 +47,131 @@ const PropertyCard = ({
   floors = [],
   rentedSqft = 0, 
   floorRentedMap = new Map(),
+  unitCount = 0,
+  isExpanded = false,
   onEdit, 
   onDelete, 
-  onViewTenants 
+  onViewTenants,
+  onAddUnit,
 }: PropertyCardProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [floorExpanded, setFloorExpanded] = useState(false);
   const totalSqft = property.total_sqft || 0;
   const utilizationPercent = totalSqft > 0 ? Math.min(100, (rentedSqft / totalSqft) * 100) : 0;
   const vacantSqft = Math.max(0, totalSqft - rentedSqft);
 
   return (
-    <Card className="hover:border-primary/30 transition-all group">
-      <CardHeader className="flex flex-row items-start justify-between pb-2">
+    <div className="p-4">
+      <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+            {isExpanded ? (
+              <ChevronDown className="h-5 w-5 text-primary" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-primary" />
+            )}
+          </div>
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
             {propertyTypeIcons[property.property_type] || "🏗️"}
           </div>
           <div>
-            <CardTitle className="text-lg">{property.name}</CardTitle>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <MapPin className="w-3 h-3" />
-              {property.address}
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">{property.name}</h3>
+              <Badge variant={statusColors[property.status] as "glow" | "secondary" | "destructive" | "default"}>
+                {property.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {property.address}
+              </span>
+              {property.floors_owned > 0 && (
+                <span className="flex items-center gap-1">
+                  <Layers className="w-3 h-3" />
+                  {property.floors_owned} floor{property.floors_owned !== 1 ? "s" : ""}
+                </span>
+              )}
+              {totalSqft > 0 && (
+                <span className="flex items-center gap-1">
+                  <Square className="w-3 h-3" />
+                  {totalSqft.toLocaleString()} sq.ft
+                </span>
+              )}
+              {unitCount > 0 && (
+                <span>{unitCount} unit{unitCount !== 1 ? "s" : ""}</span>
+              )}
             </div>
           </div>
         </div>
-        <Badge variant={statusColors[property.status] as "glow" | "secondary" | "destructive" | "default"}>
-          {property.status}
-        </Badge>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Floors and Sqft info */}
-        <div className="flex gap-4 text-sm">
-          {property.floors_owned > 0 && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Layers className="w-3 h-3" />
-              {property.floors_owned} floor{property.floors_owned !== 1 ? "s" : ""}
-            </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-display font-bold text-primary">
+            {formatINR(property.monthly_rent)}/mo
+          </span>
+          {onAddUnit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddUnit();
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Unit
+            </Button>
           )}
-          {totalSqft > 0 && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Square className="w-3 h-3" />
-              {totalSqft.toLocaleString()} sq.ft
-            </div>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(property);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(property.id);
+            }}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
         </div>
-
-        {/* Utilization bar */}
-        {totalSqft > 0 && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Utilization</span>
-              <span className="font-medium">{utilizationPercent.toFixed(0)}%</span>
-            </div>
-            <Progress value={utilizationPercent} className="h-2" />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Rented: {rentedSqft.toLocaleString()} sq.ft</span>
-              <span>Vacant: {vacantSqft.toLocaleString()} sq.ft</span>
-            </div>
+      </div>
+      
+      {/* Utilization bar */}
+      {totalSqft > 0 && (
+        <div className="mt-3 ml-[88px] space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Utilization: {utilizationPercent.toFixed(0)}%</span>
+            <span className="text-muted-foreground">
+              Rented: {rentedSqft.toLocaleString()} | Vacant: {vacantSqft.toLocaleString()} sq.ft
+            </span>
           </div>
-        )}
+          <Progress value={utilizationPercent} className="h-2" />
+        </div>
+      )}
 
-        {/* Floor-wise breakdown (collapsible) */}
-        {floors.length > 0 && (
-          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      {/* Floor-wise breakdown (collapsible) */}
+      {floors.length > 0 && (
+        <div className="mt-3 ml-[88px]">
+          <Collapsible open={floorExpanded} onOpenChange={setFloorExpanded}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto">
-                <span className="text-xs text-muted-foreground">Floor Details</span>
-                {isExpanded ? (
-                  <ChevronDown className="h-3 w-3" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="p-2 h-auto text-xs"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="text-muted-foreground">Floor Details</span>
+                {floorExpanded ? (
+                  <ChevronDown className="h-3 w-3 ml-1" />
                 ) : (
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-3 w-3 ml-1" />
                 )}
               </Button>
             </CollapsibleTrigger>
@@ -145,32 +203,9 @@ const PropertyCard = ({
               </div>
             </CollapsibleContent>
           </Collapsible>
-        )}
-
-        <div className="flex items-center justify-between pt-2">
-          <div>
-            <p className="text-sm text-muted-foreground">Monthly Rent</p>
-            <p className="text-2xl font-display font-bold text-primary">
-              {formatINR(property.monthly_rent)}
-            </p>
-          </div>
-          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" onClick={() => onViewTenants(property)}>
-              <Users className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => onEdit(property)}>
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => onDelete(property.id)}>
-              <Trash2 className="w-4 h-4 text-destructive" />
-            </Button>
-          </div>
         </div>
-        {property.notes && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{property.notes}</p>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 };
 

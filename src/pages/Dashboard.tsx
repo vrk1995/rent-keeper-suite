@@ -7,7 +7,6 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import Properties from "@/pages/Properties";
-import Buildings from "@/pages/Buildings";
 import Tenants from "@/pages/Tenants";
 import Payments from "@/pages/Payments";
 import Invoices from "@/pages/Invoices";
@@ -66,7 +65,6 @@ const Dashboard = () => {
     const path = location.pathname;
     
     if (path === "/dashboard/properties") return <Properties />;
-    if (path === "/dashboard/buildings") return <Buildings />;
     if (path === "/dashboard/tenants") return <Tenants />;
     if (path === "/dashboard/payments") return <Payments />;
     if (path === "/dashboard/invoices") return <Invoices />;

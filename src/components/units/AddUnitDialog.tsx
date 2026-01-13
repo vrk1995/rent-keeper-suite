@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useCreateUnit, useUpdateUnit, Unit } from "@/hooks/useBuildings";
+import { useCreateUnit, useUpdateUnit, Unit } from "@/hooks/useUnits";
 
 const unitSchema = z.object({
   name: z.string().min(1, "Unit name is required").max(100),
@@ -45,7 +45,7 @@ type UnitFormValues = z.infer<typeof unitSchema>;
 interface AddUnitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  buildingId: string | null;
+  propertyId: string | null;
   editUnit?: Unit | null;
 }
 
@@ -66,7 +66,7 @@ const unitStatuses = [
 export const AddUnitDialog = ({
   open,
   onOpenChange,
-  buildingId,
+  propertyId,
   editUnit,
 }: AddUnitDialogProps) => {
   const createUnit = useCreateUnit();
@@ -116,9 +116,9 @@ export const AddUnitDialog = ({
           id: editUnit.id,
           ...values,
         });
-      } else if (buildingId) {
+      } else if (propertyId) {
         await createUnit.mutateAsync({
-          building_id: buildingId,
+          property_id: propertyId,
           name: values.name,
           unit_type: values.unit_type,
           monthly_rent: values.monthly_rent,
@@ -143,7 +143,7 @@ export const AddUnitDialog = ({
           <DialogDescription>
             {editUnit
               ? "Update the unit details below."
-              : "Add a new unit to this building."}
+              : "Add a new unit to this property."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
