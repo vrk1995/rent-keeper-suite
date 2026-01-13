@@ -200,7 +200,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Invoice Items Table
     const tableTop = yPos;
-    const tableHeaders = ["Description", "Amount (₹)"];
+    const tableHeaders = ["Description", "Amount (INR)"];
     const colWidths = [350, 145];
     
     // Draw table header background
@@ -319,13 +319,13 @@ serve(async (req: Request): Promise<Response> => {
   }
 });
 
-// Helper function to format currency
+// Helper function to format currency (using Rs. instead of ₹ for PDF font compatibility)
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+  const formatted = new Intl.NumberFormat("en-IN", {
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
+  return `Rs. ${formatted}`;
 }
 
 // Helper function to convert number to words (Indian numbering system)
