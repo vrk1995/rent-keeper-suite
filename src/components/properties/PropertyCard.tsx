@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Property } from "@/hooks/useProperties";
 import { PropertyFloor } from "@/hooks/usePropertyFloors";
-import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight } from "lucide-react";
+import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight, IndianRupee } from "lucide-react";
 import { useState } from "react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { formatINR } from "@/lib/currency";
 
 interface PropertyCardProps {
   property: Property;
@@ -18,6 +19,9 @@ interface PropertyCardProps {
   floorRentedMap?: Map<string, number>; // floor_id -> rented sqft
   unitCount?: number;
   isExpanded?: boolean;
+  totalRentWithoutGST?: number;
+  totalRentWithGST?: number;
+  hasGSTTenants?: boolean;
   onEdit: (property: Property) => void;
   onDelete: (id: string) => void;
   onViewTenants: (property: Property) => void;
@@ -46,6 +50,9 @@ const PropertyCard = ({
   floorRentedMap = new Map(),
   unitCount = 0,
   isExpanded = false,
+  totalRentWithoutGST = 0,
+  totalRentWithGST = 0,
+  hasGSTTenants = false,
   onEdit, 
   onDelete, 
   onViewTenants,
@@ -100,6 +107,20 @@ const PropertyCard = ({
                 <span>{unitCount} unit{unitCount !== 1 ? "s" : ""}</span>
               )}
             </div>
+            {/* Rent Summary */}
+            {totalRentWithoutGST > 0 && (
+              <div className="flex items-center gap-3 mt-1 text-sm">
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <IndianRupee className="w-3 h-3" />
+                  Rent: <span className="font-medium text-foreground">{formatINR(totalRentWithoutGST)}</span>
+                </span>
+                {hasGSTTenants && (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    With GST: <span className="font-medium text-foreground">{formatINR(totalRentWithGST)}</span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
