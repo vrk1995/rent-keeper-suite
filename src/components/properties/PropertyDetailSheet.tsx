@@ -43,17 +43,20 @@ import {
   Layers,
   Square,
   IndianRupee,
+  Plus,
 } from "lucide-react";
 import { Property } from "@/hooks/useProperties";
 import { Tenant } from "@/hooks/useTenants";
 import { useExpensesByProperty, useDeleteExpense } from "@/hooks/useExpenses";
-import { useDocumentsByProperty } from "@/hooks/useDocuments";
+import { useDocumentsByProperty, useDeleteDocument } from "@/hooks/useDocuments";
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usePayments";
 import { useIsAdmin } from "@/hooks/useUserRole";
 import { formatINR } from "@/lib/currency";
 import { AddExpenseDialog } from "./AddExpenseDialog";
+import { UploadDocumentDialog } from "./UploadDocumentDialog";
 import AddPropertyDialog from "./AddPropertyDialog";
+import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 
 interface PropertyDetailSheetProps {
   property: Property | null;
@@ -77,14 +80,17 @@ export function PropertyDetailSheet({
   onDeleteProperty,
 }: PropertyDetailSheetProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
   const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
+  const [deleteDocumentData, setDeleteDocumentData] = useState<{ id: string; file_url: string; name: string } | null>(null);
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
 
   const { data: expenses } = useExpensesByProperty(property?.id || "");
-  const { data: documents } = useDocumentsByProperty(property?.id || "");
+  const { data: documents, refetch: refetchDocuments } = useDocumentsByProperty(property?.id || "");
   const { data: allInvoices } = useInvoices();
   const { data: allPayments } = usePayments();
   const deleteExpense = useDeleteExpense();
+  const deleteDocument = useDeleteDocument();
 
   if (!property) return null;
 
@@ -268,6 +274,17 @@ export function PropertyDetailSheet({
             <ScrollArea className="h-[calc(100vh-350px)]">
               {/* Tenants Tab */}
               <TabsContent value="tenants" className="p-6 m-0">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Tenants</p>
+                    <p className="text-xl font-bold">{tenants.length}</p>
+                  </div>
+                  <Button size="sm" onClick={() => setTenantDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Tenant
+                  </Button>
+                </div>
+
                 {tenants.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No tenants in this property yet
@@ -367,6 +384,14 @@ export function PropertyDetailSheet({
 
               {/* Documents Tab */}
               <TabsContent value="documents" className="p-6 m-0">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Documents</p>
+                    <p className="text-xl font-bold">{documents?.length || 0}</p>
+                  </div>
+                  <UploadDocumentDialog propertyId={property.id} />
+                </div>
+
                 {(!documents || documents.length === 0) ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No documents uploaded yet
@@ -386,12 +411,21 @@ export function PropertyDetailSheet({
                                 </p>
                               </div>
                             </div>
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="w-4 h-4 mr-1" />
-                                View
-                              </a>
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button variant="outline" size="sm" asChild>
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                  <Download className="w-4 h-4 mr-1" />
+                                  View
+                                </a>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeleteDocumentData({ id: doc.id, file_url: doc.file_url, name: doc.name })}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -546,6 +580,13 @@ export function PropertyDetailSheet({
         editProperty={property}
       />
 
+      {/* Add Tenant Dialog */}
+      <AddTenantDialog
+        open={tenantDialogOpen}
+        onOpenChange={setTenantDialogOpen}
+        defaultPropertyId={property.id}
+      />
+
       {/* Delete Expense Confirmation */}
       <AlertDialog open={!!deleteExpenseId} onOpenChange={() => setDeleteExpenseId(null)}>
         <AlertDialogContent>
@@ -558,6 +599,40 @@ export function PropertyDetailSheet({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteExpense}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Document Confirmation */}
+      <AlertDialog open={!!deleteDocumentData} onOpenChange={() => setDeleteDocumentData(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteDocumentData?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (deleteDocumentData) {
+                  await deleteDocument.mutateAsync({
+                    id: deleteDocumentData.id,
+                    file_url: deleteDocumentData.file_url,
+                    name: deleteDocumentData.name,
+                    property_id: property.id,
+                    tenant_id: null,
+                    uploaded_by: "",
+                    document_type: "",
+                    created_at: "",
+                  });
+                  setDeleteDocumentData(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
