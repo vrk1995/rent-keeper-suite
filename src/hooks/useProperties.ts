@@ -21,7 +21,7 @@ export interface CreatePropertyInput {
   name: string;
   address: string;
   property_type: string;
-  monthly_rent: number;
+  monthly_rent?: number;
   status?: string;
   notes?: string;
   floors_owned?: number;
