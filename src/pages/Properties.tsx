@@ -68,14 +68,31 @@ const Properties = () => {
     const unitSqftMap = new Map<string, number>();
     
     tenants?.forEach((tenant) => {
+      const rentedSqft = tenant.rented_sqft || 0;
+      
+      // Aggregate by property (for tenants not assigned to units)
       if (tenant.property_id && !tenant.unit_id) {
         const current = propMap.get(tenant.property_id) || 0;
-        propMap.set(tenant.property_id, current + (tenant.rented_sqft || 0));
+        propMap.set(tenant.property_id, current + rentedSqft);
       }
+      
+      // Aggregate by floor_id for floor-level utilization
+      if (tenant.floor_id) {
+        const currentFloor = floorMap.get(tenant.floor_id) || 0;
+        floorMap.set(tenant.floor_id, currentFloor + rentedSqft);
+        
+        // Also aggregate to property level
+        if (tenant.property_id) {
+          const currentProp = propMap.get(tenant.property_id) || 0;
+          propMap.set(tenant.property_id, currentProp + rentedSqft);
+        }
+      }
+      
+      // Aggregate by unit
       if (tenant.unit_id) {
         tenantMap.set(tenant.unit_id, tenant.name);
         const current = unitSqftMap.get(tenant.unit_id) || 0;
-        unitSqftMap.set(tenant.unit_id, current + (tenant.rented_sqft || 0));
+        unitSqftMap.set(tenant.unit_id, current + rentedSqft);
       }
     });
     
