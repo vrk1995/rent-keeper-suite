@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2 } from "lucide-react";
+import { Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { usePayments, useMarkPaymentPaid, RentPayment } from "@/hooks/usePayments";
+import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
+import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 
 const statusConfig: Record<string, { icon: React.ElementType; variant: "glow" | "secondary" | "destructive" }> = {
   paid: { icon: CheckCircle, variant: "glow" },
@@ -33,9 +34,11 @@ const statusConfig: Record<string, { icon: React.ElementType; variant: "glow" | 
 
 const Payments = () => {
   const { data: payments, isLoading } = usePayments();
-  const markPaid = useMarkPaymentPaid();
+  const generatePayments = useGenerateMonthlyPayments();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
+  const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
 
   const filteredPayments = payments?.filter((p) => {
     const propertyName = p.property?.name?.toLowerCase() || "";
@@ -62,8 +65,13 @@ const Payments = () => {
     paidAmount: payments?.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0) || 0,
   };
 
-  const handleMarkPaid = async (payment: RentPayment) => {
-    await markPaid.mutateAsync({ id: payment.id, payment_method: "manual" });
+  const handleMarkPaid = (payment: RentPayment) => {
+    setSelectedPayment(payment);
+    setMarkPaidDialogOpen(true);
+  };
+
+  const handleGeneratePayments = () => {
+    generatePayments.mutate();
   };
 
   return (
@@ -73,6 +81,14 @@ const Payments = () => {
           <h1 className="text-3xl font-display font-bold">Payments</h1>
           <p className="text-muted-foreground">Track and manage rent payments</p>
         </div>
+        <Button 
+          variant="hero" 
+          onClick={handleGeneratePayments}
+          disabled={generatePayments.isPending}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${generatePayments.isPending ? 'animate-spin' : ''}`} />
+          Generate Monthly Payments
+        </Button>
       </div>
 
       {/* Stats */}
@@ -152,9 +168,13 @@ const Payments = () => {
             <CreditCard className="w-8 h-8 text-primary" />
           </div>
           <h3 className="text-xl font-semibold mb-2">No payments found</h3>
-          <p className="text-muted-foreground">
-            Payments will appear here when tenants are added
+          <p className="text-muted-foreground mb-4">
+            Click "Generate Monthly Payments" to create payment records for active tenants
           </p>
+          <Button variant="hero" onClick={handleGeneratePayments} disabled={generatePayments.isPending}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${generatePayments.isPending ? 'animate-spin' : ''}`} />
+            Generate Payments
+          </Button>
         </motion.div>
       ) : (
         <Card>
@@ -168,6 +188,7 @@ const Payments = () => {
                   <TableHead>Due Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Paid Date</TableHead>
+                  <TableHead>Notes</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -195,16 +216,18 @@ const Payments = () => {
                       <TableCell>
                         {payment.paid_date ? format(new Date(payment.paid_date), "MMM d, yyyy") : "-"}
                       </TableCell>
+                      <TableCell className="max-w-[150px] truncate" title={payment.notes || undefined}>
+                        {payment.notes || "-"}
+                      </TableCell>
                       <TableCell className="text-right">
                         {payment.status !== "paid" && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleMarkPaid(payment)}
-                            disabled={markPaid.isPending}
                           >
                             <CheckCircle className="w-4 h-4 mr-1" />
-                            Mark Paid
+                            Mark Received
                           </Button>
                         )}
                       </TableCell>
@@ -216,6 +239,12 @@ const Payments = () => {
           </CardContent>
         </Card>
       )}
+
+      <MarkPaidDialog
+        open={markPaidDialogOpen}
+        onOpenChange={setMarkPaidDialogOpen}
+        payment={selectedPayment}
+      />
     </div>
   );
 };
