@@ -20,6 +20,7 @@ const navItems = [
   { icon: FileText, label: "Invoices", href: "/dashboard/invoices" },
   { icon: FileText, label: "Documents", href: "/dashboard/documents" },
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
+  { icon: Users, label: "Team", href: "/dashboard/team" },
 ];
 
 const DashboardSidebar = () => {
