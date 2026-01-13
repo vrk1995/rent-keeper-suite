@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Upload, X } from "lucide-react";
+import { Plus, Upload, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,17 +29,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useUploadDocument } from "@/hooks/useDocuments";
+import { Tenant } from "@/hooks/useTenants";
 
 const documentSchema = z.object({
   name: z.string().min(1, "Document name is required"),
   document_type: z.string().optional(),
+  tenant_id: z.string().optional(),
 });
 
 type DocumentFormData = z.infer<typeof documentSchema>;
 
 interface UploadDocumentDialogProps {
   propertyId: string;
-  tenantId?: string;
+  tenants?: Tenant[];
+  defaultTenantId?: string;
 }
 
 const documentTypes = [
@@ -52,7 +56,7 @@ const documentTypes = [
   { value: "other", label: "Other" },
 ];
 
-export function UploadDocumentDialog({ propertyId, tenantId }: UploadDocumentDialogProps) {
+export function UploadDocumentDialog({ propertyId, tenants = [], defaultTenantId }: UploadDocumentDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,6 +67,7 @@ export function UploadDocumentDialog({ propertyId, tenantId }: UploadDocumentDia
     defaultValues: {
       name: "",
       document_type: "other",
+      tenant_id: defaultTenantId || "",
     },
   });
 
@@ -85,7 +90,7 @@ export function UploadDocumentDialog({ propertyId, tenantId }: UploadDocumentDia
 
     await uploadDocument.mutateAsync({
       property_id: propertyId,
-      tenant_id: tenantId,
+      tenant_id: data.tenant_id || undefined,
       name: data.name,
       file: selectedFile,
       document_type: data.document_type,
@@ -198,6 +203,54 @@ export function UploadDocumentDialog({ propertyId, tenantId }: UploadDocumentDia
                 </FormItem>
               )}
             />
+
+            {tenants.length > 0 && (
+              <FormField
+                control={form.control}
+                name="tenant_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link to Tenant (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tenant (optional)">
+                            {field.value ? (
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4" />
+                                {tenants.find(t => t.id === field.value)?.name || "Select tenant"}
+                              </div>
+                            ) : (
+                              "No tenant linked"
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">
+                          <span className="text-muted-foreground">No tenant (property-level)</span>
+                        </SelectItem>
+                        {tenants.map((tenant) => (
+                          <SelectItem key={tenant.id} value={tenant.id}>
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4" />
+                              {tenant.name}
+                              {tenant.status !== "active" && (
+                                <span className="text-xs text-muted-foreground">({tenant.status})</span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Link this document to a specific tenant for easy organization
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
