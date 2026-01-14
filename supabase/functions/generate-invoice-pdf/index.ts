@@ -95,6 +95,30 @@ serve(async (req: Request): Promise<Response> => {
       page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness, color: grayColor });
     };
 
+    // Helper function to draw wrapped text and return the new Y position
+    const drawWrappedText = (text: string, x: number, y: number, maxWidth: number, font = fontRegular, size = 10, color = blackColor, lineHeight = 14): number => {
+      if (!text) return y;
+      const words = text.split(" ");
+      let line = "";
+      let currentY = y;
+      
+      for (const word of words) {
+        const testLine = line + (line ? " " : "") + word;
+        if (font.widthOfTextAtSize(testLine, size) > maxWidth && line) {
+          drawText(line, x, currentY, font, size, color);
+          currentY -= lineHeight;
+          line = word;
+        } else {
+          line = testLine;
+        }
+      }
+      if (line) {
+        drawText(line, x, currentY, font, size, color);
+        currentY -= lineHeight;
+      }
+      return currentY;
+    };
+
     // HEADER - INVOICE title
     drawText("TAX INVOICE", leftMargin, yPos, fontBold, 24, primaryColor);
     
@@ -120,37 +144,26 @@ serve(async (req: Request): Promise<Response> => {
     const billFromName = tenant?.bill_from_name || "Property Owner";
     const billFromAddress = tenant?.bill_from_address || property?.address || "";
     const billFromGstin = tenant?.bill_from_gstin || "";
+    const maxWidthLeft = 220;
+    const maxWidthRight = 200;
 
-    drawText(billFromName, leftMargin, yPos, fontBold, 11);
-    yPos -= 15;
+    // Draw Bill From Name with wrapping
+    yPos = drawWrappedText(billFromName, leftMargin, yPos, maxWidthLeft, fontBold, 11, blackColor, 14);
+    yPos -= 3;
     
+    // Draw Bill From Address with wrapping
     if (billFromAddress) {
-      // Word wrap for address
-      const maxWidth = 200;
-      const words = billFromAddress.split(" ");
-      let line = "";
-      for (const word of words) {
-        const testLine = line + (line ? " " : "") + word;
-        if (fontRegular.widthOfTextAtSize(testLine, 10) > maxWidth) {
-          drawText(line, leftMargin, yPos, fontRegular, 10, grayColor);
-          yPos -= 12;
-          line = word;
-        } else {
-          line = testLine;
-        }
-      }
-      if (line) {
-        drawText(line, leftMargin, yPos, fontRegular, 10, grayColor);
-        yPos -= 12;
-      }
+      yPos = drawWrappedText(billFromAddress, leftMargin, yPos, maxWidthLeft, fontRegular, 10, grayColor, 12);
     }
     
     if (billFromGstin) {
       drawText(`GSTIN: ${billFromGstin}`, leftMargin, yPos, fontRegular, 10, grayColor);
+      yPos -= 12;
     }
 
-    // BILL TO section (on the right)
-    let billToYPos = yPos + 45 + (billFromAddress ? (Math.ceil(billFromAddress.length / 30) * 12) : 0);
+    // BILL TO section (on the right) - calculate starting Y position
+    // Start Bill To at the same level as Bill From started
+    let billToYPos = height - 50 - 50 - 30 - 18;
     
     drawText("BILL TO", rightMargin - 200, billToYPos, fontBold, 11, primaryColor);
     billToYPos -= 18;
@@ -159,31 +172,18 @@ serve(async (req: Request): Promise<Response> => {
     const billToAddress = tenant?.bill_to_address || "";
     const billToGstin = tenant?.bill_to_gstin || "";
 
-    drawText(billToName, rightMargin - 200, billToYPos, fontBold, 11);
-    billToYPos -= 15;
+    // Draw Bill To Name with wrapping
+    billToYPos = drawWrappedText(billToName, rightMargin - 200, billToYPos, maxWidthRight, fontBold, 11, blackColor, 14);
+    billToYPos -= 3;
 
+    // Draw Bill To Address with wrapping
     if (billToAddress) {
-      const maxWidth = 200;
-      const words = billToAddress.split(" ");
-      let line = "";
-      for (const word of words) {
-        const testLine = line + (line ? " " : "") + word;
-        if (fontRegular.widthOfTextAtSize(testLine, 10) > maxWidth) {
-          drawText(line, rightMargin - 200, billToYPos, fontRegular, 10, grayColor);
-          billToYPos -= 12;
-          line = word;
-        } else {
-          line = testLine;
-        }
-      }
-      if (line) {
-        drawText(line, rightMargin - 200, billToYPos, fontRegular, 10, grayColor);
-        billToYPos -= 12;
-      }
+      billToYPos = drawWrappedText(billToAddress, rightMargin - 200, billToYPos, maxWidthRight, fontRegular, 10, grayColor, 12);
     }
 
     if (billToGstin) {
       drawText(`GSTIN: ${billToGstin}`, rightMargin - 200, billToYPos, fontRegular, 10, grayColor);
+      billToYPos -= 12;
     }
 
     yPos = Math.min(yPos, billToYPos) - 40;
