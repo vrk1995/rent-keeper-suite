@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Property } from "@/hooks/useProperties";
 import { PropertyFloor } from "@/hooks/usePropertyFloors";
-import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight, IndianRupee } from "lucide-react";
+import { PropertyOwnerShare } from "@/hooks/usePropertyOwnerShares";
+import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight, IndianRupee, Users } from "lucide-react";
 import { useState } from "react";
 import {
   Collapsible,
@@ -11,10 +12,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatINR } from "@/lib/currency";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PropertyCardProps {
   property: Property;
   floors?: PropertyFloor[];
+  ownerShares?: PropertyOwnerShare[];
   rentedSqft?: number;
   floorRentedMap?: Map<string, number>; // floor_id -> rented sqft
   unitCount?: number;
@@ -46,6 +54,7 @@ const propertyTypeIcons: Record<string, string> = {
 const PropertyCard = ({ 
   property, 
   floors = [],
+  ownerShares = [],
   rentedSqft = 0, 
   floorRentedMap = new Map(),
   unitCount = 0,
@@ -64,6 +73,7 @@ const PropertyCard = ({
 
   // Show floor-level breakdown if multiple floors exist
   const hasMultipleFloors = floors.length > 1;
+  const hasMultipleOwners = ownerShares.length > 0;
 
   return (
     <div className="p-4">
@@ -114,6 +124,28 @@ const PropertyCard = ({
               )}
               {unitCount > 0 && (
                 <span>{unitCount} unit{unitCount !== 1 ? "s" : ""}</span>
+              )}
+              {hasMultipleOwners && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help">
+                        <Users className="w-3 h-3" />
+                        {ownerShares.length} owner{ownerShares.length !== 1 ? "s" : ""}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        {ownerShares.map((share) => (
+                          <div key={share.id} className="flex justify-between gap-4 text-sm">
+                            <span>{share.property_owners?.name || "Unknown"}</span>
+                            <span className="font-medium">{share.share_percentage}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </div>

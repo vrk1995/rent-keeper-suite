@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Layers, UserPlus } from "lucide-react";
+import { Plus, Trash2, Layers, UserPlus, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,21 +31,27 @@ import { Separator } from "@/components/ui/separator";
 import { useCreateProperty, useUpdateProperty, Property } from "@/hooks/useProperties";
 import { usePropertyFloors, useBulkUpsertFloors } from "@/hooks/usePropertyFloors";
 import { usePropertyOwners, useCreatePropertyOwner } from "@/hooks/usePropertyOwners";
+import { usePropertyOwnerShares, useBulkUpsertOwnerShares } from "@/hooks/usePropertyOwnerShares";
 
 const floorSchema = z.object({
   floor_name: z.string().min(1, "Floor name required"),
   floor_sqft: z.coerce.number().min(0, "Must be positive"),
 });
 
+const ownerShareSchema = z.object({
+  owner_id: z.string().min(1, "Owner is required"),
+  share_percentage: z.coerce.number().min(0.01, "Must be > 0").max(100, "Max 100%"),
+});
+
 const propertySchema = z.object({
   name: z.string().min(1, "Property name is required").max(100),
   address: z.string().min(1, "Address is required").max(255),
   property_type: z.string().min(1, "Property type is required"),
-  property_owner_id: z.string().optional(),
   new_owner_name: z.string().optional(),
   floors_owned: z.coerce.number().min(1, "Must own at least 1 floor"),
   notes: z.string().max(500).optional(),
   floors: z.array(floorSchema),
+  owner_shares: z.array(ownerShareSchema),
 });
 
 type PropertyFormValues = z.infer<typeof propertySchema>;
@@ -60,7 +66,9 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const createProperty = useCreateProperty();
   const updateProperty = useUpdateProperty();
   const bulkUpsertFloors = useBulkUpsertFloors();
+  const bulkUpsertOwnerShares = useBulkUpsertOwnerShares();
   const { data: existingFloors } = usePropertyFloors(editProperty?.id || "");
+  const { data: existingShares } = usePropertyOwnerShares(editProperty?.id);
   const { data: propertyOwners } = usePropertyOwners();
   const createPropertyOwner = useCreatePropertyOwner();
   const [showNewOwnerInput, setShowNewOwnerInput] = useState(false);
@@ -71,20 +79,29 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       name: "",
       address: "",
       property_type: "apartment",
-      property_owner_id: "",
       new_owner_name: "",
       floors_owned: 1,
       notes: "",
       floors: [{ floor_name: "G", floor_sqft: 0 }],
+      owner_shares: [],
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields: floorFields, append: appendFloor, remove: removeFloor, replace: replaceFloors } = useFieldArray({
     control: form.control,
     name: "floors",
   });
 
+  const { fields: ownerFields, append: appendOwner, remove: removeOwner, replace: replaceOwners } = useFieldArray({
+    control: form.control,
+    name: "owner_shares",
+  });
+
   const floorsOwned = form.watch("floors_owned");
+  const ownerShares = form.watch("owner_shares");
+
+  // Calculate total percentage
+  const totalPercentage = ownerShares.reduce((sum, s) => sum + (Number(s.share_percentage) || 0), 0);
 
   // Auto-generate floor entries when floors_owned changes
   useEffect(() => {
@@ -98,14 +115,13 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         if (existingFloor) {
           newFloors.push(existingFloor);
         } else {
-          // Generate floor name: G for ground, then 1, 2, 3...
           const floorName = i === 0 ? "G" : String(i);
           newFloors.push({ floor_name: floorName, floor_sqft: 0 });
         }
       }
-      replace(newFloors);
+      replaceFloors(newFloors);
     }
-  }, [floorsOwned, form, replace]);
+  }, [floorsOwned, form, replaceFloors]);
 
   // Reset form when dialog opens/closes or edit property changes
   useEffect(() => {
@@ -117,48 +133,56 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           floor_sqft: f.floor_sqft,
         })) || [];
         
-        // If no floors exist, generate based on floors_owned
         const floorEntries = floors.length > 0 ? floors : 
           Array.from({ length: editProperty.floors_owned || 1 }, (_, i) => ({
             floor_name: i === 0 ? "G" : String(i),
             floor_sqft: 0,
           }));
 
+        const shares = existingShares?.map(s => ({
+          owner_id: s.owner_id,
+          share_percentage: s.share_percentage,
+        })) || [];
+
         form.reset({
           name: editProperty.name,
           address: editProperty.address,
           property_type: editProperty.property_type,
-          property_owner_id: editProperty.property_owner_id || "none",
           new_owner_name: "",
           floors_owned: editProperty.floors_owned || 1,
           notes: editProperty.notes || "",
           floors: floorEntries,
+          owner_shares: shares,
         });
       } else {
         form.reset({
           name: "",
           address: "",
           property_type: "apartment",
-          property_owner_id: "none",
           new_owner_name: "",
           floors_owned: 1,
           notes: "",
           floors: [{ floor_name: "G", floor_sqft: 0 }],
+          owner_shares: [],
         });
       }
     }
-  }, [open, editProperty, existingFloors, form]);
+  }, [open, editProperty, existingFloors, existingShares, form]);
 
   const onSubmit = async (values: PropertyFormValues) => {
     // Calculate total sqft from floors
     const totalSqft = values.floors.reduce((sum, f) => sum + (f.floor_sqft || 0), 0);
     
-    // Handle new owner creation
-    let ownerId = values.property_owner_id === "none" ? undefined : values.property_owner_id;
+    // Handle new owner creation if needed
+    let newOwnerId: string | undefined;
     if (showNewOwnerInput && values.new_owner_name?.trim()) {
       const newOwner = await createPropertyOwner.mutateAsync({ name: values.new_owner_name.trim() });
-      ownerId = newOwner.id;
+      newOwnerId = newOwner.id;
     }
+
+    // Get primary owner for backwards compatibility (first owner or the one with highest share)
+    const sortedShares = [...values.owner_shares].sort((a, b) => b.share_percentage - a.share_percentage);
+    const primaryOwnerId = sortedShares[0]?.owner_id || null;
 
     if (editProperty) {
       await updateProperty.mutateAsync({ 
@@ -166,7 +190,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
-        property_owner_id: ownerId || null,
+        property_owner_id: primaryOwnerId,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
         notes: values.notes,
@@ -180,19 +204,28 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           floor_sqft: f.floor_sqft,
         })),
       });
+
+      // Update owner shares
+      await bulkUpsertOwnerShares.mutateAsync({
+        property_id: editProperty.id,
+        shares: values.owner_shares.map(s => ({
+          owner_id: s.owner_id,
+          share_percentage: s.share_percentage,
+        })),
+      });
     } else {
       const newProperty = await createProperty.mutateAsync({
         name: values.name,
         address: values.address,
         property_type: values.property_type,
-        property_owner_id: ownerId,
+        property_owner_id: primaryOwnerId,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
         notes: values.notes,
       });
       
-      // Create floors for new property
       if (newProperty?.id) {
+        // Create floors for new property
         await bulkUpsertFloors.mutateAsync({
           property_id: newProperty.id,
           floors: values.floors.map(f => ({
@@ -200,6 +233,17 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
             floor_sqft: f.floor_sqft,
           })),
         });
+
+        // Create owner shares for new property
+        if (values.owner_shares.length > 0) {
+          await bulkUpsertOwnerShares.mutateAsync({
+            property_id: newProperty.id,
+            shares: values.owner_shares.map(s => ({
+              owner_id: s.owner_id,
+              share_percentage: s.share_percentage,
+            })),
+          });
+        }
       }
     }
     form.reset();
@@ -207,9 +251,17 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
     onOpenChange(false);
   };
 
+  // Get available owners (exclude already selected ones)
+  const getAvailableOwners = (currentIndex: number) => {
+    const selectedOwnerIds = ownerShares
+      .filter((_, idx) => idx !== currentIndex)
+      .map(s => s.owner_id);
+    return propertyOwners?.filter(o => !selectedOwnerIds.includes(o.id)) || [];
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editProperty ? "Edit Property" : "Add New Property"}</DialogTitle>
         </DialogHeader>
@@ -267,43 +319,108 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               )}
             />
             
-            {/* Owned By Section */}
+            {/* Owners Section */}
+            <Separator />
             <div className="space-y-3">
-              <FormLabel>Owned By</FormLabel>
-              {!showNewOwnerInput ? (
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <h4 className="font-medium">Property Owners</h4>
+                </div>
+                {totalPercentage > 0 && (
+                  <span className={`text-sm font-medium ${totalPercentage === 100 ? 'text-green-600' : totalPercentage > 100 ? 'text-destructive' : 'text-amber-600'}`}>
+                    Total: {totalPercentage.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Add owners and specify their ownership share percentage. Total should equal 100%.
+              </p>
+
+              {ownerFields.map((field, index) => (
+                <div key={field.id} className="flex gap-2 items-start">
                   <FormField
                     control={form.control}
-                    name="property_owner_id"
+                    name={`owner_shares.${index}.owner_id`}
                     render={({ field }) => (
-                      <FormItem className="flex-1">
+                      <FormItem className="flex-[2]">
+                        {index === 0 && <FormLabel className="text-xs">Owner</FormLabel>}
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select owner (optional)" />
+                              <SelectValue placeholder="Select owner" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="none">No specific owner</SelectItem>
-                            {propertyOwners?.map((owner) => (
+                            {getAvailableOwners(index).map((owner) => (
                               <SelectItem key={owner.id} value={owner.id}>
                                 {owner.name}
                               </SelectItem>
                             ))}
+                            {/* Keep currently selected owner in the list */}
+                            {field.value && !getAvailableOwners(index).find(o => o.id === field.value) && (
+                              <SelectItem value={field.value}>
+                                {propertyOwners?.find(o => o.id === field.value)?.name || field.value}
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name={`owner_shares.${index}.share_percentage`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        {index === 0 && <FormLabel className="text-xs">Share %</FormLabel>}
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min={0.01} 
+                            max={100} 
+                            step={0.01}
+                            placeholder="50" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={index === 0 ? "mt-6" : ""}
+                    onClick={() => removeOwner(index)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+
+              {!showNewOwnerInput ? (
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    size="icon"
-                    onClick={() => setShowNewOwnerInput(true)}
-                    title="Add new owner"
+                    size="sm"
+                    onClick={() => appendOwner({ owner_id: "", share_percentage: 0 })}
+                    disabled={!propertyOwners?.length || ownerFields.length >= (propertyOwners?.length || 0)}
                   >
-                    <UserPlus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Owner
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNewOwnerInput(true)}
+                  >
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    New Owner
                   </Button>
                 </div>
               ) : (
@@ -320,6 +437,22 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                       </FormItem>
                     )}
                   />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={async () => {
+                      const newName = form.getValues("new_owner_name")?.trim();
+                      if (newName) {
+                        const newOwner = await createPropertyOwner.mutateAsync({ name: newName });
+                        appendOwner({ owner_id: newOwner.id, share_percentage: 0 });
+                      }
+                      setShowNewOwnerInput(false);
+                      form.setValue("new_owner_name", "");
+                    }}
+                    disabled={!form.watch("new_owner_name")?.trim() || createPropertyOwner.isPending}
+                  >
+                    Add
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -360,7 +493,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               </p>
               
               <div className="space-y-2">
-                {fields.map((field, index) => (
+                {floorFields.map((field, index) => (
                   <div key={field.id} className="flex gap-2 items-start">
                     <FormField
                       control={form.control}
@@ -388,15 +521,15 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                         </FormItem>
                       )}
                     />
-                    {fields.length > 1 && (
+                    {floorFields.length > 1 && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         className={index === 0 ? "mt-6" : ""}
                         onClick={() => {
-                          remove(index);
-                          form.setValue("floors_owned", fields.length - 1);
+                          removeFloor(index);
+                          form.setValue("floors_owned", floorFields.length - 1);
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -411,8 +544,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  append({ floor_name: String(fields.length), floor_sqft: 0 });
-                  form.setValue("floors_owned", fields.length + 1);
+                  appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0 });
+                  form.setValue("floors_owned", floorFields.length + 1);
                 }}
               >
                 <Plus className="h-4 w-4 mr-1" />
@@ -442,7 +575,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               <Button 
                 type="submit" 
                 variant="hero"
-                disabled={createProperty.isPending || updateProperty.isPending || bulkUpsertFloors.isPending}
+                disabled={createProperty.isPending || updateProperty.isPending || bulkUpsertFloors.isPending || bulkUpsertOwnerShares.isPending}
               >
                 {editProperty ? "Update Property" : "Add Property"}
               </Button>

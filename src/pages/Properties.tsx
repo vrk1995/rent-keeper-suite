@@ -18,6 +18,7 @@ import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
 import { Tenant } from "@/hooks/useTenants";
 import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
+import { PropertyOwnerShare } from "@/hooks/usePropertyOwnerShares";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +61,25 @@ const Properties = () => {
         .order("floor_name", { ascending: true });
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Fetch all owner shares for all properties
+  const { data: allOwnerShares } = useQuery({
+    queryKey: ["all-property-owner-shares"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_owner_shares")
+        .select(`
+          *,
+          property_owners (
+            id,
+            name
+          )
+        `)
+        .order("share_percentage", { ascending: false });
+      if (error) throw error;
+      return data as PropertyOwnerShare[];
     },
   });
 
@@ -131,6 +151,16 @@ const Properties = () => {
     });
     return map;
   }, [allFloors]);
+
+  // Group owner shares by property
+  const ownerSharesByProperty = useMemo(() => {
+    const map = new Map<string, PropertyOwnerShare[]>();
+    allOwnerShares?.forEach((share) => {
+      const existing = map.get(share.property_id) || [];
+      map.set(share.property_id, [...existing, share]);
+    });
+    return map;
+  }, [allOwnerShares]);
 
   // Filter properties by owner and search
   const filteredProperties = useMemo(() => {
@@ -361,6 +391,7 @@ const Properties = () => {
                   <PropertyCard
                     property={property}
                     floors={floorsByProperty.get(property.id) || []}
+                    ownerShares={ownerSharesByProperty.get(property.id) || []}
                     rentedSqft={propertyRentedSqft.get(property.id) || 0}
                     floorRentedMap={floorRentedMap}
                     unitCount={property.units?.length || 0}

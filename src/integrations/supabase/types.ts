@@ -371,6 +371,48 @@ export type Database = {
           },
         ]
       }
+      property_owner_shares: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          property_id: string
+          share_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          property_id: string
+          share_percentage: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          property_id?: string
+          share_percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_owner_shares_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "property_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_owner_shares_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_owners: {
         Row: {
           created_at: string
