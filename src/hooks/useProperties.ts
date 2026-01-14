@@ -5,6 +5,7 @@ import { toast } from "sonner";
 export interface Property {
   id: string;
   owner_id: string;
+  property_owner_id: string | null;
   name: string;
   address: string;
   property_type: string;
@@ -15,6 +16,10 @@ export interface Property {
   total_sqft: number;
   created_at: string;
   updated_at: string;
+  property_owner?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface CreatePropertyInput {
@@ -26,6 +31,7 @@ export interface CreatePropertyInput {
   notes?: string;
   floors_owned?: number;
   total_sqft?: number;
+  property_owner_id?: string;
 }
 
 export const useProperties = () => {
@@ -34,7 +40,10 @@ export const useProperties = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("properties")
-        .select("*")
+        .select(`
+          *,
+          property_owner:property_owners(id, name)
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

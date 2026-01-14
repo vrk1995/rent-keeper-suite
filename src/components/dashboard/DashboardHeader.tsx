@@ -5,6 +5,7 @@ import { Bell, LogOut, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import OwnerFilterSelect from "@/components/filters/OwnerFilterSelect";
 
 interface DashboardHeaderProps {
   user: User;
@@ -25,13 +26,16 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
 
   return (
     <header className="h-16 border-b border-white/10 bg-card/40 backdrop-blur-xl px-6 flex items-center justify-between">
-      {/* Search */}
-      <div className="relative w-80">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search properties, tenants..."
-          className="pl-10 bg-secondary/50 border-white/10"
-        />
+      {/* Search and Filter */}
+      <div className="flex items-center gap-4">
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search properties, tenants..."
+            className="pl-10 bg-secondary/50 border-white/10"
+          />
+        </div>
+        <OwnerFilterSelect />
       </div>
 
       {/* Actions */}

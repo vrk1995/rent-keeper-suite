@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
 import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2 } from "lucide-react";
@@ -10,6 +10,7 @@ import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
 import { useIsAdmin } from "@/hooks/useTeam";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
+import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,17 +26,35 @@ const Tenants = () => {
   const { data: tenants, isLoading } = useTenants();
   const deleteTenant = useDeleteTenant();
   const { isAdmin } = useIsAdmin();
+  const { selectedOwnerId } = useOwnerFilter();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filteredTenants = tenants?.filter(
-    (t) =>
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.property?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTenants = useMemo(() => {
+    let filtered = tenants || [];
+    
+    // Filter by owner
+    if (selectedOwnerId) {
+      filtered = filtered.filter(t => 
+        t.property_owner_id === selectedOwnerId || 
+        t.property?.property_owner_id === selectedOwnerId
+      );
+    }
+    
+    // Filter by search
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (t) =>
+          t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          t.property?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          t.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  }, [tenants, selectedOwnerId, searchQuery]);
 
   const handleEdit = (tenant: Tenant) => {
     setEditTenant(tenant);
