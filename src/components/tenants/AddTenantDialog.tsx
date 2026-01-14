@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, AlertCircle, Info, Building2, Plus, Check } from "lucide-react";
+import { CalendarIcon, AlertCircle, Info, Building2, Plus, Check, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
+import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { cn } from "@/lib/utils";
 
 const tenantSchema = z.object({
@@ -46,6 +47,7 @@ const tenantSchema = z.object({
   property_id: z.string().optional(),
   unit_id: z.string().optional(),
   floor_id: z.string().optional(),
+  property_owner_id: z.string().optional(),
   name: z.string().min(1, "Tenant name is required").max(100),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().max(15).optional(),
@@ -114,6 +116,10 @@ const AddTenantDialog = ({
   );
   
   const { data: floors } = usePropertyFloors(selectedPropertyId);
+  const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
+
+  // Check if property has multiple owners
+  const hasMultipleOwners = (ownerShares?.length || 0) > 1;
 
   // Get default billing address
   const defaultBillingAddress = billingAddresses?.find(a => a.is_default);
@@ -194,6 +200,7 @@ const AddTenantDialog = ({
       property_id: editTenant?.property_id || defaultPropertyId || "",
       unit_id: editTenant?.unit_id || defaultUnitId || "",
       floor_id: editTenant?.floor_id || "",
+      property_owner_id: editTenant?.property_owner_id || "",
       name: editTenant?.name || "",
       email: editTenant?.email || "",
       phone: editTenant?.phone || "",
@@ -267,6 +274,7 @@ const AddTenantDialog = ({
         property_id: editTenant?.property_id || defaultPropertyId || "",
         unit_id: editTenant?.unit_id || defaultUnitId || "",
         floor_id: editTenant?.floor_id || "",
+        property_owner_id: editTenant?.property_owner_id || "",
         name: editTenant?.name || "",
         email: editTenant?.email || "",
         phone: editTenant?.phone || "",
@@ -321,6 +329,7 @@ const AddTenantDialog = ({
       property_id: propertyId!,
       unit_id: values.assignment_type === "unit" ? values.unit_id : undefined,
       floor_id: values.floor_id || undefined,
+      property_owner_id: values.property_owner_id || undefined,
       name: values.name,
       email: values.email || undefined,
       phone: values.phone,
@@ -463,6 +472,37 @@ const AddTenantDialog = ({
                             </SelectItem>
                           );
                         })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* Owner Selection - only show if property has multiple owners */}
+            {hasMultipleOwners && (
+              <FormField
+                control={form.control}
+                name="property_owner_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Assign to Owner
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select owner for this tenant" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ownerShares?.map((share) => (
+                          <SelectItem key={share.owner_id} value={share.owner_id}>
+                            {share.property_owners?.name} ({share.share_percentage}%)
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
