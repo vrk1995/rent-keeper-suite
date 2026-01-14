@@ -33,7 +33,7 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log("Generating invoice for payment:", paymentId);
 
-    // Fetch payment with tenant and property details (including invoice_prefix)
+    // Fetch payment with tenant and property details (including invoice_prefix and owner_id)
     const { data: payment, error: paymentError } = await supabase
       .from("rent_payments")
       .select(`
@@ -51,7 +51,7 @@ serve(async (req: Request): Promise<Response> => {
           bill_to_address,
           bill_to_gstin
         ),
-        property:properties(id, name, address, invoice_prefix)
+        property:properties(id, name, address, invoice_prefix, owner_id)
       `)
       .eq("id", paymentId)
       .single();
@@ -138,7 +138,13 @@ serve(async (req: Request): Promise<Response> => {
       // Format: INV-PREFIX-YY-001
       invoiceNumber = `INV-${prefix}-${yearShort}-${String(nextSequence).padStart(3, "0")}`;
 
-      // Create invoice record
+      // Create invoice record - use property owner_id as created_by
+      const createdBy = payment.marked_by || property?.owner_id;
+      if (!createdBy) {
+        console.error("No valid user ID for created_by");
+        throw new Error("Cannot determine invoice creator");
+      }
+
       const { data: newInvoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
@@ -148,7 +154,7 @@ serve(async (req: Request): Promise<Response> => {
           amount: payment.amount,
           due_date: payment.due_date,
           status: payment.status === "paid" ? "paid" : "sent",
-          created_by: payment.marked_by || "00000000-0000-0000-0000-000000000000",
+          created_by: createdBy,
           items: JSON.stringify([{ description: `Rent for ${new Date(payment.due_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`, amount: payment.amount }]),
         })
         .select()
