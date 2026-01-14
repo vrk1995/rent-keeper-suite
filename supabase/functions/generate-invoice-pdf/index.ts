@@ -33,7 +33,7 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log("Generating invoice for payment:", paymentId);
 
-    // Fetch payment with tenant details
+    // Fetch payment with tenant and property details (including invoice_prefix)
     const { data: payment, error: paymentError } = await supabase
       .from("rent_payments")
       .select(`
@@ -51,7 +51,7 @@ serve(async (req: Request): Promise<Response> => {
           bill_to_address,
           bill_to_gstin
         ),
-        property:properties(name, address)
+        property:properties(id, name, address, invoice_prefix)
       `)
       .eq("id", paymentId)
       .single();
@@ -68,6 +68,100 @@ serve(async (req: Request): Promise<Response> => {
 
     const tenant = payment.tenant;
     const property = payment.property;
+
+    // Check if an invoice already exists for this payment
+    const { data: existingInvoice } = await supabase
+      .from("invoices")
+      .select("id, invoice_number")
+      .eq("property_id", payment.property_id)
+      .eq("tenant_id", payment.tenant_id)
+      .eq("due_date", payment.due_date)
+      .eq("amount", payment.amount)
+      .single();
+
+    let invoiceNumber: string;
+    let invoiceId: string;
+
+    if (existingInvoice) {
+      // Use existing invoice
+      invoiceNumber = existingInvoice.invoice_number;
+      invoiceId = existingInvoice.id;
+      console.log("Using existing invoice:", invoiceNumber);
+    } else {
+      // Generate new invoice number with property prefix
+      const dueDate = new Date(payment.due_date);
+      const year = dueDate.getFullYear();
+      const yearShort = String(year).slice(-2);
+      const prefix = property?.invoice_prefix || property?.name?.substring(0, 3).toUpperCase() || "INV";
+
+      // Get or create sequence for this property and year
+      const { data: sequence, error: seqError } = await supabase
+        .from("invoice_sequences")
+        .select("id, last_sequence")
+        .eq("property_id", payment.property_id)
+        .eq("year", year)
+        .single();
+
+      let nextSequence: number;
+
+      if (seqError || !sequence) {
+        // Create new sequence
+        const { data: newSeq, error: createSeqError } = await supabase
+          .from("invoice_sequences")
+          .insert({
+            property_id: payment.property_id,
+            year: year,
+            last_sequence: 1,
+          })
+          .select()
+          .single();
+
+        if (createSeqError) {
+          console.error("Error creating sequence:", createSeqError);
+          throw new Error("Failed to create invoice sequence");
+        }
+        nextSequence = 1;
+      } else {
+        // Update existing sequence
+        nextSequence = sequence.last_sequence + 1;
+        const { error: updateSeqError } = await supabase
+          .from("invoice_sequences")
+          .update({ last_sequence: nextSequence })
+          .eq("id", sequence.id);
+
+        if (updateSeqError) {
+          console.error("Error updating sequence:", updateSeqError);
+          throw new Error("Failed to update invoice sequence");
+        }
+      }
+
+      // Format: INV-PREFIX-YY-001
+      invoiceNumber = `INV-${prefix}-${yearShort}-${String(nextSequence).padStart(3, "0")}`;
+
+      // Create invoice record
+      const { data: newInvoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .insert({
+          invoice_number: invoiceNumber,
+          property_id: payment.property_id,
+          tenant_id: payment.tenant_id,
+          amount: payment.amount,
+          due_date: payment.due_date,
+          status: payment.status === "paid" ? "paid" : "sent",
+          created_by: payment.marked_by || "00000000-0000-0000-0000-000000000000",
+          items: JSON.stringify([{ description: `Rent for ${new Date(payment.due_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`, amount: payment.amount }]),
+        })
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error("Error creating invoice:", invoiceError);
+        throw new Error("Failed to create invoice record");
+      }
+
+      invoiceId = newInvoice.id;
+      console.log("Created new invoice:", invoiceNumber);
+    }
 
     // Fetch tenant owner shares if tenant has multiple owners
     let ownerShares: { owner_id: string; share_percentage: number; owner_name: string }[] = [];
@@ -145,8 +239,7 @@ serve(async (req: Request): Promise<Response> => {
     // HEADER - INVOICE title
     drawText("TAX INVOICE", leftMargin, yPos, fontBold, 24, primaryColor);
     
-    // Invoice number and date on the right
-    const invoiceNumber = `INV-${payment.id.substring(0, 8).toUpperCase()}`;
+    // Invoice number and date on the right (invoiceNumber was already set above)
     const invoiceDate = new Date(payment.paid_date || payment.due_date).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",

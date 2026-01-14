@@ -47,6 +47,7 @@ const propertySchema = z.object({
   name: z.string().min(1, "Property name is required").max(100),
   address: z.string().min(1, "Address is required").max(255),
   property_type: z.string().min(1, "Property type is required"),
+  invoice_prefix: z.string().max(20).optional(),
   new_owner_name: z.string().optional(),
   floors_owned: z.coerce.number().min(1, "Must own at least 1 floor"),
   notes: z.string().max(500).optional(),
@@ -79,6 +80,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       name: "",
       address: "",
       property_type: "apartment",
+      invoice_prefix: "",
       new_owner_name: "",
       floors_owned: 1,
       notes: "",
@@ -148,6 +150,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: editProperty.name,
           address: editProperty.address,
           property_type: editProperty.property_type,
+          invoice_prefix: editProperty.invoice_prefix || "",
           new_owner_name: "",
           floors_owned: editProperty.floors_owned || 1,
           notes: editProperty.notes || "",
@@ -159,6 +162,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: "",
           address: "",
           property_type: "apartment",
+          invoice_prefix: "",
           new_owner_name: "",
           floors_owned: 1,
           notes: "",
@@ -190,6 +194,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
+        invoice_prefix: values.invoice_prefix || null,
         property_owner_id: primaryOwnerId,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
@@ -218,6 +223,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
+        invoice_prefix: values.invoice_prefix || undefined,
         property_owner_id: primaryOwnerId,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
@@ -314,6 +320,22 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="invoice_prefix"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Invoice Prefix (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., SPD, BLD1" maxLength={20} {...field} />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Used for invoice numbering: INV-[PREFIX]-26-001
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

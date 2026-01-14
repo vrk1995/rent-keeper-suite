@@ -14,6 +14,7 @@ export interface Property {
   notes: string | null;
   floors_owned: number;
   total_sqft: number;
+  invoice_prefix: string | null;
   created_at: string;
   updated_at: string;
   property_owner?: {
@@ -32,6 +33,7 @@ export interface CreatePropertyInput {
   floors_owned?: number;
   total_sqft?: number;
   property_owner_id?: string;
+  invoice_prefix?: string;
 }
 
 export const useProperties = () => {

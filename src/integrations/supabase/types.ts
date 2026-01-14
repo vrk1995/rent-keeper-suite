@@ -128,6 +128,41 @@ export type Database = {
           },
         ]
       }
+      invoice_sequences: {
+        Row: {
+          created_at: string
+          id: string
+          last_sequence: number
+          property_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_sequence?: number
+          property_id: string
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_sequence?: number
+          property_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sequences_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -224,6 +259,7 @@ export type Database = {
           created_at: string
           floors_owned: number | null
           id: string
+          invoice_prefix: string | null
           monthly_rent: number
           name: string
           notes: string | null
@@ -239,6 +275,7 @@ export type Database = {
           created_at?: string
           floors_owned?: number | null
           id?: string
+          invoice_prefix?: string | null
           monthly_rent?: number
           name: string
           notes?: string | null
@@ -254,6 +291,7 @@ export type Database = {
           created_at?: string
           floors_owned?: number | null
           id?: string
+          invoice_prefix?: string | null
           monthly_rent?: number
           name?: string
           notes?: string | null
