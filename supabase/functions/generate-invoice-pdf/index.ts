@@ -411,7 +411,7 @@ serve(async (req: Request): Promise<Response> => {
         borderWidth: 1,
       });
       
-      drawText("✓ PAID", leftMargin + 10, yPos, fontBold, 14, rgb(0.2, 0.6, 0.2));
+      drawText("PAID", leftMargin + 10, yPos, fontBold, 14, rgb(0.2, 0.6, 0.2));
       if (paidDate) {
         drawText(`on ${paidDate}`, leftMargin + 60, yPos, fontRegular, 10, grayColor);
       }
