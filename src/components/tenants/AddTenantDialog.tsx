@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, AlertCircle, Info, Building2, Plus, Check, Users } from "lucide-react";
+import { CalendarIcon, AlertCircle, Info, Building2, Plus, Check, Users, Trash2, Percent } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,13 @@ import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
 import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
+import { useTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
 import { cn } from "@/lib/utils";
+
+const ownerShareSchema = z.object({
+  owner_id: z.string().min(1, "Owner is required"),
+  share_percentage: z.coerce.number().min(0.01, "Must be greater than 0").max(100, "Cannot exceed 100%"),
+});
 
 const tenantSchema = z.object({
   assignment_type: z.enum(["property", "unit"]),
@@ -48,6 +54,7 @@ const tenantSchema = z.object({
   unit_id: z.string().optional(),
   floor_id: z.string().optional(),
   property_owner_id: z.string().optional(),
+  owner_shares: z.array(ownerShareSchema).optional(),
   name: z.string().min(1, "Tenant name is required").max(100),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().max(15).optional(),
@@ -117,9 +124,11 @@ const AddTenantDialog = ({
   
   const { data: floors } = usePropertyFloors(selectedPropertyId);
   const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
+  const { ownerShares: existingTenantOwnerShares, upsertOwnerShares: upsertTenantOwnerShares } = useTenantOwnerShares(editTenant?.id);
 
   // Check if property has multiple owners
   const hasMultipleOwners = (ownerShares?.length || 0) > 1;
+
 
   // Get default billing address
   const defaultBillingAddress = billingAddresses?.find(a => a.is_default);
@@ -201,6 +210,7 @@ const AddTenantDialog = ({
       unit_id: editTenant?.unit_id || defaultUnitId || "",
       floor_id: editTenant?.floor_id || "",
       property_owner_id: editTenant?.property_owner_id || "",
+      owner_shares: [],
       name: editTenant?.name || "",
       email: editTenant?.email || "",
       phone: editTenant?.phone || "",
@@ -220,6 +230,15 @@ const AddTenantDialog = ({
       bill_to_gstin: editTenant?.bill_to_gstin || "",
     },
   });
+
+  const { fields: ownerShareFields, append: appendOwnerShare, remove: removeOwnerShare } = useFieldArray({
+    control: form.control,
+    name: "owner_shares",
+  });
+
+  // Calculate total owner percentage
+  const watchedOwnerShares = form.watch("owner_shares") || [];
+  const totalOwnerPercentage = watchedOwnerShares.reduce((sum, share) => sum + (Number(share.share_percentage) || 0), 0);
 
   const assignmentType = form.watch("assignment_type");
   const watchedPropertyId = form.watch("property_id");
@@ -275,6 +294,10 @@ const AddTenantDialog = ({
         unit_id: editTenant?.unit_id || defaultUnitId || "",
         floor_id: editTenant?.floor_id || "",
         property_owner_id: editTenant?.property_owner_id || "",
+        owner_shares: existingTenantOwnerShares?.map(share => ({
+          owner_id: share.owner_id,
+          share_percentage: share.share_percentage,
+        })) || [],
         name: editTenant?.name || "",
         email: editTenant?.email || "",
         phone: editTenant?.phone || "",
@@ -294,7 +317,7 @@ const AddTenantDialog = ({
         bill_to_gstin: editTenant?.bill_to_gstin || "",
       });
     }
-  }, [open, editTenant, defaultPropertyId, defaultUnitId, form, billingAddresses, defaultBillingAddress]);
+  }, [open, editTenant, defaultPropertyId, defaultUnitId, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares]);
 
   const onSubmit = async (values: TenantFormValues) => {
     // Auto-save billing address if checkbox is checked and address has a name
@@ -349,11 +372,26 @@ const AddTenantDialog = ({
       bill_to_gstin: values.bill_to_gstin || undefined,
     };
 
+    let tenantId: string;
     if (editTenant) {
       await updateTenant.mutateAsync({ id: editTenant.id, ...payload });
+      tenantId = editTenant.id;
     } else {
-      await createTenant.mutateAsync(payload);
+      const newTenant = await createTenant.mutateAsync(payload);
+      tenantId = newTenant.id;
     }
+
+    // Save tenant owner shares if any
+    if (hasMultipleOwners && values.owner_shares && values.owner_shares.length > 0) {
+      await upsertTenantOwnerShares.mutateAsync({
+        tenantId,
+        shares: values.owner_shares.map(share => ({
+          owner_id: share.owner_id,
+          share_percentage: share.share_percentage,
+        })),
+      });
+    }
+
     form.reset();
     setSaveAsNewAddress(false);
     onOpenChange(false);
@@ -480,37 +518,110 @@ const AddTenantDialog = ({
               />
             )}
 
-            {/* Owner Selection - only show if property has multiple owners */}
+            {/* Multi-Owner Assignment - only show if property has multiple owners */}
             {hasMultipleOwners && (
-              <FormField
-                control={form.control}
-                name="property_owner_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Assign to Owner
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select owner for this tenant" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {ownerShares
-                          ?.filter((share) => share.owner_id && share.owner_id.trim() !== "")
-                          .map((share) => (
-                            <SelectItem key={share.owner_id} value={share.owner_id}>
-                              {share.property_owners?.name} ({share.share_percentage}%)
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+              <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Users className="w-4 h-4" />
+                    Owner Shares
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendOwnerShare({ owner_id: "", share_percentage: 0 })}
+                    disabled={ownerShareFields.length >= (ownerShares?.length || 0)}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Owner
+                  </Button>
+                </div>
+
+                {ownerShareFields.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No owners assigned. Click "Add Owner" to assign this tenant to specific owners with their share percentages.
+                  </p>
                 )}
-              />
+
+                {ownerShareFields.map((field, index) => (
+                  <div key={field.id} className="flex items-end gap-2">
+                    <FormField
+                      control={form.control}
+                      name={`owner_shares.${index}.owner_id`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          {index === 0 && <FormLabel>Owner</FormLabel>}
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select owner" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {ownerShares
+                                ?.filter((share) => share.owner_id && share.owner_id.trim() !== "")
+                                .map((share) => (
+                                  <SelectItem key={share.owner_id} value={share.owner_id}>
+                                    {share.property_owners?.name} (Property: {share.share_percentage}%)
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`owner_shares.${index}.share_percentage`}
+                      render={({ field }) => (
+                        <FormItem className="w-28">
+                          {index === 0 && <FormLabel>Share %</FormLabel>}
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                min="0.01"
+                                max="100"
+                                step="0.01"
+                                {...field}
+                                className="pr-8"
+                              />
+                              <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeOwnerShare(index)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                {ownerShareFields.length > 0 && (
+                  <div className={cn(
+                    "text-sm font-medium flex items-center gap-2 pt-2 border-t",
+                    totalOwnerPercentage === 100 ? "text-success" : 
+                    totalOwnerPercentage > 100 ? "text-destructive" : "text-warning"
+                  )}>
+                    <span>Total: {totalOwnerPercentage.toFixed(2)}%</span>
+                    {totalOwnerPercentage !== 100 && (
+                      <span className="text-muted-foreground font-normal">
+                        (Should equal 100%)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Available Capacity Info */}

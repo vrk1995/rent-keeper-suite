@@ -119,7 +119,7 @@ export const useCreateTenant = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateTenantInput) => {
+    mutationFn: async (input: CreateTenantInput): Promise<Tenant> => {
       const { data, error } = await supabase
         .from("tenants")
         .insert(input)
@@ -127,7 +127,7 @@ export const useCreateTenant = () => {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Tenant;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] });
