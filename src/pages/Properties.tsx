@@ -84,12 +84,26 @@ const Properties = () => {
   });
 
   // Create maps for tenant data and rent calculations
-  const { propertyRentedSqft, floorRentedMap, unitTenantMap, unitRentedSqftMap, propertyRentData, tenantsByProperty } = useMemo(() => {
+  // When an owner is selected, we calculate metrics based on:
+  // 1. Tenants directly assigned to that owner (property_owner_id matches)
+  // 2. Share percentage for overall property metrics
+  const { 
+    propertyRentedSqft, 
+    ownerRentedSqft,
+    floorRentedMap, 
+    unitTenantMap, 
+    unitRentedSqftMap, 
+    propertyRentData, 
+    ownerRentData,
+    tenantsByProperty 
+  } = useMemo(() => {
     const propMap = new Map<string, number>();
+    const ownerSqftMap = new Map<string, Map<string, number>>(); // property_id -> owner_id -> sqft
     const floorMap = new Map<string, number>();
     const tenantMap = new Map<string, string>();
     const unitSqftMap = new Map<string, number>();
     const rentData = new Map<string, { withoutGST: number; withGST: number; hasGST: boolean }>();
+    const ownerRentMap = new Map<string, Map<string, { withoutGST: number; withGST: number; hasGST: boolean }>>(); // property_id -> owner_id -> rent
     const tenantsByProp = new Map<string, Tenant[]>();
     
     tenants?.forEach((tenant) => {
@@ -103,13 +117,26 @@ const Properties = () => {
         tenantsByProp.set(tenant.property_id, [...existing, tenant]);
       }
       
-      // Calculate rent per property
+      // Calculate rent per property (total)
       if (tenant.property_id && tenant.status === 'active') {
         const current = rentData.get(tenant.property_id) || { withoutGST: 0, withGST: 0, hasGST: false };
         current.withoutGST += monthlyRent;
         current.withGST += requiresGST ? monthlyRent * 1.18 : monthlyRent;
         if (requiresGST) current.hasGST = true;
         rentData.set(tenant.property_id, current);
+
+        // Track owner-specific rent if tenant has a property_owner_id
+        if (tenant.property_owner_id) {
+          if (!ownerRentMap.has(tenant.property_id)) {
+            ownerRentMap.set(tenant.property_id, new Map());
+          }
+          const propertyOwnerRent = ownerRentMap.get(tenant.property_id)!;
+          const ownerCurrent = propertyOwnerRent.get(tenant.property_owner_id) || { withoutGST: 0, withGST: 0, hasGST: false };
+          ownerCurrent.withoutGST += monthlyRent;
+          ownerCurrent.withGST += requiresGST ? monthlyRent * 1.18 : monthlyRent;
+          if (requiresGST) ownerCurrent.hasGST = true;
+          propertyOwnerRent.set(tenant.property_owner_id, ownerCurrent);
+        }
       }
       
       // Aggregate by floor_id for floor-level utilization
@@ -122,6 +149,16 @@ const Properties = () => {
       if (tenant.property_id && !tenant.unit_id) {
         const current = propMap.get(tenant.property_id) || 0;
         propMap.set(tenant.property_id, current + rentedSqft);
+
+        // Track owner-specific sqft if tenant has a property_owner_id
+        if (tenant.property_owner_id) {
+          if (!ownerSqftMap.has(tenant.property_id)) {
+            ownerSqftMap.set(tenant.property_id, new Map());
+          }
+          const propertyOwnerSqft = ownerSqftMap.get(tenant.property_id)!;
+          const ownerCurrent = propertyOwnerSqft.get(tenant.property_owner_id) || 0;
+          propertyOwnerSqft.set(tenant.property_owner_id, ownerCurrent + rentedSqft);
+        }
       }
       
       // Aggregate by unit
@@ -134,10 +171,12 @@ const Properties = () => {
     
     return { 
       propertyRentedSqft: propMap, 
+      ownerRentedSqft: ownerSqftMap,
       floorRentedMap: floorMap,
       unitTenantMap: tenantMap,
       unitRentedSqftMap: unitSqftMap,
       propertyRentData: rentData,
+      ownerRentData: ownerRentMap,
       tenantsByProperty: tenantsByProp
     };
   }, [tenants]);
@@ -163,12 +202,21 @@ const Properties = () => {
   }, [allOwnerShares]);
 
   // Filter properties by owner and search
+  // When filtering by owner, include properties where:
+  // 1. The owner is the primary property_owner_id, OR
+  // 2. The owner has a share in property_owner_shares
   const filteredProperties = useMemo(() => {
     let props = propertiesWithUnits || [];
     
     // Filter by selected owner
     if (selectedOwnerId) {
-      props = props.filter(p => p.property_owner_id === selectedOwnerId);
+      props = props.filter(p => {
+        // Check if owner is primary owner
+        if (p.property_owner_id === selectedOwnerId) return true;
+        // Check if owner has a share in this property
+        const shares = ownerSharesByProperty.get(p.id) || [];
+        return shares.some(s => s.owner_id === selectedOwnerId);
+      });
     }
     
     // Filter by search query
@@ -181,25 +229,52 @@ const Properties = () => {
     }
     
     return props;
-  }, [propertiesWithUnits, selectedOwnerId, searchQuery]);
+  }, [propertiesWithUnits, selectedOwnerId, searchQuery, ownerSharesByProperty]);
 
-  // Filter tenants and payments based on filtered properties
+  // Get owner share percentage for a property
+  const getOwnerSharePercentage = useMemo(() => {
+    return (propertyId: string, ownerId: string): number => {
+      const shares = ownerSharesByProperty.get(propertyId) || [];
+      const share = shares.find(s => s.owner_id === ownerId);
+      return share?.share_percentage || 100; // Default to 100% if no shares defined
+    };
+  }, [ownerSharesByProperty]);
+
+  // Filter tenants and payments based on filtered properties and owner assignment
   const filteredTenants = useMemo(() => {
     if (!selectedOwnerId) return tenants;
     const propertyIds = new Set(filteredProperties?.map(p => p.id) || []);
-    return tenants?.filter(t => propertyIds.has(t.property_id));
+    // Filter to tenants in filtered properties AND (assigned to this owner OR no owner assigned)
+    return tenants?.filter(t => {
+      if (!propertyIds.has(t.property_id)) return false;
+      // Include if tenant is assigned to selected owner, or if no owner is assigned
+      return t.property_owner_id === selectedOwnerId || !t.property_owner_id;
+    });
   }, [tenants, filteredProperties, selectedOwnerId]);
 
   const filteredPayments = useMemo(() => {
     if (!selectedOwnerId) return payments;
-    const propertyIds = new Set(filteredProperties?.map(p => p.id) || []);
-    return payments?.filter(p => propertyIds.has(p.property_id));
-  }, [payments, filteredProperties, selectedOwnerId]);
+    // Get tenant IDs from filtered tenants
+    const tenantIds = new Set(filteredTenants?.map(t => t.id) || []);
+    return payments?.filter(p => tenantIds.has(p.tenant_id));
+  }, [payments, filteredTenants, selectedOwnerId]);
 
-  // Recalculate rent summary with filtered data
+  // Recalculate rent summary with filtered data and owner share percentages
   const rentSummary = useMemo(() => {
     const activeTenants = filteredTenants?.filter(t => t.status === 'active') || [];
-    const totalCollectible = activeTenants.reduce((sum, t) => sum + (t.monthly_rent || 0), 0);
+    
+    // Calculate totals, applying share percentage for tenants without specific owner assignment
+    let totalCollectible = 0;
+    activeTenants.forEach(t => {
+      if (selectedOwnerId && !t.property_owner_id) {
+        // Tenant not assigned to any owner - apply share percentage
+        const sharePercent = getOwnerSharePercentage(t.property_id, selectedOwnerId);
+        totalCollectible += (t.monthly_rent || 0) * (sharePercent / 100);
+      } else {
+        // Tenant is assigned to this owner (or no filter) - full amount
+        totalCollectible += t.monthly_rent || 0;
+      }
+    });
     
     const currentMonth = new Date();
     const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).toISOString().split('T')[0];
@@ -210,16 +285,28 @@ const Properties = () => {
       return dueDate >= monthStart && dueDate <= monthEnd;
     }) || [];
     
-    const totalReceived = currentMonthPayments
-      .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    let totalReceived = 0;
+    let totalDue = 0;
     
-    const totalDue = currentMonthPayments
-      .filter(p => p.status === 'pending' || p.status === 'overdue')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    currentMonthPayments.forEach(p => {
+      const tenant = tenants?.find(t => t.id === p.tenant_id);
+      let amount = p.amount || 0;
+      
+      // Apply share percentage if tenant not assigned to specific owner
+      if (selectedOwnerId && tenant && !tenant.property_owner_id) {
+        const sharePercent = getOwnerSharePercentage(p.property_id, selectedOwnerId);
+        amount = amount * (sharePercent / 100);
+      }
+      
+      if (p.status === 'paid') {
+        totalReceived += amount;
+      } else if (p.status === 'pending' || p.status === 'overdue') {
+        totalDue += amount;
+      }
+    });
     
     return { totalCollectible, totalReceived, totalDue };
-  }, [filteredTenants, filteredPayments]);
+  }, [filteredTenants, filteredPayments, selectedOwnerId, tenants, getOwnerSharePercentage]);
 
   const handlePropertyClick = (property: Property) => {
     setSelectedProperty(property);
