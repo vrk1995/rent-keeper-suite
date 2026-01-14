@@ -128,7 +128,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: editProperty.name,
           address: editProperty.address,
           property_type: editProperty.property_type,
-          property_owner_id: editProperty.property_owner_id || "",
+          property_owner_id: editProperty.property_owner_id || "none",
           new_owner_name: "",
           floors_owned: editProperty.floors_owned || 1,
           notes: editProperty.notes || "",
@@ -139,7 +139,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: "",
           address: "",
           property_type: "apartment",
-          property_owner_id: "",
+          property_owner_id: "none",
           new_owner_name: "",
           floors_owned: 1,
           notes: "",
@@ -154,7 +154,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
     const totalSqft = values.floors.reduce((sum, f) => sum + (f.floor_sqft || 0), 0);
     
     // Handle new owner creation
-    let ownerId = values.property_owner_id || undefined;
+    let ownerId = values.property_owner_id === "none" ? undefined : values.property_owner_id;
     if (showNewOwnerInput && values.new_owner_name?.trim()) {
       const newOwner = await createPropertyOwner.mutateAsync({ name: values.new_owner_name.trim() });
       ownerId = newOwner.id;
@@ -284,7 +284,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">No specific owner</SelectItem>
+                            <SelectItem value="none">No specific owner</SelectItem>
                             {propertyOwners?.map((owner) => (
                               <SelectItem key={owner.id} value={owner.id}>
                                 {owner.name}
