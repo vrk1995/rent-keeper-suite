@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, Search, FileText, Send, Download } from "lucide-react";
+import { Plus, Search, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +36,8 @@ import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const statusColors: Record<string, "glow" | "secondary" | "destructive" | "outline"> = {
   draft: "outline",
@@ -45,6 +47,14 @@ const statusColors: Record<string, "glow" | "secondary" | "destructive" | "outli
   cancelled: "secondary",
 };
 
+const statusIcons: Record<string, React.ElementType> = {
+  draft: FileText,
+  sent: Clock,
+  paid: CheckCircle,
+  overdue: AlertCircle,
+  cancelled: FileText,
+};
+
 const Invoices = () => {
   const { data: invoices, isLoading } = useInvoices();
   const { data: properties } = useProperties();
@@ -52,18 +62,31 @@ const Invoices = () => {
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedTenant, setSelectedTenant] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const filteredInvoices = invoices?.filter(
-    (inv) =>
+  const filteredInvoices = invoices?.filter((inv) => {
+    const matchesSearch =
       inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.property?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.tenant?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      inv.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.tenant?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: invoices?.length || 0,
+    paid: invoices?.filter((i) => i.status === "paid").length || 0,
+    sent: invoices?.filter((i) => i.status === "sent").length || 0,
+    draft: invoices?.filter((i) => i.status === "draft").length || 0,
+    totalAmount: invoices?.reduce((sum, i) => sum + i.amount, 0) || 0,
+    paidAmount: invoices?.filter((i) => i.status === "paid").reduce((sum, i) => sum + i.amount, 0) || 0,
+  };
 
   const propertyTenants = tenants?.filter((t) => t.property_id === selectedProperty);
 
@@ -88,6 +111,60 @@ const Invoices = () => {
     await updateStatus.mutateAsync({ id, status: "sent" });
   };
 
+  const handleDownloadInvoice = async (invoice: typeof invoices extends (infer T)[] | undefined ? T : never) => {
+    setDownloadingId(invoice.id);
+    try {
+      // Find the corresponding payment to generate PDF
+      const { data: payment, error: paymentError } = await supabase
+        .from("rent_payments")
+        .select("id")
+        .eq("property_id", invoice.property_id)
+        .eq("tenant_id", invoice.tenant_id)
+        .eq("due_date", invoice.due_date)
+        .maybeSingle();
+
+      if (paymentError) throw paymentError;
+
+      if (!payment) {
+        // Generate a simple PDF for invoices without payment records
+        toast.info("Invoice PDF not available - no linked payment record found");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("generate-invoice-pdf", {
+        body: { paymentId: payment.id },
+      });
+
+      if (error) throw error;
+
+      // Convert base64 to blob and download
+      const byteCharacters = atob(data.pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.invoice_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Invoice downloaded successfully!");
+    } catch (error: any) {
+      console.error("Error downloading invoice:", error);
+      toast.error("Failed to download invoice: " + error.message);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -101,14 +178,69 @@ const Invoices = () => {
         </Button>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search invoices..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Invoiced</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-display font-bold text-primary">{formatINR(stats.totalAmount)}</p>
+            <p className="text-xs text-muted-foreground">{stats.total} invoices</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-display font-bold text-green-600">{formatINR(stats.paidAmount)}</p>
+            <p className="text-xs text-muted-foreground">{stats.paid} invoices</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Sent</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-display font-bold">{stats.sent}</p>
+            <p className="text-xs text-muted-foreground">invoices</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Draft</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-display font-bold">{stats.draft}</p>
+            <p className="text-xs text-muted-foreground">invoices</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search invoices..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="sent">Sent</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -124,7 +256,7 @@ const Invoices = () => {
           </div>
           <h3 className="text-xl font-semibold mb-2">No invoices yet</h3>
           <p className="text-muted-foreground mb-4">
-            Create your first invoice with a single click
+            Invoices are automatically created when you download from Payments, or create one manually
           </p>
           <Button variant="hero" onClick={() => setDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -147,37 +279,50 @@ const Invoices = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvoices?.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-mono">{invoice.invoice_number}</TableCell>
-                    <TableCell>{invoice.property?.name}</TableCell>
-                    <TableCell>{invoice.tenant?.name}</TableCell>
-                    <TableCell className="font-semibold">{formatINR(invoice.amount)}</TableCell>
-                    <TableCell>{format(new Date(invoice.due_date), "MMM d, yyyy")}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusColors[invoice.status]}>
-                        {invoice.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {invoice.status === "draft" && (
-                          <Button
-                            variant="ghost"
+                {filteredInvoices?.map((invoice) => {
+                  const StatusIcon = statusIcons[invoice.status] || FileText;
+                  return (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-mono font-medium">{invoice.invoice_number}</TableCell>
+                      <TableCell>{invoice.property?.name || "-"}</TableCell>
+                      <TableCell>{invoice.tenant?.name || "-"}</TableCell>
+                      <TableCell className="font-semibold">{formatINR(invoice.amount)}</TableCell>
+                      <TableCell>{format(new Date(invoice.due_date), "MMM d, yyyy")}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusColors[invoice.status] || "secondary"}>
+                          <StatusIcon className="w-3 h-3 mr-1" />
+                          {invoice.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          {invoice.status === "draft" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSendInvoice(invoice.id)}
+                            >
+                              <Send className="w-4 h-4 mr-1" />
+                              Send
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
                             size="sm"
-                            onClick={() => handleSendInvoice(invoice.id)}
+                            onClick={() => handleDownloadInvoice(invoice)}
+                            disabled={downloadingId === invoice.id}
                           >
-                            <Send className="w-4 h-4 mr-1" />
-                            Send
+                            {downloadingId === invoice.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
                           </Button>
-                        )}
-                        <Button variant="ghost" size="sm">
-                          <Download className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
