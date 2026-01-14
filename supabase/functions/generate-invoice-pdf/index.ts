@@ -39,6 +39,7 @@ serve(async (req: Request): Promise<Response> => {
       .select(`
         *,
         tenant:tenants(
+          id,
           name,
           email,
           phone,
@@ -67,6 +68,28 @@ serve(async (req: Request): Promise<Response> => {
 
     const tenant = payment.tenant;
     const property = payment.property;
+
+    // Fetch tenant owner shares if tenant has multiple owners
+    let ownerShares: { owner_id: string; share_percentage: number; owner_name: string }[] = [];
+    if (tenant?.id) {
+      const { data: shares, error: sharesError } = await supabase
+        .from("tenant_owner_shares")
+        .select(`
+          owner_id,
+          share_percentage,
+          property_owners(name)
+        `)
+        .eq("tenant_id", tenant.id);
+
+      if (!sharesError && shares && shares.length > 0) {
+        ownerShares = shares.map((share: any) => ({
+          owner_id: share.owner_id,
+          share_percentage: share.share_percentage,
+          owner_name: share.property_owners?.name || "Owner",
+        }));
+        console.log("Tenant owner shares:", JSON.stringify(ownerShares, null, 2));
+      }
+    }
 
     // Create PDF document
     const pdfDoc = await PDFDocument.create();
@@ -232,10 +255,21 @@ serve(async (req: Request): Promise<Response> => {
     const dueDate = new Date(payment.due_date);
     const periodMonth = dueDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
-    // Draw items
-    drawText(`Rent for ${periodMonth}`, leftMargin + 10, yPos, fontRegular, 10);
-    drawText(formatCurrency(baseAmount), leftMargin + 360, yPos, fontRegular, 10);
-    yPos -= 20;
+    // Draw items - split by owner if multiple owners exist
+    if (ownerShares.length > 1) {
+      // Multiple owners - show individual line items for each owner
+      for (const share of ownerShares) {
+        const ownerAmount = baseAmount * (share.share_percentage / 100);
+        drawText(`Rent for ${periodMonth} - ${share.owner_name} (${share.share_percentage}%)`, leftMargin + 10, yPos, fontRegular, 10);
+        drawText(formatCurrency(ownerAmount), leftMargin + 360, yPos, fontRegular, 10);
+        yPos -= 20;
+      }
+    } else {
+      // Single owner or no owner shares - show single line item
+      drawText(`Rent for ${periodMonth}`, leftMargin + 10, yPos, fontRegular, 10);
+      drawText(formatCurrency(baseAmount), leftMargin + 360, yPos, fontRegular, 10);
+      yPos -= 20;
+    }
 
     if (requiresGst) {
       drawText("CGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
