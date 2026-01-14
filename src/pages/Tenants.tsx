@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
+import { useAllTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
 import { useIsAdmin } from "@/hooks/useTeam";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
@@ -24,6 +25,7 @@ import {
 
 const Tenants = () => {
   const { data: tenants, isLoading } = useTenants();
+  const { allOwnerShares: tenantOwnerShares } = useAllTenantOwnerShares();
   const deleteTenant = useDeleteTenant();
   const { isAdmin } = useIsAdmin();
   const { selectedOwnerId } = useOwnerFilter();
@@ -32,15 +34,30 @@ const Tenants = () => {
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Group tenant owner shares by tenant_id
+  const ownerSharesByTenant = useMemo(() => {
+    const map = new Map<string, typeof tenantOwnerShares>();
+    tenantOwnerShares?.forEach((share) => {
+      const existing = map.get(share.tenant_id) || [];
+      map.set(share.tenant_id, [...existing, share]);
+    });
+    return map;
+  }, [tenantOwnerShares]);
+
   const filteredTenants = useMemo(() => {
     let filtered = tenants || [];
     
     // Filter by owner
     if (selectedOwnerId) {
-      filtered = filtered.filter(t => 
-        t.property_owner_id === selectedOwnerId || 
-        t.property?.property_owner_id === selectedOwnerId
-      );
+      filtered = filtered.filter(t => {
+        // Check if tenant is assigned to this owner via property_owner_id (legacy)
+        if (t.property_owner_id === selectedOwnerId) return true;
+        // Check if property's owner matches
+        if (t.property?.property_owner_id === selectedOwnerId) return true;
+        // Check if tenant has a share assigned to this owner
+        const shares = ownerSharesByTenant.get(t.id) || [];
+        return shares.some(s => s.owner_id === selectedOwnerId);
+      });
     }
     
     // Filter by search
@@ -54,7 +71,7 @@ const Tenants = () => {
     }
     
     return filtered;
-  }, [tenants, selectedOwnerId, searchQuery]);
+  }, [tenants, selectedOwnerId, searchQuery, ownerSharesByTenant]);
 
   const handleEdit = (tenant: Tenant) => {
     setEditTenant(tenant);
