@@ -236,8 +236,9 @@ serve(async (req: Request): Promise<Response> => {
       return currentY;
     };
 
-    // HEADER - INVOICE title
-    drawText("TAX INVOICE", leftMargin, yPos, fontBold, 24, primaryColor);
+    // HEADER - INVOICE title (TAX INVOICE if GST applicable, otherwise just INVOICE)
+    const invoiceTitle = tenant?.requires_gst ? "TAX INVOICE" : "INVOICE";
+    drawText(invoiceTitle, leftMargin, yPos, fontBold, 24, primaryColor);
     
     // Invoice number and date on the right (invoiceNumber was already set above)
     const invoiceDate = new Date(payment.paid_date || payment.due_date).toLocaleDateString("en-IN", {
