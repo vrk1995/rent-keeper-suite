@@ -229,6 +229,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_approved: boolean | null
           role: string | null
           updated_at: string
           user_id: string
@@ -238,6 +239,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_approved?: boolean | null
           role?: string | null
           updated_at?: string
           user_id: string
@@ -247,6 +249,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_approved?: boolean | null
           role?: string | null
           updated_at?: string
           user_id?: string
@@ -857,6 +860,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_user_approved: { Args: { _user_id: string }; Returns: boolean }
       update_overdue_payments: { Args: never; Returns: Json }
     }
     Enums: {

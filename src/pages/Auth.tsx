@@ -48,8 +48,9 @@ const Auth = () => {
         if (error) throw error;
         toast({
           title: "Account created!",
-          description: "Please check your email to verify your account.",
+          description: "Your account is pending admin approval. You'll be notified once approved.",
         });
+        navigate("/dashboard");
       }
     } catch (error: any) {
       toast({

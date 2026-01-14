@@ -10,8 +10,10 @@ import {
   Settings,
   Bell,
   Receipt,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsAdmin } from "@/hooks/useUserRole";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
@@ -27,6 +29,7 @@ const navItems = [
 
 const DashboardSidebar = () => {
   const location = useLocation();
+  const { isAdmin } = useIsAdmin();
 
   return (
     <motion.aside
@@ -67,6 +70,24 @@ const DashboardSidebar = () => {
               </li>
             );
           })}
+          
+          {/* Admin-only link */}
+          {isAdmin && (
+            <li>
+              <Link
+                to="/dashboard/admin"
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
+                  location.pathname === "/dashboard/admin"
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                )}
+              >
+                <ShieldCheck className="w-5 h-5" />
+                Admin
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 

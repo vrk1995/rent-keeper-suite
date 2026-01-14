@@ -14,7 +14,11 @@ import Documents from "@/pages/Documents";
 import Reminders from "@/pages/Reminders";
 import Team from "@/pages/Team";
 import BillingAddresses from "@/pages/BillingAddresses";
+import AdminApprovals from "@/pages/AdminApprovals";
+import PendingApproval from "@/pages/PendingApproval";
 import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
+import { useApprovalStatus } from "@/hooks/useApprovalStatus";
+import { useIsAdmin } from "@/hooks/useUserRole";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -22,6 +26,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: isApproved, isLoading: approvalLoading } = useApprovalStatus();
+  const { isAdmin, isLoading: adminLoading } = useIsAdmin();
 
   useEffect(() => {
     // Set up auth state listener
@@ -51,7 +57,7 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  if (loading) {
+  if (loading || approvalLoading || adminLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -61,6 +67,11 @@ const Dashboard = () => {
 
   if (!user) {
     return null;
+  }
+
+  // Check if user is approved (admins bypass this check)
+  if (!isApproved && !isAdmin) {
+    return <PendingApproval />;
   }
 
   // Determine which page to render based on the current path
@@ -75,6 +86,7 @@ const Dashboard = () => {
     if (path === "/dashboard/reminders") return <Reminders />;
     if (path === "/dashboard/team") return <Team />;
     if (path === "/dashboard/billing-addresses") return <BillingAddresses />;
+    if (path === "/dashboard/admin" && isAdmin) return <AdminApprovals />;
     
     return <DashboardOverview />;
   };
