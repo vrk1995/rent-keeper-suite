@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Layers } from "lucide-react";
+import { Plus, Trash2, Layers, UserPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useCreateProperty, useUpdateProperty, Property } from "@/hooks/useProperties";
 import { usePropertyFloors, useBulkUpsertFloors } from "@/hooks/usePropertyFloors";
+import { usePropertyOwners, useCreatePropertyOwner } from "@/hooks/usePropertyOwners";
 
 const floorSchema = z.object({
   floor_name: z.string().min(1, "Floor name required"),
@@ -40,6 +41,8 @@ const propertySchema = z.object({
   name: z.string().min(1, "Property name is required").max(100),
   address: z.string().min(1, "Address is required").max(255),
   property_type: z.string().min(1, "Property type is required"),
+  property_owner_id: z.string().optional(),
+  new_owner_name: z.string().optional(),
   floors_owned: z.coerce.number().min(1, "Must own at least 1 floor"),
   notes: z.string().max(500).optional(),
   floors: z.array(floorSchema),
@@ -58,6 +61,9 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const updateProperty = useUpdateProperty();
   const bulkUpsertFloors = useBulkUpsertFloors();
   const { data: existingFloors } = usePropertyFloors(editProperty?.id || "");
+  const { data: propertyOwners } = usePropertyOwners();
+  const createPropertyOwner = useCreatePropertyOwner();
+  const [showNewOwnerInput, setShowNewOwnerInput] = useState(false);
   
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertySchema),
@@ -65,6 +71,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       name: "",
       address: "",
       property_type: "apartment",
+      property_owner_id: "",
+      new_owner_name: "",
       floors_owned: 1,
       notes: "",
       floors: [{ floor_name: "G", floor_sqft: 0 }],
@@ -102,6 +110,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   // Reset form when dialog opens/closes or edit property changes
   useEffect(() => {
     if (open) {
+      setShowNewOwnerInput(false);
       if (editProperty) {
         const floors = existingFloors?.map(f => ({
           floor_name: f.floor_name,
@@ -119,6 +128,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: editProperty.name,
           address: editProperty.address,
           property_type: editProperty.property_type,
+          property_owner_id: editProperty.property_owner_id || "",
+          new_owner_name: "",
           floors_owned: editProperty.floors_owned || 1,
           notes: editProperty.notes || "",
           floors: floorEntries,
@@ -128,6 +139,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           name: "",
           address: "",
           property_type: "apartment",
+          property_owner_id: "",
+          new_owner_name: "",
           floors_owned: 1,
           notes: "",
           floors: [{ floor_name: "G", floor_sqft: 0 }],
@@ -139,6 +152,13 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const onSubmit = async (values: PropertyFormValues) => {
     // Calculate total sqft from floors
     const totalSqft = values.floors.reduce((sum, f) => sum + (f.floor_sqft || 0), 0);
+    
+    // Handle new owner creation
+    let ownerId = values.property_owner_id || undefined;
+    if (showNewOwnerInput && values.new_owner_name?.trim()) {
+      const newOwner = await createPropertyOwner.mutateAsync({ name: values.new_owner_name.trim() });
+      ownerId = newOwner.id;
+    }
 
     if (editProperty) {
       await updateProperty.mutateAsync({ 
@@ -146,6 +166,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
+        property_owner_id: ownerId || null,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
         notes: values.notes,
@@ -164,6 +185,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         name: values.name,
         address: values.address,
         property_type: values.property_type,
+        property_owner_id: ownerId,
         floors_owned: values.floors_owned,
         total_sqft: totalSqft,
         notes: values.notes,
@@ -181,6 +203,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       }
     }
     form.reset();
+    setShowNewOwnerInput(false);
     onOpenChange(false);
   };
 
@@ -244,6 +267,73 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               )}
             />
             
+            {/* Owned By Section */}
+            <div className="space-y-3">
+              <FormLabel>Owned By</FormLabel>
+              {!showNewOwnerInput ? (
+                <div className="flex gap-2">
+                  <FormField
+                    control={form.control}
+                    name="property_owner_id"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select owner (optional)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">No specific owner</SelectItem>
+                            {propertyOwners?.map((owner) => (
+                              <SelectItem key={owner.id} value={owner.id}>
+                                {owner.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowNewOwnerInput(true)}
+                    title="Add new owner"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <FormField
+                    control={form.control}
+                    name="new_owner_name"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormControl>
+                          <Input placeholder="Enter new owner name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowNewOwnerInput(false);
+                      form.setValue("new_owner_name", "");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <FormField
               control={form.control}
               name="floors_owned"

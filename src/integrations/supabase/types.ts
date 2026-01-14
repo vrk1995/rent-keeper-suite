@@ -228,6 +228,7 @@ export type Database = {
           name: string
           notes: string | null
           owner_id: string
+          property_owner_id: string | null
           property_type: string | null
           status: string | null
           total_sqft: number | null
@@ -242,6 +243,7 @@ export type Database = {
           name: string
           notes?: string | null
           owner_id: string
+          property_owner_id?: string | null
           property_type?: string | null
           status?: string | null
           total_sqft?: number | null
@@ -256,12 +258,21 @@ export type Database = {
           name?: string
           notes?: string | null
           owner_id?: string
+          property_owner_id?: string | null
           property_type?: string | null
           status?: string | null
           total_sqft?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "properties_property_owner_id_fkey"
+            columns: ["property_owner_id"]
+            isOneToOne: false
+            referencedRelation: "property_owners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       property_expenses: {
         Row: {
@@ -359,6 +370,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      property_owners: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       reminders: {
         Row: {
@@ -503,6 +538,7 @@ export type Database = {
           name: string
           phone: string | null
           property_id: string
+          property_owner_id: string | null
           rent_due_day: number | null
           rented_sqft: number | null
           requires_gst: boolean | null
@@ -529,6 +565,7 @@ export type Database = {
           name: string
           phone?: string | null
           property_id: string
+          property_owner_id?: string | null
           rent_due_day?: number | null
           rented_sqft?: number | null
           requires_gst?: boolean | null
@@ -555,6 +592,7 @@ export type Database = {
           name?: string
           phone?: string | null
           property_id?: string
+          property_owner_id?: string | null
           rent_due_day?: number | null
           rented_sqft?: number | null
           requires_gst?: boolean | null
@@ -576,6 +614,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenants_property_owner_id_fkey"
+            columns: ["property_owner_id"]
+            isOneToOne: false
+            referencedRelation: "property_owners"
             referencedColumns: ["id"]
           },
           {

@@ -14,6 +14,7 @@ import Documents from "@/pages/Documents";
 import Reminders from "@/pages/Reminders";
 import Team from "@/pages/Team";
 import BillingAddresses from "@/pages/BillingAddresses";
+import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -79,22 +80,24 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <DashboardSidebar />
-      <div className="flex-1 flex flex-col">
-        <DashboardHeader user={user} />
-        <main className="flex-1 p-6 overflow-auto">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {renderContent()}
-          </motion.div>
-        </main>
+    <OwnerFilterProvider>
+      <div className="min-h-screen bg-background flex">
+        <DashboardSidebar />
+        <div className="flex-1 flex flex-col">
+          <DashboardHeader user={user} />
+          <main className="flex-1 p-6 overflow-auto">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderContent()}
+            </motion.div>
+          </main>
+        </div>
       </div>
-    </div>
+    </OwnerFilterProvider>
   );
 };
 

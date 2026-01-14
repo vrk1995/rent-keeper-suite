@@ -7,6 +7,7 @@ export interface Tenant {
   property_id: string;
   unit_id: string | null;
   floor_id: string | null;
+  property_owner_id: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -32,6 +33,7 @@ export interface Tenant {
     name: string;
     address: string;
     total_sqft: number;
+    property_owner_id: string | null;
   };
   unit?: {
     name: string;
@@ -43,12 +45,17 @@ export interface Tenant {
   floor?: {
     floor_name: string;
   };
+  property_owner?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface CreateTenantInput {
   property_id: string;
   unit_id?: string;
   floor_id?: string;
+  property_owner_id?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -78,9 +85,10 @@ export const useTenants = () => {
         .from("tenants")
         .select(`
           *,
-          property:properties(name, address, total_sqft),
+          property:properties(name, address, total_sqft, property_owner_id),
           unit:units(name, total_sqft, building:buildings(name)),
-          floor:property_floors(floor_name)
+          floor:property_floors(floor_name),
+          property_owner:property_owners(id, name)
         `)
         .order("created_at", { ascending: false });
 

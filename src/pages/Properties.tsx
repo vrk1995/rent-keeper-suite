@@ -17,6 +17,7 @@ import { AddUnitDialog } from "@/components/units/AddUnitDialog";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { formatINR } from "@/lib/currency";
 import { Tenant } from "@/hooks/useTenants";
+import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ const Properties = () => {
   const { data: propertiesWithUnits, isLoading } = usePropertiesWithUnits();
   const { data: tenants } = useTenants();
   const { data: payments } = usePayments();
+  const { selectedOwnerId } = useOwnerFilter();
   const deleteProperty = useDeleteProperty();
   const deleteUnit = useDeleteUnit();
   
@@ -120,16 +122,60 @@ const Properties = () => {
     };
   }, [tenants]);
 
-  // Calculate rent summary
+  // Group floors by property
+  const floorsByProperty = useMemo(() => {
+    const map = new Map<string, typeof allFloors>();
+    allFloors?.forEach((floor) => {
+      const existing = map.get(floor.property_id) || [];
+      map.set(floor.property_id, [...existing, floor]);
+    });
+    return map;
+  }, [allFloors]);
+
+  // Filter properties by owner and search
+  const filteredProperties = useMemo(() => {
+    let props = propertiesWithUnits || [];
+    
+    // Filter by selected owner
+    if (selectedOwnerId) {
+      props = props.filter(p => p.property_owner_id === selectedOwnerId);
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      props = props.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return props;
+  }, [propertiesWithUnits, selectedOwnerId, searchQuery]);
+
+  // Filter tenants and payments based on filtered properties
+  const filteredTenants = useMemo(() => {
+    if (!selectedOwnerId) return tenants;
+    const propertyIds = new Set(filteredProperties?.map(p => p.id) || []);
+    return tenants?.filter(t => propertyIds.has(t.property_id));
+  }, [tenants, filteredProperties, selectedOwnerId]);
+
+  const filteredPayments = useMemo(() => {
+    if (!selectedOwnerId) return payments;
+    const propertyIds = new Set(filteredProperties?.map(p => p.id) || []);
+    return payments?.filter(p => propertyIds.has(p.property_id));
+  }, [payments, filteredProperties, selectedOwnerId]);
+
+  // Recalculate rent summary with filtered data
   const rentSummary = useMemo(() => {
-    const activeTenants = tenants?.filter(t => t.status === 'active') || [];
+    const activeTenants = filteredTenants?.filter(t => t.status === 'active') || [];
     const totalCollectible = activeTenants.reduce((sum, t) => sum + (t.monthly_rent || 0), 0);
     
     const currentMonth = new Date();
     const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).toISOString().split('T')[0];
     const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).toISOString().split('T')[0];
     
-    const currentMonthPayments = payments?.filter(p => {
+    const currentMonthPayments = filteredPayments?.filter(p => {
       const dueDate = p.due_date;
       return dueDate >= monthStart && dueDate <= monthEnd;
     }) || [];
@@ -143,23 +189,7 @@ const Properties = () => {
       .reduce((sum, p) => sum + (p.amount || 0), 0);
     
     return { totalCollectible, totalReceived, totalDue };
-  }, [tenants, payments]);
-
-  // Group floors by property
-  const floorsByProperty = useMemo(() => {
-    const map = new Map<string, typeof allFloors>();
-    allFloors?.forEach((floor) => {
-      const existing = map.get(floor.property_id) || [];
-      map.set(floor.property_id, [...existing, floor]);
-    });
-    return map;
-  }, [allFloors]);
-
-  const filteredProperties = propertiesWithUnits?.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.address.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  }, [filteredTenants, filteredPayments]);
 
   const handlePropertyClick = (property: Property) => {
     setSelectedProperty(property);
