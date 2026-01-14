@@ -25,11 +25,13 @@ const OwnerFilterSelect = () => {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Owners</SelectItem>
-          {owners.map((owner) => (
-            <SelectItem key={owner.id} value={owner.id}>
-              {owner.name}
-            </SelectItem>
-          ))}
+          {owners
+            .filter((owner) => owner.id && owner.id.trim() !== "")
+            .map((owner) => (
+              <SelectItem key={owner.id} value={owner.id}>
+                {owner.name}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
     </div>
