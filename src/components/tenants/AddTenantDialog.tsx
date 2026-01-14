@@ -498,11 +498,13 @@ const AddTenantDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {ownerShares?.map((share) => (
-                          <SelectItem key={share.owner_id} value={share.owner_id}>
-                            {share.property_owners?.name} ({share.share_percentage}%)
-                          </SelectItem>
-                        ))}
+                        {ownerShares
+                          ?.filter((share) => share.owner_id && share.owner_id.trim() !== "")
+                          .map((share) => (
+                            <SelectItem key={share.owner_id} value={share.owner_id}>
+                              {share.property_owners?.name} ({share.share_percentage}%)
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
