@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Clock, User, Mail } from "lucide-react";
+import { useIsSuperAdmin } from "@/hooks/useUserRole";
+import { CheckCircle, XCircle, Clock, User, Mail, ShieldCheck } from "lucide-react";
 
 interface PendingUser {
   user_id: string;
@@ -20,6 +21,7 @@ interface PendingUser {
 const AdminApprovals = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
 
   // Fetch all pending users
   const { data: pendingUsers, isLoading } = useQuery({
@@ -109,7 +111,7 @@ const AdminApprovals = () => {
     },
   });
 
-  if (isLoading) {
+  if (isLoading || superAdminLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -117,13 +119,31 @@ const AdminApprovals = () => {
     );
   }
 
+  // Only super admins can access this page
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <ShieldCheck className="w-16 h-16 text-muted-foreground/50 mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+        <p className="text-muted-foreground">
+          Only Super Admins can access this page.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold">User Approvals</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage user access to the application
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+          <ShieldCheck className="w-6 h-6 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-display font-bold">Super Admin Panel</h1>
+          <p className="text-muted-foreground">
+            Approve new user sign-ups and manage platform access
+          </p>
+        </div>
       </div>
 
       {/* Pending Approvals */}
