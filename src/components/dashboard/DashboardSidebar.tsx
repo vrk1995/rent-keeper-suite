@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsAdmin } from "@/hooks/useUserRole";
+import { useIsSuperAdmin } from "@/hooks/useUserRole";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
@@ -29,7 +29,7 @@ const navItems = [
 
 const DashboardSidebar = () => {
   const location = useLocation();
-  const { isAdmin } = useIsAdmin();
+  const { isSuperAdmin } = useIsSuperAdmin();
 
   return (
     <motion.aside
@@ -71,8 +71,8 @@ const DashboardSidebar = () => {
             );
           })}
           
-          {/* Admin-only link */}
-          {isAdmin && (
+          {/* Super Admin-only link */}
+          {isSuperAdmin && (
             <li>
               <Link
                 to="/dashboard/admin"
@@ -84,7 +84,7 @@ const DashboardSidebar = () => {
                 )}
               >
                 <ShieldCheck className="w-5 h-5" />
-                Admin
+                Super Admin
               </Link>
             </li>
           )}
