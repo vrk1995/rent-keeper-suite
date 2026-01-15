@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+export type AppRole = 'super_admin' | 'admin' | 'member' | 'viewer';
+
 export const useUserRole = () => {
   return useQuery({
     queryKey: ["user-role"],
@@ -17,17 +19,22 @@ export const useUserRole = () => {
       if (error) {
         // If no role found, return 'member' as default
         if (error.code === 'PGRST116') {
-          return 'member';
+          return 'member' as AppRole;
         }
         throw error;
       }
 
-      return data?.role || 'member';
+      return (data?.role || 'member') as AppRole;
     },
   });
 };
 
 export const useIsAdmin = () => {
   const { data: role, isLoading } = useUserRole();
-  return { isAdmin: role === 'admin', isLoading };
+  return { isAdmin: role === 'admin' || role === 'super_admin', isLoading };
+};
+
+export const useIsSuperAdmin = () => {
+  const { data: role, isLoading } = useUserRole();
+  return { isSuperAdmin: role === 'super_admin', isLoading };
 };

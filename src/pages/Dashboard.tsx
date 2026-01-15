@@ -18,7 +18,7 @@ import AdminApprovals from "@/pages/AdminApprovals";
 import PendingApproval from "@/pages/PendingApproval";
 import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
 import { useApprovalStatus } from "@/hooks/useApprovalStatus";
-import { useIsAdmin } from "@/hooks/useUserRole";
+import { useIsAdmin, useIsSuperAdmin } from "@/hooks/useUserRole";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -28,6 +28,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { data: isApproved, isLoading: approvalLoading } = useApprovalStatus();
   const { isAdmin, isLoading: adminLoading } = useIsAdmin();
+  const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
 
   useEffect(() => {
     // Set up auth state listener
@@ -57,7 +58,7 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  if (loading || approvalLoading || adminLoading) {
+  if (loading || approvalLoading || adminLoading || superAdminLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -69,8 +70,8 @@ const Dashboard = () => {
     return null;
   }
 
-  // Check if user is approved (admins bypass this check)
-  if (!isApproved && !isAdmin) {
+  // Check if user is approved (admins and super admins bypass this check)
+  if (!isApproved && !isAdmin && !isSuperAdmin) {
     return <PendingApproval />;
   }
 
@@ -86,7 +87,7 @@ const Dashboard = () => {
     if (path === "/dashboard/reminders") return <Reminders />;
     if (path === "/dashboard/team") return <Team />;
     if (path === "/dashboard/billing-addresses") return <BillingAddresses />;
-    if (path === "/dashboard/admin" && isAdmin) return <AdminApprovals />;
+    if (path === "/dashboard/admin" && isSuperAdmin) return <AdminApprovals />;
     
     return <DashboardOverview />;
   };
