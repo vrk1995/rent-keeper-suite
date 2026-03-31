@@ -351,9 +351,16 @@ serve(async (req: Request): Promise<Response> => {
     const gstAmount = requiresGst ? baseAmount * gstRate : 0;
     const totalAmount = baseAmount + gstAmount;
 
-    // Period
-    const dueDate = new Date(payment.due_date);
-    const periodMonth = dueDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    // Period - use billing_month if available, otherwise fall back to due_date
+    let periodMonth: string;
+    if (payment.billing_month) {
+      const [bYear, bMonth] = payment.billing_month.split("-");
+      const billingDate = new Date(parseInt(bYear), parseInt(bMonth) - 1, 1);
+      periodMonth = billingDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    } else {
+      const dueDate = new Date(payment.due_date);
+      periodMonth = dueDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    }
 
     // Draw items - split by owner if multiple owners exist
     if (ownerShares.length > 1) {

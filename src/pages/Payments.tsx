@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2 } from "lucide-react";
+import { Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
@@ -34,6 +41,31 @@ const statusConfig: Record<string, { icon: React.ElementType; variant: "glow" | 
   partial: { icon: Clock, variant: "secondary" },
 };
 
+const getMonthOptions = () => {
+  const now = new Date();
+  const options: { label: string; year: number; month: number }[] = [];
+  // Previous month, current month, next month
+  for (let offset = -1; offset <= 1; offset++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    options.push({
+      label: d.toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+    });
+  }
+  return options;
+};
+
+const formatBillingMonth = (billingMonth: string | null, dueDate: string) => {
+  if (billingMonth) {
+    const [y, m] = billingMonth.split("-");
+    const d = new Date(parseInt(y), parseInt(m) - 1, 1);
+    return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+  }
+  const d = new Date(dueDate);
+  return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+};
+
 const Payments = () => {
   const { data: payments, isLoading } = usePayments();
   const generatePayments = useGenerateMonthlyPayments();
@@ -42,6 +74,13 @@ const Payments = () => {
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${now.getMonth() + 1}`;
+  });
+
+  const monthOptions = getMonthOptions();
 
   const filteredPayments = payments?.filter((p) => {
     const propertyName = p.property?.name?.toLowerCase() || "";
@@ -74,7 +113,9 @@ const Payments = () => {
   };
 
   const handleGeneratePayments = () => {
-    generatePayments.mutate();
+    const [year, month] = selectedMonth.split("-").map(Number);
+    generatePayments.mutate({ year, month });
+    setGenerateDialogOpen(false);
   };
 
   const handleGenerateInvoice = async (paymentId: string) => {
@@ -86,7 +127,6 @@ const Payments = () => {
 
       if (error) throw error;
 
-      // Convert base64 to blob and download
       const byteCharacters = atob(data.pdf);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -95,7 +135,6 @@ const Payments = () => {
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: "application/pdf" });
 
-      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -123,10 +162,9 @@ const Payments = () => {
         </div>
         <Button 
           variant="hero" 
-          onClick={handleGeneratePayments}
-          disabled={generatePayments.isPending}
+          onClick={() => setGenerateDialogOpen(true)}
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${generatePayments.isPending ? 'animate-spin' : ''}`} />
+          <RefreshCw className="w-4 h-4 mr-2" />
           Generate Monthly Payments
         </Button>
       </div>
@@ -211,8 +249,8 @@ const Payments = () => {
           <p className="text-muted-foreground mb-4">
             Click "Generate Monthly Payments" to create payment records for active tenants
           </p>
-          <Button variant="hero" onClick={handleGeneratePayments} disabled={generatePayments.isPending}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${generatePayments.isPending ? 'animate-spin' : ''}`} />
+          <Button variant="hero" onClick={() => setGenerateDialogOpen(true)}>
+            <RefreshCw className="w-4 h-4 mr-2" />
             Generate Payments
           </Button>
         </motion.div>
@@ -224,11 +262,11 @@ const Payments = () => {
                 <TableRow>
                   <TableHead>Property</TableHead>
                   <TableHead>Tenant</TableHead>
+                  <TableHead>Billing Month</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Paid Date</TableHead>
-                  <TableHead>Notes</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -245,6 +283,12 @@ const Payments = () => {
                         {locationDisplay}
                       </TableCell>
                       <TableCell>{payment.tenant?.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-normal">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {formatBillingMonth(payment.billing_month, payment.due_date)}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
                       <TableCell>{format(new Date(payment.due_date), "MMM d, yyyy")}</TableCell>
                       <TableCell>
@@ -255,9 +299,6 @@ const Payments = () => {
                       </TableCell>
                       <TableCell>
                         {payment.paid_date ? format(new Date(payment.paid_date), "MMM d, yyyy") : "-"}
-                      </TableCell>
-                      <TableCell className="max-w-[150px] truncate" title={payment.notes || undefined}>
-                        {payment.notes || "-"}
                       </TableCell>
                       <TableCell className="text-right space-x-1">
                         <Button
@@ -292,6 +333,45 @@ const Payments = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Generate Payments Dialog */}
+      <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Generate Monthly Payments</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Select the billing month to generate rent payment records for all active tenants.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Billing Month</label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((opt) => (
+                    <SelectItem key={`${opt.year}-${opt.month}`} value={`${opt.year}-${opt.month}`}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                e.g. If generating in July for June rent, select "June"
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGenerateDialogOpen(false)}>Cancel</Button>
+            <Button variant="hero" onClick={handleGeneratePayments} disabled={generatePayments.isPending}>
+              {generatePayments.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Generate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <MarkPaidDialog
         open={markPaidDialogOpen}
