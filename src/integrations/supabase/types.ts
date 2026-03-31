@@ -535,6 +535,7 @@ export type Database = {
       rent_payments: {
         Row: {
           amount: number
+          billing_month: string | null
           created_at: string
           due_date: string
           id: string
@@ -550,6 +551,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          billing_month?: string | null
           created_at?: string
           due_date: string
           id?: string
@@ -565,6 +567,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          billing_month?: string | null
           created_at?: string
           due_date?: string
           id?: string
