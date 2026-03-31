@@ -9,6 +9,7 @@ export interface RentPayment {
   tenant_id: string;
   amount: number;
   due_date: string;
+  billing_month: string | null;
   paid_date: string | null;
   status: string;
   payment_method: string | null;
