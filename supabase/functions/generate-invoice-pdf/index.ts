@@ -145,6 +145,16 @@ serve(async (req: Request): Promise<Response> => {
         throw new Error("Cannot determine invoice creator");
       }
 
+      // Determine the billing period for the invoice description
+      let rentPeriod: string;
+      if (payment.billing_month) {
+        const [bY, bM] = payment.billing_month.split("-");
+        const billingDate = new Date(parseInt(bY), parseInt(bM) - 1, 1);
+        rentPeriod = billingDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      } else {
+        rentPeriod = new Date(payment.due_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      }
+
       const { data: newInvoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
@@ -155,7 +165,7 @@ serve(async (req: Request): Promise<Response> => {
           due_date: payment.due_date,
           status: payment.status === "paid" ? "paid" : "sent",
           created_by: createdBy,
-          items: JSON.stringify([{ description: `Rent for ${new Date(payment.due_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`, amount: payment.amount }]),
+          items: JSON.stringify([{ description: `Rent for ${rentPeriod}`, amount: payment.amount }]),
         })
         .select()
         .single();
