@@ -9,6 +9,7 @@ export interface RentPayment {
   tenant_id: string;
   amount: number;
   due_date: string;
+  billing_month: string | null;
   paid_date: string | null;
   status: string;
   payment_method: string | null;
@@ -165,13 +166,9 @@ export const useGenerateMonthlyPayments = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      // Get current month info
+    mutationFn: async ({ year, month }: { year: number; month: number }) => {
       const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      const monthStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
-      const monthEnd = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+      const billingMonth = `${year}-${String(month).padStart(2, '0')}`;
 
       // Get active tenants
       const { data: tenants, error: tenantsError } = await supabase
@@ -181,29 +178,25 @@ export const useGenerateMonthlyPayments = () => {
 
       if (tenantsError) throw tenantsError;
 
-      // Get existing payments for this month
+      // Get existing payments for this billing month
       const { data: existingPayments, error: paymentsError } = await supabase
         .from("rent_payments")
-        .select("tenant_id, due_date")
-        .gte("due_date", monthStart)
-        .lte("due_date", monthEnd);
+        .select("tenant_id, billing_month")
+        .eq("billing_month", billingMonth);
 
       if (paymentsError) throw paymentsError;
 
-      // Create a set of existing tenant payments for this month
       const existingSet = new Set(
-        existingPayments?.map(p => `${p.tenant_id}-${p.due_date.substring(0, 7)}`)
+        existingPayments?.map(p => p.tenant_id)
       );
 
-      // Generate payments for tenants who don't have one this month
+      // Generate payments for tenants who don't have one for this billing month
       const paymentsToCreate = tenants
-        ?.filter(tenant => {
-          const monthKey = `${tenant.id}-${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-          return !existingSet.has(monthKey) && (tenant.monthly_rent || 0) > 0;
-        })
+        ?.filter(tenant => !existingSet.has(tenant.id) && (tenant.monthly_rent || 0) > 0)
         .map(tenant => {
           const dueDay = Math.min(tenant.rent_due_day || 1, 28);
-          const dueDate = new Date(currentYear, currentMonth, dueDay)
+          // Due date is in the billing month
+          const dueDate = new Date(year, month - 1, dueDay)
             .toISOString()
             .split('T')[0];
 
@@ -213,6 +206,7 @@ export const useGenerateMonthlyPayments = () => {
             unit_id: tenant.unit_id,
             amount: tenant.monthly_rent || 0,
             due_date: dueDate,
+            billing_month: billingMonth,
             status: new Date(dueDate) < now ? 'overdue' : 'pending',
           };
         }) || [];
@@ -223,7 +217,7 @@ export const useGenerateMonthlyPayments = () => {
 
       const { error: insertError } = await supabase
         .from("rent_payments")
-        .insert(paymentsToCreate);
+        .insert(paymentsToCreate as any);
 
       if (insertError) throw insertError;
 

@@ -145,6 +145,16 @@ serve(async (req: Request): Promise<Response> => {
         throw new Error("Cannot determine invoice creator");
       }
 
+      // Determine the billing period for the invoice description
+      let rentPeriod: string;
+      if (payment.billing_month) {
+        const [bY, bM] = payment.billing_month.split("-");
+        const billingDate = new Date(parseInt(bY), parseInt(bM) - 1, 1);
+        rentPeriod = billingDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      } else {
+        rentPeriod = new Date(payment.due_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      }
+
       const { data: newInvoice, error: invoiceError } = await supabase
         .from("invoices")
         .insert({
@@ -155,7 +165,7 @@ serve(async (req: Request): Promise<Response> => {
           due_date: payment.due_date,
           status: payment.status === "paid" ? "paid" : "sent",
           created_by: createdBy,
-          items: JSON.stringify([{ description: `Rent for ${new Date(payment.due_date).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}`, amount: payment.amount }]),
+          items: JSON.stringify([{ description: `Rent for ${rentPeriod}`, amount: payment.amount }]),
         })
         .select()
         .single();
@@ -351,9 +361,16 @@ serve(async (req: Request): Promise<Response> => {
     const gstAmount = requiresGst ? baseAmount * gstRate : 0;
     const totalAmount = baseAmount + gstAmount;
 
-    // Period
-    const dueDate = new Date(payment.due_date);
-    const periodMonth = dueDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    // Period - use billing_month if available, otherwise fall back to due_date
+    let periodMonth: string;
+    if (payment.billing_month) {
+      const [bYear, bMonth] = payment.billing_month.split("-");
+      const billingDate = new Date(parseInt(bYear), parseInt(bMonth) - 1, 1);
+      periodMonth = billingDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    } else {
+      const dueDate = new Date(payment.due_date);
+      periodMonth = dueDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    }
 
     // Draw items - split by owner if multiple owners exist
     if (ownerShares.length > 1) {
