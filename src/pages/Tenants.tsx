@@ -41,6 +41,7 @@ const Tenants = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [incrementTenant, setIncrementTenant] = useState<Tenant | null>(null);
 
   // Group tenant owner shares by tenant_id
   const ownerSharesByTenant = useMemo(() => {
