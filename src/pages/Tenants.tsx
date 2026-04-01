@@ -94,7 +94,7 @@ const Tenants = () => {
     }
     
     return filtered;
-  }, [tenants, selectedOwnerId, selectedBuilding, searchQuery, ownerSharesByTenant]);
+  }, [tenants, selectedOwnerId, selectedPropertyId, searchQuery, ownerSharesByTenant]);
 
   const handleEdit = (tenant: Tenant) => {
     setEditTenant(tenant);
