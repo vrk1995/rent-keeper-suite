@@ -30,6 +30,7 @@ const Tenants = () => {
   const { isAdmin } = useIsAdmin();
   const { selectedOwnerId } = useOwnerFilter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
