@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, Filter } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, Filter, TrendingUp } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
 import { useAllTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
 import { useIsAdmin } from "@/hooks/useTeam";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
+import RentIncrementDialog from "@/components/tenants/RentIncrementDialog";
 import { formatINR } from "@/lib/currency";
 import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
 import {
@@ -41,6 +42,7 @@ const Tenants = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [incrementTenant, setIncrementTenant] = useState<Tenant | null>(null);
 
   // Group tenant owner shares by tenant_id
   const ownerSharesByTenant = useMemo(() => {
@@ -221,6 +223,18 @@ const Tenants = () => {
                       <Badge variant={leaseStatus.variant}>
                         {leaseStatus.label}
                       </Badge>
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIncrementTenant(tenant);
+                          }}
+                          title="Rent Increments"
+                        >
+                          <TrendingUp className="h-4 w-4" />
+                        </Button>
                       {isAdmin && (
                         <Button
                           variant="ghost"
@@ -300,6 +314,16 @@ const Tenants = () => {
         onOpenChange={handleDialogClose}
         editTenant={editTenant}
       />
+
+      {incrementTenant && (
+        <RentIncrementDialog
+          open={!!incrementTenant}
+          onOpenChange={(open) => !open && setIncrementTenant(null)}
+          tenantId={incrementTenant.id}
+          tenantName={incrementTenant.name}
+          currentRent={incrementTenant.monthly_rent || 0}
+        />
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

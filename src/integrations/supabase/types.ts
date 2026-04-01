@@ -532,6 +532,97 @@ export type Database = {
           },
         ]
       }
+      rent_increment_history: {
+        Row: {
+          applied_at: string
+          created_at: string
+          effective_date: string
+          id: string
+          increment_type: string
+          increment_value: number
+          new_rent: number
+          notes: string | null
+          previous_rent: number
+          tenant_id: string
+        }
+        Insert: {
+          applied_at?: string
+          created_at?: string
+          effective_date: string
+          id?: string
+          increment_type: string
+          increment_value: number
+          new_rent: number
+          notes?: string | null
+          previous_rent: number
+          tenant_id: string
+        }
+        Update: {
+          applied_at?: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          increment_type?: string
+          increment_value?: number
+          new_rent?: number
+          notes?: string | null
+          previous_rent?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_increment_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rent_increments: {
+        Row: {
+          created_at: string
+          id: string
+          increment_type: string
+          increment_value: number
+          interval_months: number
+          is_active: boolean
+          next_increment_date: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          increment_type?: string
+          increment_value?: number
+          interval_months?: number
+          is_active?: boolean
+          next_increment_date: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          increment_type?: string
+          increment_value?: number
+          interval_months?: number
+          is_active?: boolean
+          next_increment_date?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_increments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rent_payments: {
         Row: {
           amount: number
