@@ -76,10 +76,10 @@ const Tenants = () => {
       });
     }
 
-    // Filter by building
-    if (selectedBuilding && selectedBuilding !== "all") {
+    // Filter by property
+    if (selectedPropertyId && selectedPropertyId !== "all") {
       filtered = filtered.filter(
-        (t) => t.unit?.building?.name === selectedBuilding
+        (t) => t.property_id === selectedPropertyId
       );
     }
     
