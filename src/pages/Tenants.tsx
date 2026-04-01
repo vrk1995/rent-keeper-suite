@@ -1,7 +1,14 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2 } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, Filter } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +37,7 @@ const Tenants = () => {
   const { isAdmin } = useIsAdmin();
   const { selectedOwnerId } = useOwnerFilter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -44,20 +52,35 @@ const Tenants = () => {
     return map;
   }, [tenantOwnerShares]);
 
+  // Extract unique building names for the filter
+  const buildingNames = useMemo(() => {
+    const names = new Set<string>();
+    (tenants || []).forEach((t) => {
+      if (t.unit?.building?.name) {
+        names.add(t.unit.building.name);
+      }
+    });
+    return Array.from(names).sort();
+  }, [tenants]);
+
   const filteredTenants = useMemo(() => {
     let filtered = tenants || [];
     
     // Filter by owner
     if (selectedOwnerId) {
       filtered = filtered.filter(t => {
-        // Check if tenant is assigned to this owner via property_owner_id (legacy)
         if (t.property_owner_id === selectedOwnerId) return true;
-        // Check if property's owner matches
         if (t.property?.property_owner_id === selectedOwnerId) return true;
-        // Check if tenant has a share assigned to this owner
         const shares = ownerSharesByTenant.get(t.id) || [];
         return shares.some(s => s.owner_id === selectedOwnerId);
       });
+    }
+
+    // Filter by building
+    if (selectedBuilding && selectedBuilding !== "all") {
+      filtered = filtered.filter(
+        (t) => t.unit?.building?.name === selectedBuilding
+      );
     }
     
     // Filter by search
@@ -71,7 +94,7 @@ const Tenants = () => {
     }
     
     return filtered;
-  }, [tenants, selectedOwnerId, searchQuery, ownerSharesByTenant]);
+  }, [tenants, selectedOwnerId, selectedBuilding, searchQuery, ownerSharesByTenant]);
 
   const handleEdit = (tenant: Tenant) => {
     setEditTenant(tenant);
@@ -110,14 +133,34 @@ const Tenants = () => {
         </Button>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search tenants..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tenants..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        {buildingNames.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-muted-foreground" />
+            <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+              <SelectTrigger className="w-[200px] bg-secondary/50 border-white/10">
+                <SelectValue placeholder="Filter by building" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Buildings</SelectItem>
+                {buildingNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
