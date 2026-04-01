@@ -17,6 +17,7 @@ import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
 import { useAllTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
 import { useIsAdmin } from "@/hooks/useTeam";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
+import RentIncrementDialog from "@/components/tenants/RentIncrementDialog";
 import { formatINR } from "@/lib/currency";
 import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
 import {
