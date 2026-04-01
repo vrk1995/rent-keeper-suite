@@ -143,17 +143,17 @@ const Tenants = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        {buildingNames.length > 0 && (
+        {propertyOptions.length > 1 && (
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-muted-foreground" />
-            <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+            <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
               <SelectTrigger className="w-[200px] bg-secondary/50 border-white/10">
-                <SelectValue placeholder="Filter by building" />
+                <SelectValue placeholder="Filter by property" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Buildings</SelectItem>
-                {buildingNames.map((name) => (
-                  <SelectItem key={name} value={name}>
+                <SelectItem value="all">All Properties</SelectItem>
+                {propertyOptions.map(([id, name]) => (
+                  <SelectItem key={id} value={id}>
                     {name}
                   </SelectItem>
                 ))}
