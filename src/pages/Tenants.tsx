@@ -315,6 +315,16 @@ const Tenants = () => {
         editTenant={editTenant}
       />
 
+      {incrementTenant && (
+        <RentIncrementDialog
+          open={!!incrementTenant}
+          onOpenChange={(open) => !open && setIncrementTenant(null)}
+          tenantId={incrementTenant.id}
+          tenantName={incrementTenant.name}
+          currentRent={incrementTenant.monthly_rent || 0}
+        />
+      )}
+
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
