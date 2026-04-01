@@ -52,15 +52,15 @@ const Tenants = () => {
     return map;
   }, [tenantOwnerShares]);
 
-  // Extract unique building names for the filter
-  const buildingNames = useMemo(() => {
-    const names = new Set<string>();
+  // Extract unique properties for the filter
+  const propertyOptions = useMemo(() => {
+    const map = new Map<string, string>();
     (tenants || []).forEach((t) => {
-      if (t.unit?.building?.name) {
-        names.add(t.unit.building.name);
+      if (t.property?.name) {
+        map.set(t.property_id, t.property.name);
       }
     });
-    return Array.from(names).sort();
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [tenants]);
 
   const filteredTenants = useMemo(() => {
