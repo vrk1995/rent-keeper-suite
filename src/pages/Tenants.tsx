@@ -52,20 +52,35 @@ const Tenants = () => {
     return map;
   }, [tenantOwnerShares]);
 
+  // Extract unique building names for the filter
+  const buildingNames = useMemo(() => {
+    const names = new Set<string>();
+    (tenants || []).forEach((t) => {
+      if (t.unit?.building?.name) {
+        names.add(t.unit.building.name);
+      }
+    });
+    return Array.from(names).sort();
+  }, [tenants]);
+
   const filteredTenants = useMemo(() => {
     let filtered = tenants || [];
     
     // Filter by owner
     if (selectedOwnerId) {
       filtered = filtered.filter(t => {
-        // Check if tenant is assigned to this owner via property_owner_id (legacy)
         if (t.property_owner_id === selectedOwnerId) return true;
-        // Check if property's owner matches
         if (t.property?.property_owner_id === selectedOwnerId) return true;
-        // Check if tenant has a share assigned to this owner
         const shares = ownerSharesByTenant.get(t.id) || [];
         return shares.some(s => s.owner_id === selectedOwnerId);
       });
+    }
+
+    // Filter by building
+    if (selectedBuilding && selectedBuilding !== "all") {
+      filtered = filtered.filter(
+        (t) => t.unit?.building?.name === selectedBuilding
+      );
     }
     
     // Filter by search
@@ -79,7 +94,7 @@ const Tenants = () => {
     }
     
     return filtered;
-  }, [tenants, selectedOwnerId, searchQuery, ownerSharesByTenant]);
+  }, [tenants, selectedOwnerId, selectedBuilding, searchQuery, ownerSharesByTenant]);
 
   const handleEdit = (tenant: Tenant) => {
     setEditTenant(tenant);
