@@ -37,7 +37,7 @@ const Tenants = () => {
   const { isAdmin } = useIsAdmin();
   const { selectedOwnerId } = useOwnerFilter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTenant, setEditTenant] = useState<Tenant | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -52,15 +52,15 @@ const Tenants = () => {
     return map;
   }, [tenantOwnerShares]);
 
-  // Extract unique building names for the filter
-  const buildingNames = useMemo(() => {
-    const names = new Set<string>();
+  // Extract unique properties for the filter
+  const propertyOptions = useMemo(() => {
+    const map = new Map<string, string>();
     (tenants || []).forEach((t) => {
-      if (t.unit?.building?.name) {
-        names.add(t.unit.building.name);
+      if (t.property?.name) {
+        map.set(t.property_id, t.property.name);
       }
     });
-    return Array.from(names).sort();
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [tenants]);
 
   const filteredTenants = useMemo(() => {
@@ -76,10 +76,10 @@ const Tenants = () => {
       });
     }
 
-    // Filter by building
-    if (selectedBuilding && selectedBuilding !== "all") {
+    // Filter by property
+    if (selectedPropertyId && selectedPropertyId !== "all") {
       filtered = filtered.filter(
-        (t) => t.unit?.building?.name === selectedBuilding
+        (t) => t.property_id === selectedPropertyId
       );
     }
     
@@ -94,7 +94,7 @@ const Tenants = () => {
     }
     
     return filtered;
-  }, [tenants, selectedOwnerId, selectedBuilding, searchQuery, ownerSharesByTenant]);
+  }, [tenants, selectedOwnerId, selectedPropertyId, searchQuery, ownerSharesByTenant]);
 
   const handleEdit = (tenant: Tenant) => {
     setEditTenant(tenant);
@@ -143,17 +143,17 @@ const Tenants = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        {buildingNames.length > 0 && (
+        {propertyOptions.length > 1 && (
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-muted-foreground" />
-            <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
+            <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
               <SelectTrigger className="w-[200px] bg-secondary/50 border-white/10">
-                <SelectValue placeholder="Filter by building" />
+                <SelectValue placeholder="Filter by property" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Buildings</SelectItem>
-                {buildingNames.map((name) => (
-                  <SelectItem key={name} value={name}>
+                <SelectItem value="all">All Properties</SelectItem>
+                {propertyOptions.map(([id, name]) => (
+                  <SelectItem key={id} value={id}>
                     {name}
                   </SelectItem>
                 ))}
