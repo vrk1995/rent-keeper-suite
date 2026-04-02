@@ -143,7 +143,7 @@ const DashboardOverview = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-display font-bold ${stat.highlight ? 'text-destructive' : ''}`}>
+              <div className={`text-xl md:text-3xl font-display font-bold ${stat.highlight ? 'text-destructive' : ''}`}>
                 {isLoading ? "..." : stat.value}
               </div>
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
