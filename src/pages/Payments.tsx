@@ -154,18 +154,20 @@ const Payments = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold">Payments</h1>
-          <p className="text-muted-foreground">Track and manage rent payments</p>
+          <h1 className="text-2xl md:text-3xl font-display font-bold">Payments</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Track and manage rent payments</p>
         </div>
         <Button 
-          variant="hero" 
+          variant="hero"
+          size="sm"
+          className="w-fit"
           onClick={() => setGenerateDialogOpen(true)}
         >
           <RefreshCw className="w-4 h-4 mr-2" />
-          Generate Monthly Payments
+          Generate Payments
         </Button>
       </div>
 
