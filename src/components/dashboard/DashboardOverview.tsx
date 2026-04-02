@@ -177,7 +177,7 @@ const DashboardOverview = () => {
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/payments')}>
+            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => navigate('/dashboard/payments')}>
               View All Payments
               <ArrowUpRight className="w-4 h-4 ml-1" />
             </Button>
