@@ -1,11 +1,12 @@
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bell, LogOut, Search } from "lucide-react";
+import { Bell, LogOut, Search, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import OwnerFilterSelect from "@/components/filters/OwnerFilterSelect";
+import { Link } from "react-router-dom";
 
 interface DashboardHeaderProps {
   user: User;
@@ -25,9 +26,17 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
   };
 
   return (
-    <header className="h-16 border-b border-white/10 bg-card/40 backdrop-blur-xl px-6 flex items-center justify-between">
-      {/* Search and Filter */}
-      <div className="flex items-center gap-4">
+    <header className="h-14 md:h-16 border-b border-white/10 bg-card/40 backdrop-blur-xl px-3 md:px-6 flex items-center justify-between">
+      {/* Mobile logo */}
+      <Link to="/dashboard" className="flex md:hidden items-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+          <Building2 className="w-4 h-4 text-primary" />
+        </div>
+        <span className="text-lg font-display font-bold">RentFlow</span>
+      </Link>
+
+      {/* Search and Filter - hidden on mobile */}
+      <div className="hidden md:flex items-center gap-4">
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -39,13 +48,19 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
+      <div className="flex items-center gap-2 md:gap-4">
+        {/* Owner filter on mobile - compact */}
+        <div className="md:hidden">
+          <OwnerFilterSelect />
+        </div>
+
+        <Button variant="ghost" size="icon" className="relative h-8 w-8 md:h-10 md:w-10">
+          <Bell className="w-4 h-4 md:w-5 md:h-5" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
         </Button>
 
-        <div className="flex items-center gap-3">
+        {/* User info - hidden on mobile */}
+        <div className="hidden md:flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-medium">
               {user.user_metadata?.full_name || user.email?.split("@")[0]}
@@ -59,8 +74,15 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
           </div>
         </div>
 
-        <Button variant="ghost" size="icon" onClick={handleSignOut}>
-          <LogOut className="w-5 h-5" />
+        {/* Mobile avatar */}
+        <div className="flex md:hidden w-8 h-8 rounded-full bg-primary/20 items-center justify-center">
+          <span className="text-xs font-semibold text-primary">
+            {(user.user_metadata?.full_name || user.email || "U")[0].toUpperCase()}
+          </span>
+        </div>
+
+        <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-8 w-8 md:h-10 md:w-10">
+          <LogOut className="w-4 h-4 md:w-5 md:h-5" />
         </Button>
       </div>
     </header>
