@@ -264,69 +264,98 @@ const Invoices = () => {
           </Button>
         </motion.div>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInvoices?.map((invoice) => {
-                  const StatusIcon = statusIcons[invoice.status] || FileText;
-                  return (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-mono font-medium">{invoice.invoice_number}</TableCell>
-                      <TableCell>{invoice.property?.name || "-"}</TableCell>
-                      <TableCell>{invoice.tenant?.name || "-"}</TableCell>
-                      <TableCell className="font-semibold">{formatINR(invoice.amount)}</TableCell>
-                      <TableCell>{format(new Date(invoice.due_date), "MMM d, yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusColors[invoice.status] || "secondary"}>
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {invoice.status === "draft" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendInvoice(invoice.id)}
-                            >
-                              <Send className="w-4 h-4 mr-1" />
-                              Send
-                            </Button>
-                          )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleDownloadInvoice(invoice)}
-                            disabled={downloadingId === invoice.id}
-                          >
-                            {downloadingId === invoice.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
+        <div>
+          {/* Desktop table */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Tenant</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInvoices?.map((invoice) => {
+                    const StatusIcon = statusIcons[invoice.status] || FileText;
+                    return (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-mono font-medium">{invoice.invoice_number}</TableCell>
+                        <TableCell>{invoice.property?.name || "-"}</TableCell>
+                        <TableCell>{invoice.tenant?.name || "-"}</TableCell>
+                        <TableCell className="font-semibold">{formatINR(invoice.amount)}</TableCell>
+                        <TableCell>{format(new Date(invoice.due_date), "MMM d, yyyy")}</TableCell>
+                        <TableCell>
+                          <Badge variant={statusColors[invoice.status] || "secondary"}>
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {invoice.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {invoice.status === "draft" && (
+                              <Button variant="ghost" size="sm" onClick={() => handleSendInvoice(invoice.id)}>
+                                <Send className="w-4 h-4 mr-1" />
+                                Send
+                              </Button>
                             )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                            <Button variant="ghost" size="sm" onClick={() => handleDownloadInvoice(invoice)} disabled={downloadingId === invoice.id}>
+                              {downloadingId === invoice.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-3">
+            {filteredInvoices?.map((invoice) => {
+              const StatusIcon = statusIcons[invoice.status] || FileText;
+              return (
+                <Card key={invoice.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-sm font-medium">{invoice.invoice_number}</p>
+                        <p className="text-xs text-muted-foreground truncate">{invoice.tenant?.name} • {invoice.property?.name}</p>
+                      </div>
+                      <Badge variant={statusColors[invoice.status] || "secondary"} className="text-xs ml-2 shrink-0">
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {invoice.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-lg font-bold">{formatINR(invoice.amount)}</span>
+                      <span className="text-xs text-muted-foreground">Due: {format(new Date(invoice.due_date), "MMM d, yyyy")}</span>
+                    </div>
+                    <div className="flex gap-2 border-t border-white/5 pt-2">
+                      {invoice.status === "draft" && (
+                        <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => handleSendInvoice(invoice.id)}>
+                          <Send className="w-3 h-3 mr-1" />
+                          Send
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => handleDownloadInvoice(invoice)} disabled={downloadingId === invoice.id}>
+                        {downloadingId === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+                        Download
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Create Invoice Dialog */}
