@@ -257,83 +257,150 @@ const Payments = () => {
           </Button>
         </motion.div>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Billing Month</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Paid Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPayments?.map((payment) => {
-                  const StatusIcon = statusConfig[payment.status]?.icon || Clock;
-                  const locationDisplay = payment.unit 
-                    ? `${payment.unit.building?.name} - ${payment.unit.name}`
-                    : payment.property?.name;
-                  return (
-                    <TableRow key={payment.id}>
-                      <TableCell className="font-medium">
-                        {payment.unit && <Building2 className="w-3 h-3 inline mr-1 text-muted-foreground" />}
-                        {locationDisplay}
-                      </TableCell>
-                      <TableCell>{payment.tenant?.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {formatBillingMonth(payment.billing_month, payment.due_date)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
-                      <TableCell>{format(new Date(payment.due_date), "MMM d, yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusConfig[payment.status]?.variant || "secondary"}>
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {payment.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {payment.paid_date ? format(new Date(payment.paid_date), "MMM d, yyyy") : "-"}
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleGenerateInvoice(payment.id)}
-                          disabled={generatingInvoice === payment.id}
-                        >
-                          {generatingInvoice === payment.id ? (
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                          ) : (
-                            <FileText className="w-4 h-4 mr-1" />
-                          )}
-                          Invoice
-                        </Button>
-                        {payment.status !== "paid" && (
+        <div>
+          {/* Desktop table */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Property</TableHead>
+                    <TableHead>Tenant</TableHead>
+                    <TableHead>Billing Month</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Paid Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPayments?.map((payment) => {
+                    const StatusIcon = statusConfig[payment.status]?.icon || Clock;
+                    const locationDisplay = payment.unit 
+                      ? `${payment.unit.building?.name} - ${payment.unit.name}`
+                      : payment.property?.name;
+                    return (
+                      <TableRow key={payment.id}>
+                        <TableCell className="font-medium">
+                          {payment.unit && <Building2 className="w-3 h-3 inline mr-1 text-muted-foreground" />}
+                          {locationDisplay}
+                        </TableCell>
+                        <TableCell>{payment.tenant?.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-normal">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {formatBillingMonth(payment.billing_month, payment.due_date)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
+                        <TableCell>{format(new Date(payment.due_date), "MMM d, yyyy")}</TableCell>
+                        <TableCell>
+                          <Badge variant={statusConfig[payment.status]?.variant || "secondary"}>
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {payment.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {payment.paid_date ? format(new Date(payment.paid_date), "MMM d, yyyy") : "-"}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleMarkPaid(payment)}
+                            onClick={() => handleGenerateInvoice(payment.id)}
+                            disabled={generatingInvoice === payment.id}
                           >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Mark Received
+                            {generatingInvoice === payment.id ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <FileText className="w-4 h-4 mr-1" />
+                            )}
+                            Invoice
                           </Button>
+                          {payment.status !== "paid" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMarkPaid(payment)}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Mark Received
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-3">
+            {filteredPayments?.map((payment) => {
+              const StatusIcon = statusConfig[payment.status]?.icon || Clock;
+              const locationDisplay = payment.unit 
+                ? `${payment.unit.building?.name} - ${payment.unit.name}`
+                : payment.property?.name;
+              return (
+                <Card key={payment.id} className="overflow-hidden">
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{payment.tenant?.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{locationDisplay}</p>
+                      </div>
+                      <Badge variant={statusConfig[payment.status]?.variant || "secondary"} className="text-xs ml-2 shrink-0">
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {payment.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-lg font-bold">{formatINR(payment.amount)}</span>
+                      <Badge variant="outline" className="text-xs font-normal">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {formatBillingMonth(payment.billing_month, payment.due_date)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                      <span>Due: {format(new Date(payment.due_date), "MMM d, yyyy")}</span>
+                      {payment.paid_date && <span>Paid: {format(new Date(payment.paid_date), "MMM d")}</span>}
+                    </div>
+                    <div className="flex gap-2 border-t border-white/5 pt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => handleGenerateInvoice(payment.id)}
+                        disabled={generatingInvoice === payment.id}
+                      >
+                        {generatingInvoice === payment.id ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <FileText className="w-3 h-3 mr-1" />
                         )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                        Invoice
+                      </Button>
+                      {payment.status !== "paid" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 h-8 text-xs"
+                          onClick={() => handleMarkPaid(payment)}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Mark Received
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Generate Payments Dialog */}
