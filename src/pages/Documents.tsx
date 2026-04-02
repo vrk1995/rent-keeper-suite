@@ -83,13 +83,13 @@ const Documents = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold">Documents</h1>
-          <p className="text-muted-foreground">Store and manage property documents</p>
+          <h1 className="text-2xl md:text-3xl font-display font-bold">Documents</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Store and manage property documents</p>
         </div>
-        <Button variant="hero" onClick={() => setDialogOpen(true)}>
+        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
           <Upload className="w-4 h-4 mr-2" />
           Upload Document
         </Button>
