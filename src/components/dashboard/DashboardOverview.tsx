@@ -112,19 +112,19 @@ const DashboardOverview = () => {
   return (
     <div className="space-y-6">
       {/* Welcome message */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's your rental overview.</p>
+          <h1 className="text-2xl md:text-3xl font-display font-bold">Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Welcome back! Here's your rental overview.</p>
         </div>
-        <Button variant="hero" onClick={() => navigate('/dashboard/properties')}>
+        <Button variant="hero" size="sm" className="w-fit" onClick={() => navigate('/dashboard/properties')}>
           <Plus className="w-4 h-4 mr-2" />
           Add Property
         </Button>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {stats.map((stat) => (
           <Card 
             key={stat.title} 
@@ -143,7 +143,7 @@ const DashboardOverview = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-display font-bold ${stat.highlight ? 'text-destructive' : ''}`}>
+              <div className={`text-xl md:text-3xl font-display font-bold ${stat.highlight ? 'text-destructive' : ''}`}>
                 {isLoading ? "..." : stat.value}
               </div>
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
@@ -177,7 +177,7 @@ const DashboardOverview = () => {
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/payments')}>
+            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => navigate('/dashboard/payments')}>
               View All Payments
               <ArrowUpRight className="w-4 h-4 ml-1" />
             </Button>

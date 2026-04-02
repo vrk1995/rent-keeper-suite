@@ -7,7 +7,6 @@ import {
   Calendar,
   FileText,
   Users,
-  Settings,
   Bell,
   Receipt,
   ShieldCheck,
@@ -36,7 +35,7 @@ const DashboardSidebar = () => {
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-64 border-r border-white/10 bg-card/40 backdrop-blur-xl flex flex-col"
+      className="hidden md:flex w-64 border-r border-white/10 bg-card/40 backdrop-blur-xl flex-col"
     >
       {/* Logo */}
       <div className="p-6 border-b border-white/10">

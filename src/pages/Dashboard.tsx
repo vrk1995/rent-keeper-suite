@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import MobileBottomNav from "@/components/dashboard/MobileBottomNav";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import Properties from "@/pages/Properties";
 import Tenants from "@/pages/Tenants";
@@ -31,28 +32,20 @@ const Dashboard = () => {
   const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        if (!session) {
-          navigate("/auth");
-        }
+        if (!session) navigate("/auth");
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      
-      if (!session) {
-        navigate("/auth");
-      }
+      if (!session) navigate("/auth");
     });
 
     return () => subscription.unsubscribe();
@@ -66,19 +59,14 @@ const Dashboard = () => {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
-  // Check if user is approved (admins and super admins bypass this check)
   if (!isApproved && !isAdmin && !isSuperAdmin) {
     return <PendingApproval />;
   }
 
-  // Determine which page to render based on the current path
   const renderContent = () => {
     const path = location.pathname;
-    
     if (path === "/dashboard/properties") return <Properties />;
     if (path === "/dashboard/tenants") return <Tenants />;
     if (path === "/dashboard/payments") return <Payments />;
@@ -88,7 +76,6 @@ const Dashboard = () => {
     if (path === "/dashboard/team") return <Team />;
     if (path === "/dashboard/billing-addresses") return <BillingAddresses />;
     if (path === "/dashboard/admin" && isSuperAdmin) return <AdminApprovals />;
-    
     return <DashboardOverview />;
   };
 
@@ -96,9 +83,9 @@ const Dashboard = () => {
     <OwnerFilterProvider>
       <div className="min-h-screen bg-background flex">
         <DashboardSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <DashboardHeader user={user} />
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-3 md:p-6 overflow-auto pb-20 md:pb-6">
             <motion.div
               key={location.pathname}
               initial={{ opacity: 0, y: 20 }}
@@ -109,6 +96,7 @@ const Dashboard = () => {
             </motion.div>
           </main>
         </div>
+        <MobileBottomNav />
       </div>
     </OwnerFilterProvider>
   );

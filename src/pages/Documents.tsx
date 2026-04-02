@@ -83,13 +83,13 @@ const Documents = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold">Documents</h1>
-          <p className="text-muted-foreground">Store and manage property documents</p>
+          <h1 className="text-2xl md:text-3xl font-display font-bold">Documents</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Store and manage property documents</p>
         </div>
-        <Button variant="hero" onClick={() => setDialogOpen(true)}>
+        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
           <Upload className="w-4 h-4 mr-2" />
           Upload Document
         </Button>
@@ -133,7 +133,7 @@ const Documents = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
         >
           {filteredDocuments?.map((doc, index) => (
             <motion.div
@@ -160,7 +160,7 @@ const Documents = () => {
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(doc.created_at), "MMM d, yyyy")}
                     </span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" asChild>
                         <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
                           <Download className="w-4 h-4" />
