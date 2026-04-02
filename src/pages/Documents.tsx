@@ -160,7 +160,7 @@ const Documents = () => {
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(doc.created_at), "MMM d, yyyy")}
                     </span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" asChild>
                         <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
                           <Download className="w-4 h-4" />
