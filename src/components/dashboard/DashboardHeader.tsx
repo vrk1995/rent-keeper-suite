@@ -26,7 +26,7 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
   };
 
   return (
-    <header className="h-14 md:h-16 border-b border-white/10 bg-card/40 backdrop-blur-xl px-3 md:px-6 flex items-center justify-between">
+    <header className="border-b border-white/10 bg-card/40 backdrop-blur-xl px-3 md:px-6 flex items-center justify-between safe-area-top" style={{ minHeight: '3.5rem', paddingTop: `max(0.5rem, env(safe-area-inset-top, 0px))` }}>
       {/* Mobile logo */}
       <Link to="/dashboard" className="flex md:hidden items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
