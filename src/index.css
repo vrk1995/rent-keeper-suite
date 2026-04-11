@@ -192,9 +192,19 @@
   @apply bg-muted-foreground/50;
 }
 
-/* Safe area for mobile bottom nav */
+/* Safe area for mobile */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Prevent horizontal overflow / bounce */
+html, body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Mobile touch improvements */
