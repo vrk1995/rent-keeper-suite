@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -271,17 +272,17 @@ const Reminders = () => {
               </div>
               <div className="space-y-2">
                 <Label>Property (Optional)</Label>
-                <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {properties?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={[
+                    { value: "", label: "None" },
+                    ...(properties?.map((p) => ({ value: p.id, label: p.name })) || []),
+                  ]}
+                  value={selectedProperty}
+                  onValueChange={setSelectedProperty}
+                  placeholder="Select property"
+                  searchPlaceholder="Search properties..."
+                  triggerClassName="w-full"
+                />
               </div>
             </div>
             <div className="space-y-2">
