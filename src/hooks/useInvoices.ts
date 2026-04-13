@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useFinancialYear } from "@/contexts/FinancialYearContext";
 import { toast } from "sonner";
 
 export interface InvoiceItem {
@@ -48,8 +49,9 @@ const generateInvoiceNumber = () => {
 };
 
 export const useInvoices = () => {
+  const { selectedFY } = useFinancialYear();
   return useQuery({
-    queryKey: ["invoices"],
+    queryKey: ["invoices", selectedFY.value],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invoices")
@@ -58,6 +60,8 @@ export const useInvoices = () => {
           property:properties(name, address),
           tenant:tenants(name, email, phone)
         `)
+        .gte("due_date", selectedFY.startDate)
+        .lte("due_date", selectedFY.endDate)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
