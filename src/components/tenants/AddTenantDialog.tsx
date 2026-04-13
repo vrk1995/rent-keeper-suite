@@ -41,6 +41,7 @@ import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
 import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { useTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
+import { usePropertyOwners } from "@/hooks/usePropertyOwners";
 import { cn } from "@/lib/utils";
 
 const ownerShareSchema = z.object({
