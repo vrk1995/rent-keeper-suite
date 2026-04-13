@@ -456,21 +456,27 @@ export type Database = {
       }
       property_owners: {
         Row: {
+          billing_address: string | null
           created_at: string
+          gstin: string | null
           id: string
           name: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          billing_address?: string | null
           created_at?: string
+          gstin?: string | null
           id?: string
           name: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          billing_address?: string | null
           created_at?: string
+          gstin?: string | null
           id?: string
           name?: string
           updated_at?: string
