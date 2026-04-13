@@ -102,6 +102,7 @@ const AddTenantDialog = ({
   defaultPropertyId,
   defaultUnitId 
 }: AddTenantDialogProps) => {
+  const queryClient = useQueryClient();
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
   const { data: properties } = useProperties();
