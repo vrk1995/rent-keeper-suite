@@ -137,7 +137,7 @@ const Invoices = () => {
 
       if (error) throw error;
 
-      // Convert base64 to blob and download
+      // Convert base64 to blob and open in new tab
       const byteCharacters = atob(data.pdf);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -145,18 +145,10 @@ const Invoices = () => {
       }
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: "application/pdf" });
-
-      // Create download link
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${invoice.invoice_number}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      window.open(url, "_blank");
 
-      toast.success("Invoice downloaded successfully!");
+      toast.success("Invoice opened!");
     } catch (error: any) {
       console.error("Error downloading invoice:", error);
       toast.error("Failed to download invoice: " + error.message);
