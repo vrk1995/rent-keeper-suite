@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { FinancialYear, getCurrentFY } from "@/lib/financialYear";
+import { FinancialYear } from "@/lib/financialYear";
 
 interface FinancialYearContextType {
-  selectedFY: FinancialYear;
-  setSelectedFY: (fy: FinancialYear) => void;
+  selectedFY: FinancialYear | null;
+  setSelectedFY: (fy: FinancialYear | null) => void;
 }
 
 const FinancialYearContext = createContext<FinancialYearContextType | undefined>(undefined);
 
 export const FinancialYearProvider = ({ children }: { children: ReactNode }) => {
-  const [selectedFY, setSelectedFY] = useState<FinancialYear>(getCurrentFY());
+  const [selectedFY, setSelectedFY] = useState<FinancialYear | null>(null);
 
   return (
     <FinancialYearContext.Provider value={{ selectedFY, setSelectedFY }}>

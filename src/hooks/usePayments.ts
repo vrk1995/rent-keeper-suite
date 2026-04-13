@@ -45,20 +45,22 @@ export interface CreatePaymentInput {
 export const usePayments = () => {
   const { selectedFY } = useFinancialYear();
   return useQuery({
-    queryKey: ["payments", selectedFY.value],
+    queryKey: ["payments", selectedFY?.value ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("rent_payments")
         .select(`
           *,
           property:properties(name),
           unit:units(name, building:buildings(name)),
           tenant:tenants(name)
-        `)
-        .gte("due_date", selectedFY.startDate)
-        .lte("due_date", selectedFY.endDate)
-        .order("due_date", { ascending: false });
+        `);
 
+      if (selectedFY) {
+        query = query.gte("due_date", selectedFY.startDate).lte("due_date", selectedFY.endDate);
+      }
+
+      const { data, error } = await query.order("due_date", { ascending: false });
       if (error) throw error;
       return data as RentPayment[];
     },

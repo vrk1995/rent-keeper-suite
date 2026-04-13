@@ -51,19 +51,21 @@ const generateInvoiceNumber = () => {
 export const useInvoices = () => {
   const { selectedFY } = useFinancialYear();
   return useQuery({
-    queryKey: ["invoices", selectedFY.value],
+    queryKey: ["invoices", selectedFY?.value ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("invoices")
         .select(`
           *,
           property:properties(name, address),
           tenant:tenants(name, email, phone)
-        `)
-        .gte("due_date", selectedFY.startDate)
-        .lte("due_date", selectedFY.endDate)
-        .order("created_at", { ascending: false });
+        `);
 
+      if (selectedFY) {
+        query = query.gte("due_date", selectedFY.startDate).lte("due_date", selectedFY.endDate);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       return data.map((invoice) => ({
         ...invoice,
