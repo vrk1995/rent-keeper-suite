@@ -351,7 +351,21 @@ const Payments = () => {
                             )}
                             Invoice
                           </Button>
-                          {payment.status !== "paid" && (
+                          {payment.status === "paid" ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadReceipt(payment.id)}
+                              disabled={generatingReceipt === payment.id}
+                            >
+                              {generatingReceipt === payment.id ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Receipt className="w-4 h-4 mr-1" />
+                              )}
+                              Receipt
+                            </Button>
+                          ) : (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -416,7 +430,22 @@ const Payments = () => {
                         )}
                         Invoice
                       </Button>
-                      {payment.status !== "paid" && (
+                      {payment.status === "paid" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 h-8 text-xs"
+                          onClick={() => handleDownloadReceipt(payment.id)}
+                          disabled={generatingReceipt === payment.id}
+                        >
+                          {generatingReceipt === payment.id ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Receipt className="w-3 h-3 mr-1" />
+                          )}
+                          Receipt
+                        </Button>
+                      ) : (
                         <Button
                           variant="ghost"
                           size="sm"
