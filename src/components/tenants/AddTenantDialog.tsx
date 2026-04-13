@@ -419,6 +419,23 @@ const AddTenantDialog = ({
       });
     }
 
+    // Persist GSTIN and billing address back to the property owner
+    if (values.property_owner_id && values.bill_from_gstin) {
+      try {
+        const { error } = await supabase
+          .from("property_owners")
+          .update({
+            gstin: values.bill_from_gstin,
+            billing_address: values.bill_from_address || null,
+          })
+          .eq("id", values.property_owner_id);
+        if (!error) {
+          queryClient.invalidateQueries({ queryKey: ["property-owners"] });
+        }
+      } catch (e) {
+        console.error("Failed to save owner GSTIN:", e);
+      }
+
     form.reset();
     setSaveAsNewAddress(false);
     onOpenChange(false);
