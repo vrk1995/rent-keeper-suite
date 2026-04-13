@@ -337,7 +337,7 @@ const Payments = () => {
                             )}
                             Invoice
                           </Button>
-                          {payment.status === "paid" ? (
+                          {(payment.status === "paid" || payment.status === "partial") && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -351,14 +351,15 @@ const Payments = () => {
                               )}
                               Receipt
                             </Button>
-                          ) : (
+                          )}
+                          {payment.status !== "paid" && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleMarkPaid(payment)}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Mark Received
+                              {payment.status === "partial" ? "Record More" : "Mark Received"}
                             </Button>
                           )}
                         </TableCell>
@@ -416,7 +417,7 @@ const Payments = () => {
                         )}
                         Invoice
                       </Button>
-                      {payment.status === "paid" ? (
+                      {(payment.status === "paid" || payment.status === "partial") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -431,7 +432,8 @@ const Payments = () => {
                           )}
                           Receipt
                         </Button>
-                      ) : (
+                      )}
+                      {payment.status !== "paid" && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -439,7 +441,7 @@ const Payments = () => {
                           onClick={() => handleMarkPaid(payment)}
                         >
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          Mark Received
+                          {payment.status === "partial" ? "Record More" : "Mark Received"}
                         </Button>
                       )}
                     </div>
