@@ -191,7 +191,7 @@ const Tenants = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className="hover:border-primary/30 transition-all cursor-pointer" onClick={() => handleEdit(tenant)}>
+                <Card className="hover:border-primary/30 transition-all cursor-pointer" onClick={() => handleTenantClick(tenant)}>
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div>
                       <CardTitle className="text-lg">{tenant.name}</CardTitle>
@@ -298,8 +298,16 @@ const Tenants = () => {
 
       <AddTenantDialog
         open={dialogOpen}
-        onOpenChange={handleDialogClose}
-        editTenant={editTenant}
+        onOpenChange={setDialogOpen}
+      />
+
+      <TenantDetailSheet
+        tenant={selectedTenant}
+        open={detailSheetOpen}
+        onOpenChange={(open) => {
+          setDetailSheetOpen(open);
+          if (!open) setSelectedTenant(null);
+        }}
       />
 
       {incrementTenant && (
