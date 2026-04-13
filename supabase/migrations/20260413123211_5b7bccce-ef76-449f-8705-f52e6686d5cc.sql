@@ -1,0 +1,1 @@
+ALTER TABLE public.rent_payments ADD COLUMN paid_amount numeric NOT NULL DEFAULT 0;
