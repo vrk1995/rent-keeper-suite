@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import OwnerFilterSelect from "@/components/filters/OwnerFilterSelect";
+import FinancialYearSelect from "@/components/filters/FinancialYearSelect";
 import { Link } from "react-router-dom";
 
 interface DashboardHeaderProps {
@@ -45,13 +46,15 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
           />
         </div>
         <OwnerFilterSelect />
+        <FinancialYearSelect />
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-2 md:gap-4">
-        {/* Owner filter on mobile - compact */}
-        <div className="md:hidden">
+        {/* Filters on mobile - compact */}
+        <div className="md:hidden flex items-center gap-1">
           <OwnerFilterSelect />
+          <FinancialYearSelect />
         </div>
 
         <Button variant="ghost" size="icon" className="relative h-8 w-8 md:h-10 md:w-10">
