@@ -11,6 +11,8 @@ export interface PropertyOwnerShare {
   property_owners?: {
     id: string;
     name: string;
+    gstin: string | null;
+    billing_address: string | null;
   };
 }
 
@@ -30,7 +32,9 @@ export const usePropertyOwnerShares = (propertyId?: string) => {
           *,
           property_owners (
             id,
-            name
+            name,
+            gstin,
+            billing_address
           )
         `)
         .order("share_percentage", { ascending: false });
