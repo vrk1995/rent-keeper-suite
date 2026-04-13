@@ -131,42 +131,6 @@ const AddTenantDialog = ({
   // Check if property has multiple owners
   const hasMultipleOwners = (ownerShares?.length || 0) > 1;
 
-  // Auto-populate billing GSTIN from owner when single owner selected
-  const selectedPropertyOwnerId = form.watch("property_owner_id");
-  useEffect(() => {
-    if (!selectedPropertyOwnerId || !allPropertyOwners) return;
-    const owner = allPropertyOwners.find(o => o.id === selectedPropertyOwnerId);
-    if (owner) {
-      if (owner.gstin) {
-        form.setValue("bill_from_gstin", owner.gstin);
-      }
-      if (owner.billing_address) {
-        form.setValue("bill_from_address", owner.billing_address);
-      }
-      if (owner.name) {
-        form.setValue("bill_from_name", owner.name);
-      }
-    }
-  }, [selectedPropertyOwnerId, allPropertyOwners]);
-
-  // Auto-populate from single property owner when property has exactly one owner
-  useEffect(() => {
-    if (ownerShares?.length === 1 && !editTenant) {
-      const singleOwner = ownerShares[0];
-      if (singleOwner.property_owners) {
-        form.setValue("property_owner_id", singleOwner.owner_id);
-        if (singleOwner.property_owners.gstin) {
-          form.setValue("bill_from_gstin", singleOwner.property_owners.gstin);
-        }
-        if (singleOwner.property_owners.billing_address) {
-          form.setValue("bill_from_address", singleOwner.property_owners.billing_address);
-        }
-        if (singleOwner.property_owners.name) {
-          form.setValue("bill_from_name", singleOwner.property_owners.name);
-        }
-      }
-    }
-  }, [ownerShares, editTenant]);
 
 
   // Get default billing address
