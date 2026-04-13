@@ -18,16 +18,21 @@ const FinancialYearSelect = () => {
     <div className="flex items-center gap-2">
       <CalendarIcon className="w-4 h-4 text-muted-foreground hidden sm:block" />
       <Select
-        value={selectedFY.value}
+        value={selectedFY?.value ?? "all"}
         onValueChange={(val) => {
-          const fy = options.find((o) => o.value === val);
-          if (fy) setSelectedFY(fy);
+          if (val === "all") {
+            setSelectedFY(null);
+          } else {
+            const fy = options.find((o) => o.value === val);
+            if (fy) setSelectedFY(fy);
+          }
         }}
       >
         <SelectTrigger className="w-[130px] bg-secondary/50 border-white/10 text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="all">All Years</SelectItem>
           {options.map((fy) => (
             <SelectItem key={fy.value} value={fy.value}>
               {fy.label}
