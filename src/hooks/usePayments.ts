@@ -134,23 +134,28 @@ export const useMarkPaymentPaid = () => {
       paid_date,
       payment_method,
       notes,
+      paid_amount,
+      status,
     }: {
       id: string;
       paid_date: string;
       payment_method?: string;
       notes?: string;
+      paid_amount: number;
+      status: "paid" | "partial";
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const { data, error } = await supabase
         .from("rent_payments")
         .update({
-          status: "paid",
+          status,
           paid_date,
           payment_method,
           notes,
+          paid_amount,
           marked_by: user?.id,
-        })
+        } as any)
         .eq("id", id)
         .select()
         .single();
@@ -160,7 +165,7 @@ export const useMarkPaymentPaid = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
-      toast.success("Payment marked as received!");
+      toast.success("Payment recorded!");
     },
     onError: (error) => {
       toast.error("Failed to update payment: " + error.message);

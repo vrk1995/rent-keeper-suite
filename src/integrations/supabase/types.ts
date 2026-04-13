@@ -632,6 +632,7 @@ export type Database = {
           id: string
           marked_by: string | null
           notes: string | null
+          paid_amount: number
           paid_date: string | null
           payment_method: string | null
           property_id: string
@@ -649,6 +650,7 @@ export type Database = {
           id?: string
           marked_by?: string | null
           notes?: string | null
+          paid_amount?: number
           paid_date?: string | null
           payment_method?: string | null
           property_id: string
@@ -666,6 +668,7 @@ export type Database = {
           id?: string
           marked_by?: string | null
           notes?: string | null
+          paid_amount?: number
           paid_date?: string | null
           payment_method?: string | null
           property_id?: string
