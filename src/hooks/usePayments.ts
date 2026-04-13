@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useFinancialYear } from "@/contexts/FinancialYearContext";
 import { toast } from "sonner";
 
 export interface RentPayment {
@@ -42,8 +43,9 @@ export interface CreatePaymentInput {
 }
 
 export const usePayments = () => {
+  const { selectedFY } = useFinancialYear();
   return useQuery({
-    queryKey: ["payments"],
+    queryKey: ["payments", selectedFY.value],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("rent_payments")
@@ -53,6 +55,8 @@ export const usePayments = () => {
           unit:units(name, building:buildings(name)),
           tenant:tenants(name)
         `)
+        .gte("due_date", selectedFY.startDate)
+        .lte("due_date", selectedFY.endDate)
         .order("due_date", { ascending: false });
 
       if (error) throw error;
