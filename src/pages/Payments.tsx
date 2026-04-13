@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Search, CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt } from "lucide-react";
+import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useProperties } from "@/hooks/useProperties";
+import { useTenants } from "@/hooks/useTenants";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,8 +71,11 @@ const formatBillingMonth = (billingMonth: string | null, dueDate: string) => {
 
 const Payments = () => {
   const { data: payments, isLoading } = usePayments();
+  const { data: properties } = useProperties();
+  const { data: tenants } = useTenants();
   const generatePayments = useGenerateMonthlyPayments();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState<string>("all");
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
@@ -83,20 +89,27 @@ const Payments = () => {
 
   const monthOptions = getMonthOptions();
 
+  const propertyOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    payments?.forEach((p) => {
+      if (p.property?.name) map.set(p.property_id, p.property.name);
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [payments]);
+
+  const tenantOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    payments?.forEach((p) => {
+      if (p.tenant?.name) map.set(p.tenant_id, p.tenant.name);
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [payments]);
+
   const filteredPayments = payments?.filter((p) => {
-    const propertyName = p.property?.name?.toLowerCase() || "";
-    const unitName = p.unit?.name?.toLowerCase() || "";
-    const buildingName = p.unit?.building?.name?.toLowerCase() || "";
-    const tenantName = p.tenant?.name?.toLowerCase() || "";
-    const searchLower = searchQuery.toLowerCase();
-    
-    const matchesSearch =
-      propertyName.includes(searchLower) ||
-      unitName.includes(searchLower) ||
-      buildingName.includes(searchLower) ||
-      tenantName.includes(searchLower);
+    const matchesProperty = propertyFilter === "all" || p.property_id === propertyFilter;
+    const matchesTenant = tenantFilter === "all" || p.tenant_id === tenantFilter;
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesProperty && matchesTenant && matchesStatus;
   });
 
   const stats = {
@@ -231,16 +244,31 @@ const Payments = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by property or tenant..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <SearchableSelect
+          options={propertyOptions}
+          value={propertyFilter}
+          onValueChange={setPropertyFilter}
+          placeholder="Select Property"
+          searchPlaceholder="Search properties..."
+          emptyMessage="No properties found."
+          allOption
+          allLabel="All Properties"
+          icon={<Building2 className="w-4 h-4" />}
+          triggerClassName="w-full sm:w-[200px]"
+        />
+        <SearchableSelect
+          options={tenantOptions}
+          value={tenantFilter}
+          onValueChange={setTenantFilter}
+          placeholder="Select Tenant"
+          searchPlaceholder="Search tenants..."
+          emptyMessage="No tenants found."
+          allOption
+          allLabel="All Tenants"
+          icon={<Users className="w-4 h-4" />}
+          triggerClassName="w-full sm:w-[200px]"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Status" />
