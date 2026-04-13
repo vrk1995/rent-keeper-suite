@@ -435,6 +435,7 @@ const AddTenantDialog = ({
       } catch (e) {
         console.error("Failed to save owner GSTIN:", e);
       }
+    }
 
     form.reset();
     setSaveAsNewAddress(false);
