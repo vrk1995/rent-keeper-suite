@@ -135,17 +135,9 @@ const Payments = () => {
       }
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: "application/pdf" });
-
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = data.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("Invoice downloaded successfully!");
+      window.open(url, "_blank");
+      toast.success("Invoice opened!");
     } catch (error: any) {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice: " + error.message);
@@ -170,14 +162,8 @@ const Payments = () => {
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = data.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success("Receipt downloaded!");
+      window.open(url, "_blank");
+      toast.success("Receipt opened!");
     } catch (error: any) {
       console.error("Error generating receipt:", error);
       toast.error("Failed to generate receipt: " + error.message);
