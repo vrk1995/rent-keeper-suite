@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { CalendarIcon, AlertCircle, Info, Building2, Plus, Check, Users, Trash2, Percent } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,7 @@ import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
 import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { useTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
+import { usePropertyOwners } from "@/hooks/usePropertyOwners";
 import { cn } from "@/lib/utils";
 
 const ownerShareSchema = z.object({
@@ -99,6 +102,7 @@ const AddTenantDialog = ({
   defaultPropertyId,
   defaultUnitId 
 }: AddTenantDialogProps) => {
+  const queryClient = useQueryClient();
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
   const { data: properties } = useProperties();
@@ -125,6 +129,7 @@ const AddTenantDialog = ({
   const { data: floors } = usePropertyFloors(selectedPropertyId);
   const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
   const { ownerShares: existingTenantOwnerShares, upsertOwnerShares: upsertTenantOwnerShares } = useTenantOwnerShares(editTenant?.id);
+  const { data: allPropertyOwners } = usePropertyOwners();
 
   // Check if property has multiple owners
   const hasMultipleOwners = (ownerShares?.length || 0) > 1;
@@ -242,6 +247,31 @@ const AddTenantDialog = ({
 
   const assignmentType = form.watch("assignment_type");
   const watchedPropertyId = form.watch("property_id");
+  const selectedPropertyOwnerId = form.watch("property_owner_id");
+
+  // Auto-populate billing details from selected owner
+  useEffect(() => {
+    if (!selectedPropertyOwnerId || !allPropertyOwners) return;
+    const owner = allPropertyOwners.find(o => o.id === selectedPropertyOwnerId);
+    if (owner) {
+      if (owner.gstin) form.setValue("bill_from_gstin", owner.gstin);
+      if (owner.billing_address) form.setValue("bill_from_address", owner.billing_address);
+      if (owner.name) form.setValue("bill_from_name", owner.name);
+    }
+  }, [selectedPropertyOwnerId, allPropertyOwners]);
+
+  // Auto-populate from single property owner
+  useEffect(() => {
+    if (ownerShares?.length === 1 && !editTenant) {
+      const singleOwner = ownerShares[0];
+      if (singleOwner.property_owners) {
+        form.setValue("property_owner_id", singleOwner.owner_id);
+        if (singleOwner.property_owners.gstin) form.setValue("bill_from_gstin", singleOwner.property_owners.gstin);
+        if (singleOwner.property_owners.billing_address) form.setValue("bill_from_address", singleOwner.property_owners.billing_address);
+        if (singleOwner.property_owners.name) form.setValue("bill_from_name", singleOwner.property_owners.name);
+      }
+    }
+  }, [ownerShares, editTenant]);
 
   // Update selectedPropertyId when property changes
   useEffect(() => {
@@ -390,6 +420,24 @@ const AddTenantDialog = ({
           share_percentage: share.share_percentage,
         })),
       });
+    }
+
+    // Persist GSTIN and billing address back to the property owner
+    if (values.property_owner_id && values.bill_from_gstin) {
+      try {
+        const { error } = await supabase
+          .from("property_owners")
+          .update({
+            gstin: values.bill_from_gstin,
+            billing_address: values.bill_from_address || null,
+          })
+          .eq("id", values.property_owner_id);
+        if (!error) {
+          queryClient.invalidateQueries({ queryKey: ["property-owners"] });
+        }
+      } catch (e) {
+        console.error("Failed to save owner GSTIN:", e);
+      }
     }
 
     form.reset();
