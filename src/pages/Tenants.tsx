@@ -1,16 +1,10 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, Filter, TrendingUp } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
@@ -146,22 +140,18 @@ const Tenants = () => {
           />
         </div>
         {propertyOptions.length > 1 && (
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-muted-foreground" />
-            <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-              <SelectTrigger className="w-[200px] bg-secondary/50 border-white/10">
-                <SelectValue placeholder="Filter by property" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Properties</SelectItem>
-                {propertyOptions.map(([id, name]) => (
-                  <SelectItem key={id} value={id}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <SearchableSelect
+            options={propertyOptions.map(([id, name]) => ({ value: id, label: name }))}
+            value={selectedPropertyId}
+            onValueChange={setSelectedPropertyId}
+            placeholder="Filter by property"
+            searchPlaceholder="Search properties..."
+            emptyMessage="No properties found."
+            allOption
+            allLabel="All Properties"
+            icon={<Building2 className="w-4 h-4" />}
+            triggerClassName="w-full sm:w-[220px]"
+          />
         )}
       </div>
 

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, Search, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Plus, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -61,7 +62,8 @@ const Invoices = () => {
   const { data: tenants } = useTenants();
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [propertyFilter, setPropertyFilter] = useState<string>("all");
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
@@ -70,13 +72,27 @@ const Invoices = () => {
   const [dueDate, setDueDate] = useState<Date>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  const propertyOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    invoices?.forEach((inv) => {
+      if (inv.property?.name) map.set(inv.property_id, inv.property.name);
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [invoices]);
+
+  const tenantFilterOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    invoices?.forEach((inv) => {
+      if (inv.tenant?.name) map.set(inv.tenant_id, inv.tenant.name);
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [invoices]);
+
   const filteredInvoices = invoices?.filter((inv) => {
-    const matchesSearch =
-      inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.property?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.tenant?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
+    const matchesTenant = tenantFilter === "all" || inv.tenant_id === tenantFilter;
     const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesProperty && matchesTenant && matchesStatus;
   });
 
   const stats = {
@@ -211,16 +227,31 @@ const Invoices = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search invoices..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <SearchableSelect
+          options={propertyOptions}
+          value={propertyFilter}
+          onValueChange={setPropertyFilter}
+          placeholder="Select Property"
+          searchPlaceholder="Search properties..."
+          emptyMessage="No properties found."
+          allOption
+          allLabel="All Properties"
+          icon={<Building2 className="w-4 h-4" />}
+          triggerClassName="w-full sm:w-[200px]"
+        />
+        <SearchableSelect
+          options={tenantFilterOptions}
+          value={tenantFilter}
+          onValueChange={setTenantFilter}
+          placeholder="Select Tenant"
+          searchPlaceholder="Search tenants..."
+          emptyMessage="No tenants found."
+          allOption
+          allLabel="All Tenants"
+          icon={<Users className="w-4 h-4" />}
+          triggerClassName="w-full sm:w-[200px]"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Status" />
@@ -359,32 +390,29 @@ const Invoices = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Property</Label>
-              <Select value={selectedProperty} onValueChange={(v) => {
-                setSelectedProperty(v);
-                setSelectedTenant("");
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties?.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={properties?.map((p) => ({ value: p.id, label: p.name })) || []}
+                value={selectedProperty}
+                onValueChange={(v) => {
+                  setSelectedProperty(v);
+                  setSelectedTenant("");
+                }}
+                placeholder="Select property"
+                searchPlaceholder="Search properties..."
+                triggerClassName="w-full"
+              />
             </div>
             <div className="space-y-2">
               <Label>Tenant</Label>
-              <Select value={selectedTenant} onValueChange={setSelectedTenant} disabled={!selectedProperty}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select tenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {propertyTenants?.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={propertyTenants?.map((t) => ({ value: t.id, label: t.name })) || []}
+                value={selectedTenant}
+                onValueChange={setSelectedTenant}
+                placeholder="Select tenant"
+                searchPlaceholder="Search tenants..."
+                disabled={!selectedProperty}
+                triggerClassName="w-full"
+              />
             </div>
             <div className="space-y-2">
               <Label>Amount (₹)</Label>

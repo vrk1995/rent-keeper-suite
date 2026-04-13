@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
   SelectContent,
@@ -19,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { useDocuments, useUploadDocument, useDeleteDocument, Document } from "@/hooks/useDocuments";
 import { useProperties } from "@/hooks/useProperties";
 
@@ -187,17 +188,17 @@ const Documents = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Property (Optional)</Label>
-              <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">General</SelectItem>
-                  {properties?.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={[
+                  { value: "", label: "General" },
+                  ...(properties?.map((p) => ({ value: p.id, label: p.name })) || []),
+                ]}
+                value={selectedProperty}
+                onValueChange={setSelectedProperty}
+                placeholder="Select property"
+                searchPlaceholder="Search properties..."
+                triggerClassName="w-full"
+              />
             </div>
             <div className="space-y-2">
               <Label>Document Name</Label>
