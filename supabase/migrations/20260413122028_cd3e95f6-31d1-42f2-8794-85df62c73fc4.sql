@@ -1,0 +1,1 @@
+ALTER TABLE public.rent_payments ADD COLUMN receipt_url text DEFAULT NULL;

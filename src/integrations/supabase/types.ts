@@ -635,6 +635,7 @@ export type Database = {
           paid_date: string | null
           payment_method: string | null
           property_id: string
+          receipt_url: string | null
           status: string | null
           tenant_id: string
           unit_id: string | null
@@ -651,6 +652,7 @@ export type Database = {
           paid_date?: string | null
           payment_method?: string | null
           property_id: string
+          receipt_url?: string | null
           status?: string | null
           tenant_id: string
           unit_id?: string | null
@@ -667,6 +669,7 @@ export type Database = {
           paid_date?: string | null
           payment_method?: string | null
           property_id?: string
+          receipt_url?: string | null
           status?: string | null
           tenant_id?: string
           unit_id?: string | null

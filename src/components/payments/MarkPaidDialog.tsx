@@ -28,6 +28,8 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RentPayment, useMarkPaymentPaid } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface MarkPaidDialogProps {
   open: boolean;
@@ -42,6 +44,24 @@ const paymentMethods = [
   { value: "cheque", label: "Cheque" },
   { value: "other", label: "Other" },
 ];
+
+const downloadBase64Pdf = (base64: string, filename: string) => {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
 
 export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogProps) => {
   const [paidDate, setPaidDate] = useState<Date>(new Date());
@@ -59,8 +79,22 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
       notes: notes.trim() || undefined,
     });
 
+    // Generate and download receipt PDF in the background
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
+        body: { paymentId: payment.id },
+      });
+
+      if (error) throw error;
+
+      downloadBase64Pdf(data.pdf, data.filename || `Receipt-${payment.id}.pdf`);
+      toast.success("Payment recorded & receipt downloaded!");
+    } catch (err: any) {
+      console.error("Receipt generation error:", err);
+      toast.info("Payment recorded. Receipt could not be generated.");
+    }
+
     onOpenChange(false);
-    // Reset form
     setPaidDate(new Date());
     setPaymentMethod("bank_transfer");
     setNotes("");
