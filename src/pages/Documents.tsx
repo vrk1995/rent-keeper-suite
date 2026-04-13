@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useDocuments, useUploadDocument, useDeleteDocument, Document } from "@/hooks/useDocuments";
 import { useProperties } from "@/hooks/useProperties";
 
