@@ -390,32 +390,29 @@ const Invoices = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Property</Label>
-              <Select value={selectedProperty} onValueChange={(v) => {
-                setSelectedProperty(v);
-                setSelectedTenant("");
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select property" />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties?.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={properties?.map((p) => ({ value: p.id, label: p.name })) || []}
+                value={selectedProperty}
+                onValueChange={(v) => {
+                  setSelectedProperty(v);
+                  setSelectedTenant("");
+                }}
+                placeholder="Select property"
+                searchPlaceholder="Search properties..."
+                triggerClassName="w-full"
+              />
             </div>
             <div className="space-y-2">
               <Label>Tenant</Label>
-              <Select value={selectedTenant} onValueChange={setSelectedTenant} disabled={!selectedProperty}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select tenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {propertyTenants?.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={propertyTenants?.map((t) => ({ value: t.id, label: t.name })) || []}
+                value={selectedTenant}
+                onValueChange={setSelectedTenant}
+                placeholder="Select tenant"
+                searchPlaceholder="Search tenants..."
+                disabled={!selectedProperty}
+                triggerClassName="w-full"
+              />
             </div>
             <div className="space-y-2">
               <Label>Amount (₹)</Label>
