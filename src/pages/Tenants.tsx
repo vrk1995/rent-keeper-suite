@@ -11,6 +11,7 @@ import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
 import { useAllTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
 import { useIsAdmin } from "@/hooks/useTeam";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
+import TenantDetailSheet from "@/components/tenants/TenantDetailSheet";
 import RentIncrementDialog from "@/components/tenants/RentIncrementDialog";
 import { formatINR } from "@/lib/currency";
 import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
@@ -34,7 +35,8 @@ const Tenants = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editTenant, setEditTenant] = useState<Tenant | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [incrementTenant, setIncrementTenant] = useState<Tenant | null>(null);
 
@@ -92,9 +94,9 @@ const Tenants = () => {
     return filtered;
   }, [tenants, selectedOwnerId, selectedPropertyId, searchQuery, ownerSharesByTenant]);
 
-  const handleEdit = (tenant: Tenant) => {
-    setEditTenant(tenant);
-    setDialogOpen(true);
+  const handleTenantClick = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setDetailSheetOpen(true);
   };
 
   const handleDelete = async () => {
@@ -102,11 +104,6 @@ const Tenants = () => {
       await deleteTenant.mutateAsync(deleteId);
       setDeleteId(null);
     }
-  };
-
-  const handleDialogClose = (open: boolean) => {
-    setDialogOpen(open);
-    if (!open) setEditTenant(null);
   };
 
   const getLeaseStatus = (endDate: string) => {
