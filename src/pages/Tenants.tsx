@@ -5,7 +5,6 @@ import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, I
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTenants, useDeleteTenant, Tenant } from "@/hooks/useTenants";
