@@ -4,8 +4,7 @@ import { format } from "date-fns";
 import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { useProperties } from "@/hooks/useProperties";
-import { useTenants } from "@/hooks/useTenants";
+import { useFilterOptions } from "@/hooks/useFilterOptions";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,20 +33,13 @@ import {
 import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { paymentStatusConfig } from "@/lib/statusConfig";
+import { generateAndOpenInvoicePdf, generateAndOpenReceiptPdf } from "@/lib/pdfUtils";
 import { toast } from "sonner";
-
-const statusConfig: Record<string, { icon: React.ElementType; variant: "glow" | "secondary" | "destructive" }> = {
-  paid: { icon: CheckCircle, variant: "glow" },
-  pending: { icon: Clock, variant: "secondary" },
-  overdue: { icon: AlertCircle, variant: "destructive" },
-  partial: { icon: Clock, variant: "secondary" },
-};
 
 const getMonthOptions = () => {
   const now = new Date();
   const options: { label: string; year: number; month: number }[] = [];
-  // Previous month, current month, next month
   for (let offset = -1; offset <= 1; offset++) {
     const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
     options.push({
@@ -71,8 +63,7 @@ const formatBillingMonth = (billingMonth: string | null, dueDate: string) => {
 
 const Payments = () => {
   const { data: payments, isLoading } = usePayments();
-  const { data: properties } = useProperties();
-  const { data: tenants } = useTenants();
+  const { propertyOptions, tenantOptions } = useFilterOptions();
   const generatePayments = useGenerateMonthlyPayments();
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
@@ -88,22 +79,6 @@ const Payments = () => {
   });
 
   const monthOptions = getMonthOptions();
-
-  const propertyOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    payments?.forEach((p) => {
-      if (p.property?.name) map.set(p.property_id, p.property.name);
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [payments]);
-
-  const tenantOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    payments?.forEach((p) => {
-      if (p.tenant?.name) map.set(p.tenant_id, p.tenant.name);
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [payments]);
 
   const filteredPayments = payments?.filter((p) => {
     const matchesProperty = propertyFilter === "all" || p.property_id === propertyFilter;
@@ -135,22 +110,7 @@ const Payments = () => {
   const handleGenerateInvoice = async (paymentId: string) => {
     setGeneratingInvoice(paymentId);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-invoice-pdf", {
-        body: { paymentId },
-      });
-
-      if (error) throw error;
-
-      const byteCharacters = atob(data.pdf);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      toast.success("Invoice opened!");
+      await generateAndOpenInvoicePdf(paymentId);
     } catch (error: any) {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice: " + error.message);
@@ -162,21 +122,7 @@ const Payments = () => {
   const handleDownloadReceipt = async (paymentId: string) => {
     setGeneratingReceipt(paymentId);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
-        body: { paymentId },
-      });
-      if (error) throw error;
-
-      const byteCharacters = atob(data.pdf);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      toast.success("Receipt opened!");
+      await generateAndOpenReceiptPdf(paymentId);
     } catch (error: any) {
       console.error("Error generating receipt:", error);
       toast.error("Failed to generate receipt: " + error.message);
@@ -324,7 +270,7 @@ const Payments = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredPayments?.map((payment) => {
-                    const StatusIcon = statusConfig[payment.status]?.icon || Clock;
+                    const StatusIcon = paymentStatusConfig[payment.status]?.icon || Clock;
                     const locationDisplay = payment.unit 
                       ? `${payment.unit.building?.name} - ${payment.unit.name}`
                       : payment.property?.name;
@@ -344,7 +290,7 @@ const Payments = () => {
                         <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
                         <TableCell>{format(new Date(payment.due_date), "MMM d, yyyy")}</TableCell>
                         <TableCell>
-                          <Badge variant={statusConfig[payment.status]?.variant || "secondary"}>
+                          <Badge variant={paymentStatusConfig[payment.status]?.variant || "secondary"}>
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {payment.status}
                           </Badge>
@@ -403,7 +349,7 @@ const Payments = () => {
           {/* Mobile card list */}
           <div className="md:hidden space-y-3">
             {filteredPayments?.map((payment) => {
-              const StatusIcon = statusConfig[payment.status]?.icon || Clock;
+              const StatusIcon = paymentStatusConfig[payment.status]?.icon || Clock;
               const locationDisplay = payment.unit 
                 ? `${payment.unit.building?.name} - ${payment.unit.name}`
                 : payment.property?.name;
@@ -415,7 +361,7 @@ const Payments = () => {
                         <p className="font-medium text-sm truncate">{payment.tenant?.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{locationDisplay}</p>
                       </div>
-                      <Badge variant={statusConfig[payment.status]?.variant || "secondary"} className="text-xs ml-2 shrink-0">
+                      <Badge variant={paymentStatusConfig[payment.status]?.variant || "secondary"} className="text-xs ml-2 shrink-0">
                         <StatusIcon className="w-3 h-3 mr-1" />
                         {payment.status}
                       </Badge>

@@ -21,7 +21,6 @@ import {
 import {
   CheckCircle,
   Clock,
-  AlertCircle,
   FileText,
   Receipt,
   Loader2,
@@ -40,19 +39,14 @@ import { toast } from "sonner";
 import AddTenantDialog from "./AddTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { RentPayment } from "@/hooks/usePayments";
+import { paymentStatusConfig } from "@/lib/statusConfig";
+import { generateAndOpenInvoicePdf, generateAndOpenReceiptPdf } from "@/lib/pdfUtils";
 
 interface TenantDetailSheetProps {
   tenant: Tenant | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const statusConfig: Record<string, { variant: "glow" | "secondary" | "destructive"; icon: React.ElementType }> = {
-  paid: { variant: "glow", icon: CheckCircle },
-  pending: { variant: "secondary", icon: Clock },
-  overdue: { variant: "destructive", icon: AlertCircle },
-  partial: { variant: "secondary", icon: Clock },
-};
 
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -96,18 +90,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const handleGenerateInvoice = async (paymentId: string) => {
     setGeneratingInvoice(paymentId);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-invoice-pdf", {
-        body: { paymentId },
-      });
-      if (error) throw error;
-      const byteCharacters = atob(data.pdf);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
-      window.open(URL.createObjectURL(blob), "_blank");
-      toast.success("Invoice opened!");
+      await generateAndOpenInvoicePdf(paymentId);
     } catch (error: any) {
       toast.error("Failed to generate invoice: " + error.message);
     } finally {
@@ -118,18 +101,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const handleDownloadReceipt = async (paymentId: string) => {
     setGeneratingReceipt(paymentId);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
-        body: { paymentId },
-      });
-      if (error) throw error;
-      const byteCharacters = atob(data.pdf);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
-      window.open(URL.createObjectURL(blob), "_blank");
-      toast.success("Receipt opened!");
+      await generateAndOpenReceiptPdf(paymentId);
     } catch (error: any) {
       toast.error("Failed to generate receipt: " + error.message);
     } finally {
@@ -140,7 +112,6 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const handleDownloadLedger = () => {
     if (!payments || !tenant) return;
 
-    // Build CSV ledger
     const headers = ["Billing Month", "Due Date", "Amount", "Paid Amount", "Status", "Paid Date", "Payment Method", "Notes"];
     const rows = payments.map((p) => [
       p.billing_month || "",
@@ -250,7 +221,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                   <p className="text-center text-muted-foreground py-8">No payment records yet</p>
                 ) : (
                   payments.map((payment) => {
-                    const StatusIcon = statusConfig[payment.status]?.icon || Clock;
+                    const StatusIcon = paymentStatusConfig[payment.status]?.icon || Clock;
                     return (
                       <Card key={payment.id}>
                         <CardContent className="p-3">
@@ -266,7 +237,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                                 Due: {format(new Date(payment.due_date), "MMM d, yyyy")}
                               </span>
                             </div>
-                            <Badge variant={statusConfig[payment.status]?.variant || "secondary"}>
+                            <Badge variant={paymentStatusConfig[payment.status]?.variant || "secondary"}>
                               <StatusIcon className="w-3 h-3 mr-1" />
                               {payment.status}
                             </Badge>
@@ -369,7 +340,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                             <TableCell className="text-xs font-medium">{formatINR(p.amount)}</TableCell>
                             <TableCell className="text-xs">{formatINR((p as any).paid_amount || 0)}</TableCell>
                             <TableCell>
-                              <Badge variant={statusConfig[p.status]?.variant || "secondary"} className="text-xs">
+                              <Badge variant={paymentStatusConfig[p.status]?.variant || "secondary"} className="text-xs">
                                 {p.status}
                               </Badge>
                             </TableCell>
@@ -390,47 +361,55 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
               {/* Details/Config Tab */}
               <TabsContent value="config" className="mt-4 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
-                  <InfoRow label="Email" value={tenant.email} />
-                  <InfoRow label="Phone" value={tenant.phone} />
-                  <InfoRow label="Monthly Rent" value={formatINR(tenant.monthly_rent || 0)} />
-                  <InfoRow label="Rent Due Day" value={`${tenant.rent_due_day || 1}${getSuffix(tenant.rent_due_day || 1)} of month`} />
-                  <InfoRow label="Security Deposit" value={formatINR(tenant.security_deposit || 0)} />
-                  <InfoRow label="Rented Sqft" value={tenant.rented_sqft ? `${tenant.rented_sqft} sqft` : "-"} />
-                  <InfoRow label="Move-in Date" value={format(new Date(tenant.move_in_date), "MMM d, yyyy")} />
-                  <InfoRow label="Lease Start" value={format(new Date(tenant.lease_start_date), "MMM d, yyyy")} />
-                  <InfoRow label="Lease End" value={format(new Date(tenant.lease_end_date), "MMM d, yyyy")} />
-                  <InfoRow label="GST Required" value={tenant.requires_gst ? "Yes" : "No"} />
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="text-sm">{tenant.email || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="text-sm">{tenant.phone || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Lease Start</p>
+                    <p className="text-sm">{format(new Date(tenant.lease_start_date), "MMM d, yyyy")}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Lease End</p>
+                    <p className="text-sm">{format(new Date(tenant.lease_end_date), "MMM d, yyyy")}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Move-in Date</p>
+                    <p className="text-sm">{format(new Date(tenant.move_in_date), "MMM d, yyyy")}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Security Deposit</p>
+                    <p className="text-sm">{formatINR(tenant.security_deposit)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Rented Sqft</p>
+                    <p className="text-sm">{tenant.rented_sqft || "-"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Rent Due Day</p>
+                    <p className="text-sm">{tenant.rent_due_day || 1}</p>
+                  </div>
                 </div>
 
-                {(tenant.bill_from_name || tenant.bill_to_name) && (
-                  <div className="space-y-3 pt-3 border-t border-border">
-                    <h4 className="text-sm font-semibold">Billing Details</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      {tenant.bill_from_name && (
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Bill From</p>
-                          <p className="text-sm font-medium">{tenant.bill_from_name}</p>
-                          {tenant.bill_from_address && <p className="text-xs text-muted-foreground">{tenant.bill_from_address}</p>}
-                          {tenant.bill_from_gstin && <p className="text-xs text-muted-foreground">GSTIN: {tenant.bill_from_gstin}</p>}
-                        </div>
-                      )}
-                      {tenant.bill_to_name && (
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Bill To</p>
-                          <p className="text-sm font-medium">{tenant.bill_to_name}</p>
-                          {tenant.bill_to_address && <p className="text-xs text-muted-foreground">{tenant.bill_to_address}</p>}
-                          {tenant.bill_to_gstin && <p className="text-xs text-muted-foreground">GSTIN: {tenant.bill_to_gstin}</p>}
-                        </div>
-                      )}
+                {/* Billing Details */}
+                <div className="border-t pt-4 space-y-3">
+                  <h4 className="text-sm font-semibold">Billing Details</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Bill From</p>
+                      <p className="text-sm">{tenant.bill_from_name || "-"}</p>
+                      {tenant.bill_from_gstin && <p className="text-xs text-muted-foreground">GSTIN: {tenant.bill_from_gstin}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Bill To</p>
+                      <p className="text-sm">{tenant.bill_to_name || "-"}</p>
+                      {tenant.bill_to_gstin && <p className="text-xs text-muted-foreground">GSTIN: {tenant.bill_to_gstin}</p>}
                     </div>
                   </div>
-                )}
-
-                <div className="pt-3">
-                  <Button variant="outline" className="w-full" onClick={() => setEditDialogOpen(true)}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit Tenant Configuration
-                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
@@ -438,40 +417,21 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         </SheetContent>
       </Sheet>
 
-      <AddTenantDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        editTenant={tenant}
-      />
-
-      {markPaidPayment && (
-        <MarkPaidDialog
-          open={!!markPaidPayment}
-          onOpenChange={(open) => !open && setMarkPaidPayment(null)}
-          payment={markPaidPayment}
+      {editDialogOpen && (
+        <AddTenantDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          editTenant={tenant}
         />
       )}
+
+      <MarkPaidDialog
+        open={!!markPaidPayment}
+        onOpenChange={(open) => !open && setMarkPaidPayment(null)}
+        payment={markPaidPayment}
+      />
     </>
   );
 };
-
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm font-medium">{value || "-"}</p>
-    </div>
-  );
-}
-
-function getSuffix(n: number) {
-  if (n >= 11 && n <= 13) return "th";
-  switch (n % 10) {
-    case 1: return "st";
-    case 2: return "nd";
-    case 3: return "rd";
-    default: return "th";
-  }
-}
 
 export default TenantDetailSheet;
