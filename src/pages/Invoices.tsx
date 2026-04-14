@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { Plus, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle, Building2, Users } from "lucide-react";
@@ -29,8 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useInvoices, useCreateInvoice, useUpdateInvoiceStatus } from "@/hooks/useInvoices";
-import { useProperties } from "@/hooks/useProperties";
-import { useTenants } from "@/hooks/useTenants";
+import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
 import { Label } from "@/components/ui/label";
 import { CalendarIcon } from "lucide-react";
@@ -39,27 +38,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-const statusColors: Record<string, "glow" | "secondary" | "destructive" | "outline"> = {
-  draft: "outline",
-  sent: "secondary",
-  paid: "glow",
-  overdue: "destructive",
-  cancelled: "secondary",
-};
-
-const statusIcons: Record<string, React.ElementType> = {
-  draft: FileText,
-  sent: Clock,
-  paid: CheckCircle,
-  overdue: AlertCircle,
-  cancelled: FileText,
-};
+import { invoiceStatusConfig } from "@/lib/statusConfig";
+import { openPdfFromBase64 } from "@/lib/pdfUtils";
 
 const Invoices = () => {
   const { data: invoices, isLoading } = useInvoices();
-  const { data: properties } = useProperties();
-  const { data: tenants } = useTenants();
+  const { propertyOptions, tenantOptions, properties, tenants } = useFilterOptions();
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -71,22 +55,6 @@ const Invoices = () => {
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-
-  const propertyOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    invoices?.forEach((inv) => {
-      if (inv.property?.name) map.set(inv.property_id, inv.property.name);
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [invoices]);
-
-  const tenantFilterOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    invoices?.forEach((inv) => {
-      if (inv.tenant?.name) map.set(inv.tenant_id, inv.tenant.name);
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [invoices]);
 
   const filteredInvoices = invoices?.filter((inv) => {
     const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
@@ -109,6 +77,7 @@ const Invoices = () => {
   const handleCreateInvoice = async () => {
     if (!selectedProperty || !selectedTenant || !amount || !dueDate) return;
 
+    // Auto-fill amount from tenant if available
     await createInvoice.mutateAsync({
       property_id: selectedProperty,
       tenant_id: selectedTenant,
@@ -123,6 +92,15 @@ const Invoices = () => {
     setDueDate(undefined);
   };
 
+  // Auto-fill amount when tenant is selected
+  const handleTenantSelect = (tenantId: string) => {
+    setSelectedTenant(tenantId);
+    const tenant = tenants?.find(t => t.id === tenantId);
+    if (tenant?.monthly_rent && !amount) {
+      setAmount(String(tenant.monthly_rent));
+    }
+  };
+
   const handleSendInvoice = async (id: string) => {
     await updateStatus.mutateAsync({ id, status: "sent" });
   };
@@ -130,7 +108,6 @@ const Invoices = () => {
   const handleDownloadInvoice = async (invoice: typeof invoices extends (infer T)[] | undefined ? T : never) => {
     setDownloadingId(invoice.id);
     try {
-      // Find the corresponding payment to generate PDF
       const { data: payment, error: paymentError } = await supabase
         .from("rent_payments")
         .select("id")
@@ -142,7 +119,6 @@ const Invoices = () => {
       if (paymentError) throw paymentError;
 
       if (!payment) {
-        // Generate a simple PDF for invoices without payment records
         toast.info("Invoice PDF not available - no linked payment record found");
         return;
       }
@@ -152,18 +128,7 @@ const Invoices = () => {
       });
 
       if (error) throw error;
-
-      // Convert base64 to blob and open in new tab
-      const byteCharacters = atob(data.pdf);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-
+      openPdfFromBase64(data.pdf);
       toast.success("Invoice opened!");
     } catch (error: any) {
       console.error("Error downloading invoice:", error);
@@ -182,7 +147,7 @@ const Invoices = () => {
         </div>
         <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Create Invoice
+          Create Ad-hoc Invoice
         </Button>
       </div>
 
@@ -202,7 +167,7 @@ const Invoices = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Paid</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-display font-bold text-green-600">{formatINR(stats.paidAmount)}</p>
+            <p className="text-2xl font-display font-bold text-primary">{formatINR(stats.paidAmount)}</p>
             <p className="text-xs text-muted-foreground">{stats.paid} invoices</p>
           </CardContent>
         </Card>
@@ -241,7 +206,7 @@ const Invoices = () => {
           triggerClassName="w-full sm:w-[200px]"
         />
         <SearchableSelect
-          options={tenantFilterOptions}
+          options={tenantOptions}
           value={tenantFilter}
           onValueChange={setTenantFilter}
           placeholder="Select Tenant"
@@ -279,12 +244,8 @@ const Invoices = () => {
           </div>
           <h3 className="text-xl font-semibold mb-2">No invoices yet</h3>
           <p className="text-muted-foreground mb-4">
-            Invoices are automatically created when you download from Payments, or create one manually
+            Invoices are automatically created with rent payments. Use "Create Ad-hoc Invoice" for non-rent charges.
           </p>
-          <Button variant="hero" onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Create Invoice
-          </Button>
         </motion.div>
       ) : (
         <div>
@@ -305,7 +266,7 @@ const Invoices = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredInvoices?.map((invoice) => {
-                    const StatusIcon = statusIcons[invoice.status] || FileText;
+                    const StatusIcon = invoiceStatusConfig[invoice.status]?.icon || FileText;
                     return (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-mono font-medium">{invoice.invoice_number}</TableCell>
@@ -314,7 +275,7 @@ const Invoices = () => {
                         <TableCell className="font-semibold">{formatINR(invoice.amount)}</TableCell>
                         <TableCell>{format(new Date(invoice.due_date), "MMM d, yyyy")}</TableCell>
                         <TableCell>
-                          <Badge variant={statusColors[invoice.status] || "secondary"}>
+                          <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"}>
                             <StatusIcon className="w-3 h-3 mr-1" />
                             {invoice.status}
                           </Badge>
@@ -343,7 +304,7 @@ const Invoices = () => {
           {/* Mobile card list */}
           <div className="md:hidden space-y-3">
             {filteredInvoices?.map((invoice) => {
-              const StatusIcon = statusIcons[invoice.status] || FileText;
+              const StatusIcon = invoiceStatusConfig[invoice.status]?.icon || FileText;
               return (
                 <Card key={invoice.id}>
                   <CardContent className="p-3">
@@ -352,7 +313,7 @@ const Invoices = () => {
                         <p className="font-mono text-sm font-medium">{invoice.invoice_number}</p>
                         <p className="text-xs text-muted-foreground truncate">{invoice.tenant?.name} • {invoice.property?.name}</p>
                       </div>
-                      <Badge variant={statusColors[invoice.status] || "secondary"} className="text-xs ml-2 shrink-0">
+                      <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"} className="text-xs ml-2 shrink-0">
                         <StatusIcon className="w-3 h-3 mr-1" />
                         {invoice.status}
                       </Badge>
@@ -381,12 +342,15 @@ const Invoices = () => {
         </div>
       )}
 
-      {/* Create Invoice Dialog */}
+      {/* Create Ad-hoc Invoice Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Invoice</DialogTitle>
+            <DialogTitle>Create Ad-hoc Invoice</DialogTitle>
           </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            For non-rent charges. Rent invoices are generated automatically with payments.
+          </p>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Property</Label>
@@ -407,7 +371,7 @@ const Invoices = () => {
               <SearchableSelect
                 options={propertyTenants?.map((t) => ({ value: t.id, label: t.name })) || []}
                 value={selectedTenant}
-                onValueChange={setSelectedTenant}
+                onValueChange={handleTenantSelect}
                 placeholder="Select tenant"
                 searchPlaceholder="Search tenants..."
                 disabled={!selectedProperty}

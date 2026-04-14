@@ -249,16 +249,42 @@ const AddTenantDialog = ({
   const watchedPropertyId = form.watch("property_id");
   const selectedPropertyOwnerId = form.watch("property_owner_id");
 
-  // Auto-populate billing details from selected owner
+  // Auto-populate billing details from selected owner & auto-set GST flag
   useEffect(() => {
     if (!selectedPropertyOwnerId || !allPropertyOwners) return;
     const owner = allPropertyOwners.find(o => o.id === selectedPropertyOwnerId);
     if (owner) {
-      if (owner.gstin) form.setValue("bill_from_gstin", owner.gstin);
+      if (owner.gstin) {
+        form.setValue("bill_from_gstin", owner.gstin);
+        // Auto-enable GST if owner has GSTIN
+        if (!editTenant) form.setValue("requires_gst", true);
+      }
       if (owner.billing_address) form.setValue("bill_from_address", owner.billing_address);
       if (owner.name) form.setValue("bill_from_name", owner.name);
     }
   }, [selectedPropertyOwnerId, allPropertyOwners]);
+
+  // Sync move_in_date with lease_start_date when creating new tenant
+  const watchedLeaseStartDate = form.watch("lease_start_date");
+  useEffect(() => {
+    if (!editTenant && watchedLeaseStartDate) {
+      const currentMoveIn = form.getValues("move_in_date");
+      if (!currentMoveIn) {
+        form.setValue("move_in_date", watchedLeaseStartDate);
+      }
+    }
+  }, [watchedLeaseStartDate, editTenant]);
+
+  // Pre-fill bill_to_name with tenant name
+  const watchedTenantName = form.watch("name");
+  useEffect(() => {
+    if (!editTenant && watchedTenantName) {
+      const currentBillTo = form.getValues("bill_to_name");
+      if (!currentBillTo) {
+        form.setValue("bill_to_name", watchedTenantName);
+      }
+    }
+  }, [watchedTenantName, editTenant]);
 
   // Auto-populate from single property owner
   useEffect(() => {

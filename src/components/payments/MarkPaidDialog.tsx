@@ -29,6 +29,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RentPayment, useMarkPaymentPaid } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
+import { openPdfFromBase64 } from "@/lib/pdfUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -47,17 +48,6 @@ const paymentMethods = [
   { value: "other", label: "Other" },
 ];
 
-const openBase64Pdf = (base64: string) => {
-  const byteCharacters = atob(base64);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-};
 
 export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogProps) => {
   const [paidDate, setPaidDate] = useState<Date>(new Date());
@@ -99,7 +89,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
       });
 
       if (error) throw error;
-      openBase64Pdf(data.pdf);
+      openPdfFromBase64(data.pdf);
       toast.success("Payment recorded & receipt opened!");
     } catch (err: any) {
       console.error("Receipt generation error:", err);
