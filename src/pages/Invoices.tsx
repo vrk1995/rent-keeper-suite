@@ -43,8 +43,7 @@ import { openPdfFromBase64 } from "@/lib/pdfUtils";
 
 const Invoices = () => {
   const { data: invoices, isLoading } = useInvoices();
-  const { data: properties } = useProperties();
-  const { data: tenants } = useTenants();
+  const { propertyOptions: allPropertyOptions, tenantOptions: allTenantOptions, properties, tenants } = useFilterOptions();
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -57,21 +56,7 @@ const Invoices = () => {
   const [dueDate, setDueDate] = useState<Date>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const propertyOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    invoices?.forEach((inv) => {
-      if (inv.property?.name) map.set(inv.property_id, inv.property.name);
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [invoices]);
-
-  const tenantFilterOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    invoices?.forEach((inv) => {
-      if (inv.tenant?.name) map.set(inv.tenant_id, inv.tenant.name);
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [invoices]);
+  const propertyTenants = tenants?.filter((t) => t.property_id === selectedProperty);
 
   const filteredInvoices = invoices?.filter((inv) => {
     const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
@@ -89,7 +74,7 @@ const Invoices = () => {
     paidAmount: invoices?.filter((i) => i.status === "paid").reduce((sum, i) => sum + i.amount, 0) || 0,
   };
 
-  const propertyTenants = tenants?.filter((t) => t.property_id === selectedProperty);
+  const propertyTenants2 = tenants?.filter((t) => t.property_id === selectedProperty);
 
   const handleCreateInvoice = async () => {
     if (!selectedProperty || !selectedTenant || !amount || !dueDate) return;
