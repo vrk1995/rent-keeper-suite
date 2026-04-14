@@ -161,6 +161,27 @@ export const useMarkPaymentPaid = () => {
         .single();
 
       if (error) throw error;
+
+      // Auto-sync invoice status with payment status
+      try {
+        const { data: payment } = await supabase
+          .from("rent_payments")
+          .select("property_id, tenant_id, due_date")
+          .eq("id", id)
+          .single();
+
+        if (payment) {
+          await supabase
+            .from("invoices")
+            .update({ status: status === "paid" ? "paid" : "partial" })
+            .eq("property_id", payment.property_id)
+            .eq("tenant_id", payment.tenant_id)
+            .eq("due_date", payment.due_date);
+        }
+      } catch (syncError) {
+        console.error("Failed to sync invoice status:", syncError);
+      }
+
       return data;
     },
     onSuccess: () => {
