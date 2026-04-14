@@ -29,8 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useInvoices, useCreateInvoice, useUpdateInvoiceStatus } from "@/hooks/useInvoices";
-import { useProperties } from "@/hooks/useProperties";
-import { useTenants } from "@/hooks/useTenants";
+import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
 import { Label } from "@/components/ui/label";
 import { CalendarIcon } from "lucide-react";
@@ -39,22 +38,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-const statusColors: Record<string, "glow" | "secondary" | "destructive" | "outline"> = {
-  draft: "outline",
-  sent: "secondary",
-  paid: "glow",
-  overdue: "destructive",
-  cancelled: "secondary",
-};
-
-const statusIcons: Record<string, React.ElementType> = {
-  draft: FileText,
-  sent: Clock,
-  paid: CheckCircle,
-  overdue: AlertCircle,
-  cancelled: FileText,
-};
+import { invoiceStatusConfig } from "@/lib/statusConfig";
+import { openPdfFromBase64 } from "@/lib/pdfUtils";
 
 const Invoices = () => {
   const { data: invoices, isLoading } = useInvoices();
