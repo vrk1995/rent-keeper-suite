@@ -49,6 +49,25 @@ export const useExpensesByProperty = (propertyId: string) => {
   });
 };
 
+export interface ExpenseWithProperty extends Expense {
+  property?: { id: string; name: string } | null;
+}
+
+export const useAllExpenses = () => {
+  return useQuery({
+    queryKey: ["expenses", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_expenses")
+        .select("*, property:properties(id, name)")
+        .order("expense_date", { ascending: false });
+
+      if (error) throw error;
+      return data as ExpenseWithProperty[];
+    },
+  });
+};
+
 export const useCreateExpense = () => {
   const queryClient = useQueryClient();
 
