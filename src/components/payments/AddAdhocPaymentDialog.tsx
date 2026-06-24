@@ -35,18 +35,37 @@ import { cn } from "@/lib/utils";
 import { useCreateExpense } from "@/hooks/useExpenses";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
+import { usePropertyOwners } from "@/hooks/usePropertyOwners";
+import { useTeamMembers } from "@/hooks/useTeam";
 
-const schema = z.object({
-  property_id: z.string().min(1, "Property is required"),
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-  expense_date: z.date({ required_error: "Date is required" }),
-  vendor_name: z.string().optional(),
-  vendor_contact: z.string().optional(),
-  category: z.string().optional(),
-  payment_method: z.string().optional(),
-});
+const schema = z
+  .object({
+    property_id: z.string().min(1, "Property is required"),
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    expense_date: z.date({ required_error: "Date is required" }),
+    vendor_name: z.string().optional(),
+    vendor_contact: z.string().optional(),
+    category: z.string().optional(),
+    payment_method: z.string().optional(),
+    paid_by_type: z.string().min(1, "Please select who paid"),
+    paid_by_value: z.string().optional(),
+    paid_by_other: z.string().optional(),
+  })
+  .refine(
+    (d) =>
+      d.paid_by_type !== "other" ||
+      (d.paid_by_other && d.paid_by_other.trim().length > 0),
+    { message: "Please specify who paid", path: ["paid_by_other"] }
+  )
+  .refine(
+    (d) =>
+      d.paid_by_type === "other" ||
+      (d.paid_by_value && d.paid_by_value.length > 0),
+    { message: "Please select a person", path: ["paid_by_value"] }
+  );
+
 
 type FormData = z.infer<typeof schema>;
 
