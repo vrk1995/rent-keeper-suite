@@ -292,6 +292,100 @@ export function AddAdhocPaymentDialog() {
               />
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="paid_by_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Paid By *</FormLabel>
+                    <Select
+                      onValueChange={(v) => {
+                        field.onChange(v);
+                        form.setValue("paid_by_value", "");
+                        form.setValue("paid_by_other", "");
+                      }}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="owner">Owner</SelectItem>
+                        <SelectItem value="team">Team Member</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {paidByType === "owner" && (
+                <FormField
+                  control={form.control}
+                  name="paid_by_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Owner *</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={owners.map((o) => ({ value: o.id, label: o.name }))}
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          placeholder="Select owner"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {paidByType === "team" && (
+                <FormField
+                  control={form.control}
+                  name="paid_by_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team Member *</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={teamMembers.map((m) => ({
+                            value: m.user_id,
+                            label: m.profile?.full_name || "Unnamed",
+                          }))}
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          placeholder="Select team member"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {paidByType === "other" && (
+                <FormField
+                  control={form.control}
+                  name="paid_by_other"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Please specify *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Name of payer" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
+
             <FormField
               control={form.control}
               name="vendor_name"
