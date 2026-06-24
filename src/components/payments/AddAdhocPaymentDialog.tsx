@@ -93,6 +93,8 @@ export function AddAdhocPaymentDialog() {
   const [open, setOpen] = useState(false);
   const createExpense = useCreateExpense();
   const { propertyOptions } = useFilterOptions();
+  const { data: owners = [] } = usePropertyOwners();
+  const { data: teamMembers = [] } = useTeamMembers();
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -106,8 +108,26 @@ export function AddAdhocPaymentDialog() {
       vendor_contact: "",
       category: "general",
       payment_method: "",
+      paid_by_type: "",
+      paid_by_value: "",
+      paid_by_other: "",
     },
   });
+
+  const paidByType = form.watch("paid_by_type");
+
+  const resolvePaidBy = (data: FormData): string => {
+    if (data.paid_by_type === "other") return `Other: ${data.paid_by_other?.trim()}`;
+    if (data.paid_by_type === "owner") {
+      const o = owners.find((x) => x.id === data.paid_by_value);
+      return o ? `${o.name} (Owner)` : "";
+    }
+    if (data.paid_by_type === "team") {
+      const m = teamMembers.find((x) => x.user_id === data.paid_by_value);
+      return m ? `${m.profile?.full_name || "Team member"} (Team)` : "";
+    }
+    return "";
+  };
 
   const onSubmit = async (data: FormData) => {
     await createExpense.mutateAsync({
@@ -120,10 +140,12 @@ export function AddAdhocPaymentDialog() {
       vendor_contact: data.vendor_contact,
       category: data.category,
       payment_method: data.payment_method,
+      paid_by: resolvePaidBy(data),
     });
     form.reset();
     setOpen(false);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
