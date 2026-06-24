@@ -89,7 +89,7 @@ export const useCreateExpense = () => {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", variables.property_id] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense added successfully!");
     },
     onError: (error) => {
@@ -114,7 +114,7 @@ export const useUpdateExpense = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", data.property_id] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense updated successfully!");
     },
     onError: (error) => {
@@ -133,7 +133,7 @@ export const useDeleteExpense = () => {
       return propertyId;
     },
     onSuccess: (propertyId) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", propertyId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense deleted successfully!");
     },
     onError: (error) => {
