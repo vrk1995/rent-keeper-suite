@@ -9,6 +9,7 @@ import {
   FileText,
   Bell,
   Receipt,
+  CreditCard,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const primaryNavItems = [
 ];
 
 const moreNavItems = [
+  { icon: CreditCard, label: "Payments", href: "/dashboard/payments-log" },
   { icon: FileText, label: "Invoices", href: "/dashboard/invoices" },
   { icon: FileText, label: "Documents", href: "/dashboard/documents" },
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },

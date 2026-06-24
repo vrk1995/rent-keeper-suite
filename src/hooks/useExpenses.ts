@@ -49,6 +49,25 @@ export const useExpensesByProperty = (propertyId: string) => {
   });
 };
 
+export interface ExpenseWithProperty extends Expense {
+  property?: { id: string; name: string } | null;
+}
+
+export const useAllExpenses = () => {
+  return useQuery({
+    queryKey: ["expenses", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_expenses")
+        .select("*, property:properties(id, name)")
+        .order("expense_date", { ascending: false });
+
+      if (error) throw error;
+      return data as ExpenseWithProperty[];
+    },
+  });
+};
+
 export const useCreateExpense = () => {
   const queryClient = useQueryClient();
 
@@ -70,7 +89,7 @@ export const useCreateExpense = () => {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", variables.property_id] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense added successfully!");
     },
     onError: (error) => {
@@ -95,7 +114,7 @@ export const useUpdateExpense = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", data.property_id] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense updated successfully!");
     },
     onError: (error) => {
@@ -114,7 +133,7 @@ export const useDeleteExpense = () => {
       return propertyId;
     },
     onSuccess: (propertyId) => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", propertyId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success("Expense deleted successfully!");
     },
     onError: (error) => {
