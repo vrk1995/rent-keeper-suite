@@ -18,7 +18,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
   { icon: Home, label: "Properties", href: "/dashboard/properties" },
   { icon: Users, label: "Tenants", href: "/dashboard/tenants" },
-  { icon: Calendar, label: "Payments", href: "/dashboard/payments" },
+  { icon: Calendar, label: "Receipts", href: "/dashboard/payments" },
   { icon: FileText, label: "Invoices", href: "/dashboard/invoices" },
   { icon: FileText, label: "Documents", href: "/dashboard/documents" },
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },

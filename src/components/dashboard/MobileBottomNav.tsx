@@ -20,7 +20,7 @@ const primaryNavItems = [
   { icon: LayoutDashboard, label: "Home", href: "/dashboard" },
   { icon: Home, label: "Properties", href: "/dashboard/properties" },
   { icon: Users, label: "Tenants", href: "/dashboard/tenants" },
-  { icon: Calendar, label: "Payments", href: "/dashboard/payments" },
+  { icon: Calendar, label: "Receipts", href: "/dashboard/payments" },
 ];
 
 const moreNavItems = [
