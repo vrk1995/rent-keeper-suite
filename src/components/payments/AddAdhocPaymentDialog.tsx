@@ -35,18 +35,37 @@ import { cn } from "@/lib/utils";
 import { useCreateExpense } from "@/hooks/useExpenses";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
+import { usePropertyOwners } from "@/hooks/usePropertyOwners";
+import { useTeamMembers } from "@/hooks/useTeam";
 
-const schema = z.object({
-  property_id: z.string().min(1, "Property is required"),
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-  expense_date: z.date({ required_error: "Date is required" }),
-  vendor_name: z.string().optional(),
-  vendor_contact: z.string().optional(),
-  category: z.string().optional(),
-  payment_method: z.string().optional(),
-});
+const schema = z
+  .object({
+    property_id: z.string().min(1, "Property is required"),
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    expense_date: z.date({ required_error: "Date is required" }),
+    vendor_name: z.string().optional(),
+    vendor_contact: z.string().optional(),
+    category: z.string().optional(),
+    payment_method: z.string().optional(),
+    paid_by_type: z.string().min(1, "Please select who paid"),
+    paid_by_value: z.string().optional(),
+    paid_by_other: z.string().optional(),
+  })
+  .refine(
+    (d) =>
+      d.paid_by_type !== "other" ||
+      (d.paid_by_other && d.paid_by_other.trim().length > 0),
+    { message: "Please specify who paid", path: ["paid_by_other"] }
+  )
+  .refine(
+    (d) =>
+      d.paid_by_type === "other" ||
+      (d.paid_by_value && d.paid_by_value.length > 0),
+    { message: "Please select a person", path: ["paid_by_value"] }
+  );
+
 
 type FormData = z.infer<typeof schema>;
 
@@ -74,6 +93,8 @@ export function AddAdhocPaymentDialog() {
   const [open, setOpen] = useState(false);
   const createExpense = useCreateExpense();
   const { propertyOptions } = useFilterOptions();
+  const { data: owners = [] } = usePropertyOwners();
+  const { data: teamMembers = [] } = useTeamMembers();
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -87,8 +108,26 @@ export function AddAdhocPaymentDialog() {
       vendor_contact: "",
       category: "general",
       payment_method: "",
+      paid_by_type: "",
+      paid_by_value: "",
+      paid_by_other: "",
     },
   });
+
+  const paidByType = form.watch("paid_by_type");
+
+  const resolvePaidBy = (data: FormData): string => {
+    if (data.paid_by_type === "other") return `Other: ${data.paid_by_other?.trim()}`;
+    if (data.paid_by_type === "owner") {
+      const o = owners.find((x) => x.id === data.paid_by_value);
+      return o ? `${o.name} (Owner)` : "";
+    }
+    if (data.paid_by_type === "team") {
+      const m = teamMembers.find((x) => x.user_id === data.paid_by_value);
+      return m ? `${m.profile?.full_name || "Team member"} (Team)` : "";
+    }
+    return "";
+  };
 
   const onSubmit = async (data: FormData) => {
     await createExpense.mutateAsync({
@@ -101,10 +140,12 @@ export function AddAdhocPaymentDialog() {
       vendor_contact: data.vendor_contact,
       category: data.category,
       payment_method: data.payment_method,
+      paid_by: resolvePaidBy(data),
     });
     form.reset();
     setOpen(false);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -250,6 +291,100 @@ export function AddAdhocPaymentDialog() {
                 )}
               />
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="paid_by_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Paid By *</FormLabel>
+                    <Select
+                      onValueChange={(v) => {
+                        field.onChange(v);
+                        form.setValue("paid_by_value", "");
+                        form.setValue("paid_by_other", "");
+                      }}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="owner">Owner</SelectItem>
+                        <SelectItem value="team">Team Member</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {paidByType === "owner" && (
+                <FormField
+                  control={form.control}
+                  name="paid_by_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Owner *</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={owners.map((o) => ({ value: o.id, label: o.name }))}
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          placeholder="Select owner"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {paidByType === "team" && (
+                <FormField
+                  control={form.control}
+                  name="paid_by_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team Member *</FormLabel>
+                      <FormControl>
+                        <SearchableSelect
+                          options={teamMembers.map((m) => ({
+                            value: m.user_id,
+                            label: m.profile?.full_name || "Unnamed",
+                          }))}
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          placeholder="Select team member"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {paidByType === "other" && (
+                <FormField
+                  control={form.control}
+                  name="paid_by_other"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Please specify *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Name of payer" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
 
             <FormField
               control={form.control}

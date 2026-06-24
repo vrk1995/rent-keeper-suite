@@ -13,6 +13,7 @@ export interface Expense {
   vendor_contact: string | null;
   category: string | null;
   payment_method: string | null;
+  paid_by: string | null;
   receipt_url: string | null;
   created_by: string;
   created_at: string;
@@ -29,8 +30,10 @@ export interface CreateExpenseInput {
   vendor_contact?: string;
   category?: string;
   payment_method?: string;
+  paid_by?: string;
   receipt_url?: string;
 }
+
 
 export const useExpensesByProperty = (propertyId: string) => {
   return useQuery({

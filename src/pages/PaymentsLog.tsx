@@ -120,7 +120,9 @@ export default function PaymentsLog() {
                     <TableHead>Property</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Vendor</TableHead>
+                    <TableHead>Paid By</TableHead>
                     <TableHead>Method</TableHead>
+
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -143,9 +145,11 @@ export default function PaymentsLog() {
                         )}
                       </TableCell>
                       <TableCell>{e.vendor_name || "—"}</TableCell>
+                      <TableCell>{e.paid_by || "—"}</TableCell>
                       <TableCell className="capitalize">
                         {e.payment_method?.replace("_", " ") || "—"}
                       </TableCell>
+
                       <TableCell className="text-right font-semibold">
                         {formatINR(Number(e.amount))}
                       </TableCell>

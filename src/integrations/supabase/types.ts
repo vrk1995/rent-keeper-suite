@@ -324,6 +324,7 @@ export type Database = {
           description: string | null
           expense_date: string
           id: string
+          paid_by: string | null
           payment_method: string | null
           property_id: string
           receipt_url: string | null
@@ -340,6 +341,7 @@ export type Database = {
           description?: string | null
           expense_date?: string
           id?: string
+          paid_by?: string | null
           payment_method?: string | null
           property_id: string
           receipt_url?: string | null
@@ -356,6 +358,7 @@ export type Database = {
           description?: string | null
           expense_date?: string
           id?: string
+          paid_by?: string | null
           payment_method?: string | null
           property_id?: string
           receipt_url?: string | null
