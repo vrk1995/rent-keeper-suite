@@ -72,6 +72,7 @@ const Dashboard = () => {
     if (path === "/dashboard/properties") return <Properties />;
     if (path === "/dashboard/tenants") return <Tenants />;
     if (path === "/dashboard/payments") return <Payments />;
+    if (path === "/dashboard/payments-log") return <PaymentsLog />;
     if (path === "/dashboard/invoices") return <Invoices />;
     if (path === "/dashboard/documents") return <Documents />;
     if (path === "/dashboard/reminders") return <Reminders />;
