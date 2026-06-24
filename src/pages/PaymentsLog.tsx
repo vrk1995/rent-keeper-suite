@@ -120,7 +120,9 @@ export default function PaymentsLog() {
                     <TableHead>Property</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Vendor</TableHead>
+                    <TableHead>Paid By</TableHead>
                     <TableHead>Method</TableHead>
+
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
