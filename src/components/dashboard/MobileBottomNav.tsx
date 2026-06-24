@@ -9,6 +9,7 @@ import {
   FileText,
   Bell,
   Receipt,
+  CreditCard,
   ShieldCheck,
   X,
 } from "lucide-react";
