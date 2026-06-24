@@ -10,6 +10,7 @@ import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import Properties from "@/pages/Properties";
 import Tenants from "@/pages/Tenants";
 import Payments from "@/pages/Payments";
+import PaymentsLog from "@/pages/PaymentsLog";
 import Invoices from "@/pages/Invoices";
 import Documents from "@/pages/Documents";
 import Reminders from "@/pages/Reminders";
