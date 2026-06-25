@@ -257,6 +257,17 @@ const Team = () => {
                         </Badge>
                       )}
                       
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEdit(member.user_id, member.profile?.full_name)}
+                          title="Edit name"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+
                       {canModify && (
                         <Button
                           variant="ghost"
@@ -311,6 +322,30 @@ const Team = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Name Dialog */}
+      <Dialog open={!!editingId} onOpenChange={(o) => !o && setEditingId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit team member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Full name</Label>
+            <Input
+              id="edit-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Jane Doe"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+            <Button onClick={handleSaveName} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
