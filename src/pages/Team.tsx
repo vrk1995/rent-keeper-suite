@@ -31,23 +31,30 @@ import {
 } from "@/hooks/useTeam";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { AddTeamMemberDialog } from "@/components/team/AddTeamMemberDialog";
 
 const roleConfig: Record<AppRole, { label: string; icon: React.ElementType; color: string; description: string }> = {
-  admin: { 
-    label: "Admin", 
-    icon: Crown, 
+  super_admin: {
+    label: "Super Admin",
+    icon: Crown,
+    color: "text-purple-500",
+    description: "Full system access including team management",
+  },
+  admin: {
+    label: "Admin",
+    icon: Crown,
     color: "text-amber-500",
     description: "Full access to all features and settings"
   },
-  member: { 
-    label: "Member", 
-    icon: UserCog, 
+  member: {
+    label: "Member",
+    icon: UserCog,
     color: "text-blue-500",
     description: "Can manage properties, tenants, and payments"
   },
-  viewer: { 
-    label: "Viewer", 
-    icon: Eye, 
+  viewer: {
+    label: "Viewer",
+    icon: Eye,
     color: "text-muted-foreground",
     description: "Read-only access to view data"
   },
