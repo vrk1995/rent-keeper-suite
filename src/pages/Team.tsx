@@ -108,10 +108,12 @@ const Team = () => {
           <h1 className="text-3xl font-display font-bold">Team</h1>
           <p className="text-muted-foreground">Manage your team members and their roles</p>
         </div>
+        {isAdmin && <AddTeamMemberDialog />}
       </div>
 
       {/* Role Legend */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
         {(Object.entries(roleConfig) as [AppRole, typeof roleConfig.admin][]).map(([role, config]) => (
           <Card key={role} className="border-dashed">
             <CardContent className="pt-4">
