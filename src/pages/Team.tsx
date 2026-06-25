@@ -75,8 +75,11 @@ const Team = () => {
   const { data: currentUserRole } = useCurrentUserRole();
   const updateRole = useUpdateUserRole();
   const removeMember = useRemoveTeamMember();
-  
+  const updateProfile = useUpdateMemberProfile();
+
   const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   
   // Get current user
   const { data: currentUser } = useQuery({
@@ -87,8 +90,9 @@ const Team = () => {
     },
   });
 
-  const isAdmin = currentUserRole?.role === "admin";
+  const isAdmin = currentUserRole?.role === "admin" || currentUserRole?.role === "super_admin";
   const memberToRemove = teamMembers?.find(m => m.user_id === removeMemberId);
+  const memberToEdit = teamMembers?.find(m => m.user_id === editingId);
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
     await updateRole.mutateAsync({ userId, role: newRole });
@@ -99,6 +103,17 @@ const Team = () => {
       await removeMember.mutateAsync(removeMemberId);
       setRemoveMemberId(null);
     }
+  };
+
+  const openEdit = (userId: string, currentName: string | null | undefined) => {
+    setEditingId(userId);
+    setEditName(currentName ?? "");
+  };
+
+  const handleSaveName = async () => {
+    if (!editingId) return;
+    await updateProfile.mutateAsync({ userId: editingId, fullName: editName.trim() });
+    setEditingId(null);
   };
 
   const getInitials = (name: string | null | undefined) => {
