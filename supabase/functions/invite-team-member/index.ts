@@ -81,13 +81,18 @@ Deno.serve(async (req) => {
       targetUserId = invited.user.id;
     }
 
-    // Ensure profile exists
+    // Ensure profile exists. Only set full_name when provided so we don't
+    // overwrite an existing name with null.
+    const profilePayload: Record<string, unknown> = {
+      user_id: targetUserId,
+      is_approved: true,
+    };
+    if (fullName && fullName.trim().length > 0) {
+      profilePayload.full_name = fullName.trim();
+    }
     await admin
       .from("profiles")
-      .upsert(
-        { user_id: targetUserId, full_name: fullName ?? null, is_approved: true },
-        { onConflict: "user_id" }
-      );
+      .upsert(profilePayload, { onConflict: "user_id" });
 
     // Upsert role (replace existing role rows for this user)
     await admin.from("user_roles").delete().eq("user_id", targetUserId);

@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Shield, UserCog, Eye, Crown, Trash2 } from "lucide-react";
+import { Users, Shield, UserCog, Eye, Crown, Trash2, Pencil } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +36,7 @@ import {
   useCurrentUserRole, 
   useUpdateUserRole, 
   useRemoveTeamMember,
+  useUpdateMemberProfile,
   AppRole 
 } from "@/hooks/useTeam";
 import { supabase } from "@/integrations/supabase/client";
