@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Shield, UserCog, Eye, Crown, Trash2 } from "lucide-react";
+import { Users, Shield, UserCog, Eye, Crown, Trash2, Pencil } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +36,7 @@ import {
   useCurrentUserRole, 
   useUpdateUserRole, 
   useRemoveTeamMember,
+  useUpdateMemberProfile,
   AppRole 
 } from "@/hooks/useTeam";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,8 +75,11 @@ const Team = () => {
   const { data: currentUserRole } = useCurrentUserRole();
   const updateRole = useUpdateUserRole();
   const removeMember = useRemoveTeamMember();
-  
+  const updateProfile = useUpdateMemberProfile();
+
   const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   
   // Get current user
   const { data: currentUser } = useQuery({
@@ -77,8 +90,9 @@ const Team = () => {
     },
   });
 
-  const isAdmin = currentUserRole?.role === "admin";
+  const isAdmin = currentUserRole?.role === "admin" || currentUserRole?.role === "super_admin";
   const memberToRemove = teamMembers?.find(m => m.user_id === removeMemberId);
+  const memberToEdit = teamMembers?.find(m => m.user_id === editingId);
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
     await updateRole.mutateAsync({ userId, role: newRole });
@@ -89,6 +103,17 @@ const Team = () => {
       await removeMember.mutateAsync(removeMemberId);
       setRemoveMemberId(null);
     }
+  };
+
+  const openEdit = (userId: string, currentName: string | null | undefined) => {
+    setEditingId(userId);
+    setEditName(currentName ?? "");
+  };
+
+  const handleSaveName = async () => {
+    if (!editingId) return;
+    await updateProfile.mutateAsync({ userId: editingId, fullName: editName.trim() });
+    setEditingId(null);
   };
 
   const getInitials = (name: string | null | undefined) => {
@@ -232,6 +257,17 @@ const Team = () => {
                         </Badge>
                       )}
                       
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEdit(member.user_id, member.profile?.full_name)}
+                          title="Edit name"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+
                       {canModify && (
                         <Button
                           variant="ghost"
@@ -286,6 +322,30 @@ const Team = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Name Dialog */}
+      <Dialog open={!!editingId} onOpenChange={(o) => !o && setEditingId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit team member</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Full name</Label>
+            <Input
+              id="edit-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Jane Doe"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+            <Button onClick={handleSaveName} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
