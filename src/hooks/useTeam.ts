@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type AppRole = "admin" | "member" | "viewer";
+export type AppRole = "super_admin" | "admin" | "member" | "viewer";
 
 export interface UserRole {
   id: string;
@@ -35,9 +35,11 @@ export const useCurrentUserRole = () => {
         .from("user_roles")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
       return data as UserRole | null;
     },
   });
@@ -46,7 +48,7 @@ export const useCurrentUserRole = () => {
 export const useIsAdmin = () => {
   const { data: userRole, isLoading } = useCurrentUserRole();
   return {
-    isAdmin: userRole?.role === "admin",
+    isAdmin: userRole?.role === "admin" || userRole?.role === "super_admin",
     isLoading,
   };
 };
@@ -146,18 +148,35 @@ export const useInviteTeamMember = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ email, role }: { email: string; role: AppRole }) => {
-      // This is a placeholder - in a real app, you'd send an invitation email
-      // For now, we'll just show a message about inviting
-      // The user will get assigned their role when they sign up via the trigger
-      throw new Error("Invite functionality requires email service integration. New users who sign up will be assigned 'member' role by default.");
+    mutationFn: async ({
+      email,
+      role,
+      fullName,
+    }: {
+      email: string;
+      role: AppRole;
+      fullName?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("invite-team-member", {
+        body: {
+          email,
+          role,
+          full_name: fullName,
+          redirect_to: `${window.location.origin}`,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as { success: boolean; user_id: string; invited: boolean };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
-      toast.success("Invitation sent!");
+      toast.success(
+        data?.invited ? "Invitation sent!" : "Existing user added to team!"
+      );
     },
-    onError: (error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Failed to invite member");
     },
   });
 };

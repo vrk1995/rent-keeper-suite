@@ -2,3 +2,6 @@ project_id = "lqwsnhjavgdrfuzgdywy"
 
 [functions.generate-invoice-pdf]
 verify_jwt = false
+
+[functions.invite-team-member]
+verify_jwt = true
