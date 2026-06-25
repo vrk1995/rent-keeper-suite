@@ -144,6 +144,10 @@ export const useRemoveTeamMember = () => {
   });
 };
 
+// Use the production app URL so invitation emails route to the live app
+// (e.g. terntripsindia.in) instead of the lovable.app preview origin.
+const APP_URL = "https://terntripsindia.in";
+
 export const useInviteTeamMember = () => {
   const queryClient = useQueryClient();
 
@@ -157,12 +161,17 @@ export const useInviteTeamMember = () => {
       role: AppRole;
       fullName?: string;
     }) => {
+      const origin = window.location.origin.includes("terntripsindia")
+        ? window.location.origin
+        : APP_URL;
       const { data, error } = await supabase.functions.invoke("invite-team-member", {
         body: {
           email,
           role,
           full_name: fullName,
-          redirect_to: `${window.location.origin}`,
+          // Land on the app's home route; Index.tsx intercepts invite tokens
+          // and forwards the user to /set-password.
+          redirect_to: `${origin}/`,
         },
       });
       if (error) throw error;
@@ -177,6 +186,27 @@ export const useInviteTeamMember = () => {
     },
     onError: (error: any) => {
       toast.error(error?.message ?? "Failed to invite member");
+    },
+  });
+};
+
+export const useUpdateMemberProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, fullName }: { userId: string; fullName: string }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName })
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      toast.success("Profile updated");
+    },
+    onError: (error: any) => {
+      toast.error("Failed to update profile: " + (error?.message ?? "Unknown error"));
     },
   });
 };
