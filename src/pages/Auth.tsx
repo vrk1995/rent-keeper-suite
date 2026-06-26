@@ -8,12 +8,22 @@ import { Building2, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+const APP_URL = "https://terntripsindia.in";
+
+const getAuthRedirectUrl = () => {
+  const origin = window.location.origin.includes("terntripsindia")
+    ? window.location.origin
+    : APP_URL;
+  return `${origin}/`;
+};
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -60,6 +70,38 @@ const Auth = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      toast({
+        title: "Enter your email first",
+        description: "We'll send the password setup link to that address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: getAuthRedirectUrl(),
+      });
+      if (error) throw error;
+      toast({
+        title: "Password setup email sent",
+        description: "Open the email link to set a password and sign in.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Could not send email",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -146,7 +188,21 @@ const Auth = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="password">Password</Label>
+                {isLogin && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-2 py-1 text-xs text-primary hover:text-primary"
+                    onClick={handlePasswordReset}
+                    disabled={resetLoading}
+                  >
+                    {resetLoading ? "Sending…" : "Set / reset password"}
+                  </Button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
