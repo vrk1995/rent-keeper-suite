@@ -169,19 +169,28 @@ export const useInviteTeamMember = () => {
           email,
           role,
           full_name: fullName,
-          // Land on the app's home route; Index.tsx intercepts invite tokens
-          // and forwards the user to /set-password.
+          // Land on the app's home route; App.tsx intercepts invite/recovery tokens
+          // before HashRouter and forwards the user to /set-password.
           redirect_to: `${origin}/`,
         },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      return data as { success: boolean; user_id: string; invited: boolean };
+      return data as {
+        success: boolean;
+        user_id: string;
+        invited: boolean;
+        setup_email_sent?: boolean;
+      };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success(
-        data?.invited ? "Invitation sent!" : "Existing user added to team!"
+        data?.invited
+          ? "Invitation email sent!"
+          : data?.setup_email_sent
+            ? "Existing user added and password setup email sent!"
+            : "Existing user added to team!"
       );
     },
     onError: (error: any) => {

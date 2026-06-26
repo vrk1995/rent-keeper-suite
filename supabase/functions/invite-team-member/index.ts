@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
     const email: string = (body.email ?? "").trim().toLowerCase();
     const role: AppRole = body.role ?? "member";
     const fullName: string | undefined = body.full_name;
+    const redirectTo = body.redirect_to || undefined;
 
     if (!email || !["admin", "member", "viewer"].includes(role)) {
       return new Response(JSON.stringify({ error: "Invalid email or role" }), {
@@ -64,10 +65,23 @@ Deno.serve(async (req) => {
     const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const existing = list?.users?.find((u: any) => (u.email ?? "").toLowerCase() === email);
 
+    let setupEmailSent = false;
+
     if (existing) {
       targetUserId = existing.id;
+      const { error: resetErr } = await admin.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+      if (resetErr) {
+        return new Response(
+          JSON.stringify({
+            error: `User already exists, but the password setup email could not be sent: ${resetErr.message}`,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      setupEmailSent = true;
     } else {
-      const redirectTo = body.redirect_to || undefined;
       const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
         data: fullName ? { full_name: fullName } : undefined,
         redirectTo,
@@ -79,6 +93,7 @@ Deno.serve(async (req) => {
         );
       }
       targetUserId = invited.user.id;
+      setupEmailSent = true;
     }
 
     // Ensure profile exists. Only set full_name when provided so we don't
@@ -108,7 +123,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, user_id: targetUserId, invited: !existing }),
+      JSON.stringify({
+        success: true,
+        user_id: targetUserId,
+        invited: !existing,
+        setup_email_sent: setupEmailSent,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {

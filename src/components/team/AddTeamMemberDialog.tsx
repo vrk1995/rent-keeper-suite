@@ -54,8 +54,8 @@ export const AddTeamMemberDialog = () => {
         <DialogHeader>
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
-            Invite someone by email. If they already have an account, they'll be
-            added to the team immediately; otherwise an invitation email is sent.
+            Invite someone by email. Existing users are added immediately and
+            receive a password setup email.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
