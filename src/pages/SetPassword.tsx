@@ -99,7 +99,7 @@ const SetPassword = () => {
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-display font-bold">Set your password</h1>
+              <h1 className="text-2xl font-display font-bold">Join RentKeeper</h1>
               <p className="text-sm text-muted-foreground">{email}</p>
             </div>
           </div>
@@ -107,7 +107,7 @@ const SetPassword = () => {
           <p className="mb-6 text-sm text-muted-foreground">
             {invitedBy
               ? `${invitedBy} has invited you to sign up on RentKeeper.`
-              : "Create your RentKeeper login to continue."}
+              : "You have been invited to sign up on RentKeeper."}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">

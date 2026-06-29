@@ -37,7 +37,7 @@ const AuthLinkGate = () => {
 
   useEffect(() => {
     let redirected = false;
-    const target = isPasswordSetupCallback() ? "/set-password" : "/dashboard";
+    const target = isPasswordSetupCallback() ? "/invite-signup" : "/dashboard";
     const redirect = () => {
       if (redirected) return;
       redirected = true;
@@ -99,6 +99,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/invite-signup" element={<SetPassword />} />
         <Route path="/set-password" element={<SetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
