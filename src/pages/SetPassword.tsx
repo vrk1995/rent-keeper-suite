@@ -15,6 +15,7 @@ const SetPassword = () => {
   const [confirm, setConfirm] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [invitedBy, setInvitedBy] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -30,8 +31,10 @@ const SetPassword = () => {
         navigate("/auth");
         return;
       }
+      const metadata = (data.user.user_metadata ?? {}) as Record<string, string>;
       setEmail(data.user.email ?? "");
-      setFullName((data.user.user_metadata as any)?.full_name ?? "");
+      setFullName(metadata.full_name ?? "");
+      setInvitedBy(metadata.invited_by_name ?? "");
       setReady(true);
     })();
   }, [navigate, toast]);
@@ -100,6 +103,12 @@ const SetPassword = () => {
               <p className="text-sm text-muted-foreground">{email}</p>
             </div>
           </div>
+
+          <p className="mb-6 text-sm text-muted-foreground">
+            {invitedBy
+              ? `${invitedBy} has invited you to sign up on RentKeeper.`
+              : "Create your RentKeeper login to continue."}
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getCanonicalAuthRedirectUrl } from "@/lib/authRedirect";
 
 export type AppRole = "super_admin" | "admin" | "member" | "viewer";
 
@@ -144,10 +145,6 @@ export const useRemoveTeamMember = () => {
   });
 };
 
-// Use the production app URL so invitation emails route to the live app
-// (e.g. terntripsindia.in) instead of the lovable.app preview origin.
-const APP_URL = "https://terntripsindia.in";
-
 export const useInviteTeamMember = () => {
   const queryClient = useQueryClient();
 
@@ -161,17 +158,13 @@ export const useInviteTeamMember = () => {
       role: AppRole;
       fullName?: string;
     }) => {
-      const origin = window.location.origin.includes("terntripsindia")
-        ? window.location.origin
-        : APP_URL;
       const { data, error } = await supabase.functions.invoke("invite-team-member", {
         body: {
           email,
           role,
           full_name: fullName,
-          // Land on the app's home route; App.tsx intercepts invite/recovery tokens
-          // before HashRouter and forwards the user to /set-password.
-          redirect_to: `${origin}/`,
+          // Always route auth email callbacks through terntripsindia.in.
+          redirect_to: getCanonicalAuthRedirectUrl(),
         },
       });
       if (error) throw error;

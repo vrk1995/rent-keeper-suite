@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import SetPassword from "./pages/SetPassword";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
+import { getCanonicalCallbackUrl, getCanonicalHashRouteUrl, isCanonicalAppHost } from "@/lib/authRedirect";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,7 @@ const AuthLinkGate = () => {
     const redirect = () => {
       if (redirected) return;
       redirected = true;
-      window.location.replace(`${window.location.origin}${window.location.pathname}#${target}`);
+      window.location.replace(getCanonicalHashRouteUrl(target));
     };
 
     const subscription = supabase.auth.onAuthStateChange((_event, session) => {
@@ -61,7 +62,7 @@ const AuthLinkGate = () => {
           setMessage("This link has expired. Please request a new one.");
           window.setTimeout(() => {
             if (!redirected) {
-              window.location.replace(`${window.location.origin}${window.location.pathname}#/auth`);
+              window.location.replace(getCanonicalHashRouteUrl("/auth"));
             }
           }, 1200);
         }
@@ -77,7 +78,7 @@ const AuthLinkGate = () => {
         <div className="mx-auto mb-4 w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
           <Building2 className="w-6 h-6 text-primary" />
         </div>
-        <h1 className="text-xl font-display font-bold mb-2">RentFlow</h1>
+        <h1 className="text-xl font-display font-bold mb-2">RentKeeper</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
       </div>
     </div>
@@ -85,7 +86,13 @@ const AuthLinkGate = () => {
 };
 
 const AppRoutes = () => {
-  if (hasAuthCallback()) return <AuthLinkGate />;
+  if (hasAuthCallback()) {
+    if (!isCanonicalAppHost()) {
+      window.location.replace(getCanonicalCallbackUrl());
+      return <AuthLinkGate />;
+    }
+    return <AuthLinkGate />;
+  }
 
   return (
     <HashRouter>
