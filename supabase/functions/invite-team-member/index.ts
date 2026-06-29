@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 type AppRole = "admin" | "member" | "viewer";
+const APP_REDIRECT_TO = "https://terntripsindia.in/";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -31,6 +32,18 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
+    const { data: callerProfile } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+
+    const invitedByName =
+      callerProfile?.full_name ||
+      (userData.user.user_metadata as Record<string, string> | null)?.full_name ||
+      userData.user.email ||
+      "Your admin";
+
     // Verify caller is admin or super_admin
     const { data: callerRoles } = await admin
       .from("user_roles")
@@ -50,8 +63,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const email: string = (body.email ?? "").trim().toLowerCase();
     const role: AppRole = body.role ?? "member";
-    const fullName: string | undefined = body.full_name;
-    const redirectTo = body.redirect_to || undefined;
+    const fullName: string | undefined = body.full_name?.trim();
+    const redirectTo = APP_REDIRECT_TO;
 
     if (!email || !["admin", "member", "viewer"].includes(role)) {
       return new Response(JSON.stringify({ error: "Invalid email or role" }), {
@@ -69,6 +82,13 @@ Deno.serve(async (req) => {
 
     if (existing) {
       targetUserId = existing.id;
+      await admin.auth.admin.updateUserById(existing.id, {
+        user_metadata: {
+          ...(existing.user_metadata ?? {}),
+          ...(fullName ? { full_name: fullName } : {}),
+          invited_by_name: invitedByName,
+        },
+      });
       const { error: resetErr } = await admin.auth.resetPasswordForEmail(email, {
         redirectTo,
       });
@@ -83,7 +103,10 @@ Deno.serve(async (req) => {
       setupEmailSent = true;
     } else {
       const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: fullName ? { full_name: fullName } : undefined,
+        data: {
+          ...(fullName ? { full_name: fullName } : {}),
+          invited_by_name: invitedByName,
+        },
         redirectTo,
       });
       if (inviteErr || !invited?.user) {

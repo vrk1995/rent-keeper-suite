@@ -7,15 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Building2, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-const APP_URL = "https://terntripsindia.in";
-
-const getAuthRedirectUrl = () => {
-  const origin = window.location.origin.includes("terntripsindia")
-    ? window.location.origin
-    : APP_URL;
-  return `${origin}/`;
-};
+import { getCanonicalAuthRedirectUrl } from "@/lib/authRedirect";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,12 +36,11 @@ const Auth = () => {
         });
         navigate("/dashboard");
       } else {
-        const redirectUrl = `${window.location.origin}/`;
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: redirectUrl,
+            emailRedirectTo: getCanonicalAuthRedirectUrl(),
             data: {
               full_name: fullName,
             },
@@ -87,7 +78,7 @@ const Auth = () => {
     setResetLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: getAuthRedirectUrl(),
+        redirectTo: getCanonicalAuthRedirectUrl(),
       });
       if (error) throw error;
       toast({
@@ -144,7 +135,7 @@ const Auth = () => {
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-display font-bold">RentFlow</h1>
+              <h1 className="text-2xl font-display font-bold">RentKeeper</h1>
               <p className="text-sm text-muted-foreground">
                 {isLogin ? "Welcome back" : "Create your account"}
               </p>
