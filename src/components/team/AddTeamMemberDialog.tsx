@@ -20,20 +20,22 @@ import {
 } from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
 import { useInviteTeamMember, AppRole } from "@/hooks/useTeam";
+import { toast } from "sonner";
 
 export const AddTeamMemberDialog = () => {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<AppRole>("member");
+  const [inviteLink, setInviteLink] = useState("");
   const invite = useInviteTeamMember();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     try {
-      await invite.mutateAsync({ email: email.trim(), role, fullName: fullName.trim() || undefined });
-      setOpen(false);
+      const result = await invite.mutateAsync({ email: email.trim(), role, fullName: fullName.trim() || undefined });
+      setInviteLink(result.invite_link ?? "");
       setEmail("");
       setFullName("");
       setRole("member");
@@ -43,7 +45,10 @@ export const AddTeamMemberDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      setOpen(nextOpen);
+      if (!nextOpen) setInviteLink("");
+    }}>
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4 mr-2" />
@@ -54,10 +59,26 @@ export const AddTeamMemberDialog = () => {
         <DialogHeader>
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
-            Invite someone by email. Existing users are added immediately and
-            receive a password setup email.
+            Create an invite link for the member to open on terntripsindia.in and set their password.
           </DialogDescription>
         </DialogHeader>
+        {inviteLink && (
+          <div className="space-y-2 rounded-lg border bg-secondary/30 p-3">
+            <Label htmlFor="invite-link">Invite link</Label>
+            <Input id="invite-link" value={inviteLink} readOnly />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={async () => {
+                await navigator.clipboard.writeText(inviteLink);
+                toast.success("Invite link copied");
+              }}
+            >
+              Copy Link
+            </Button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email *</Label>

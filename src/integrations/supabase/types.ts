@@ -711,6 +711,48 @@ export type Database = {
           },
         ]
       }
+      team_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string | null
+          id: string
+          invited_by_name: string | null
+          invited_by_user_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          full_name?: string | null
+          id?: string
+          invited_by_name?: string | null
+          invited_by_user_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string | null
+          id?: string
+          invited_by_name?: string | null
+          invited_by_user_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_owner_shares: {
         Row: {
           created_at: string
