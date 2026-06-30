@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Building2, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const SetPassword = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -18,9 +19,30 @@ const SetPassword = () => {
   const [invitedBy, setInvitedBy] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const inviteToken = searchParams.get("invite")?.trim() ?? "";
 
   useEffect(() => {
     (async () => {
+      if (inviteToken) {
+        const { data, error } = await supabase.functions.invoke("get-team-invite", {
+          body: { token: inviteToken },
+        });
+        if (error || (data as any)?.error) {
+          toast({
+            title: "Invitation expired or invalid",
+            description: (data as any)?.error || error?.message || "Please ask your admin to re-send the invitation.",
+            variant: "destructive",
+          });
+          navigate("/auth");
+          return;
+        }
+        setEmail((data as any).email ?? "");
+        setFullName((data as any).full_name ?? "");
+        setInvitedBy((data as any).invited_by_name ?? "");
+        setReady(true);
+        return;
+      }
+
       const { data } = await supabase.auth.getUser();
       if (!data.user) {
         toast({
@@ -37,7 +59,7 @@ const SetPassword = () => {
       setInvitedBy(metadata.invited_by_name ?? "");
       setReady(true);
     })();
-  }, [navigate, toast]);
+  }, [inviteToken, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +73,23 @@ const SetPassword = () => {
     }
     setLoading(true);
     try {
+      if (inviteToken) {
+        const { data, error } = await supabase.functions.invoke("accept-team-invite", {
+          body: { token: inviteToken, password, full_name: fullName },
+        });
+        if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) throw signInError;
+
+        toast({ title: "Welcome aboard!", description: "Your account is ready." });
+        navigate("/dashboard");
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password,
         data: { full_name: fullName },

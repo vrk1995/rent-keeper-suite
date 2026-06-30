@@ -18,6 +18,8 @@ const queryClient = new QueryClient();
 const hasAuthCallback = () => {
   const url = new URL(window.location.href);
   const rawHash = window.location.hash || "";
+  const canonicalHref = window.location.href.replace(window.location.origin, "https://terntripsindia.in");
+
   return (
     rawHash.includes("access_token") ||
     rawHash.includes("refresh_token") ||
@@ -80,6 +82,11 @@ const AuthLinkGate = () => {
         </div>
         <h1 className="text-xl font-display font-bold mb-2">RentKeeper</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
+        {!isCanonicalAppHost() && (
+          <a className="mt-4 inline-flex text-sm text-primary underline" href={canonicalHref}>
+            Continue on terntripsindia.in
+          </a>
+        )}
       </div>
     </div>
   );

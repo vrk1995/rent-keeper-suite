@@ -171,19 +171,23 @@ export const useInviteTeamMember = () => {
       if ((data as any)?.error) throw new Error((data as any).error);
       return data as {
         success: boolean;
-        user_id: string;
+        user_id: string | null;
         invited: boolean;
         setup_email_sent?: boolean;
+        invite_link?: string;
+        expires_at?: string;
       };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success(
-        data?.invited
-          ? "Invitation email sent!"
-          : data?.setup_email_sent
-            ? "Existing user added and password setup email sent!"
-            : "Existing user added to team!"
+        data?.invite_link
+          ? "Invite link created. Copy it and send it to the team member."
+          : data?.invited
+            ? "Invitation email sent!"
+            : data?.setup_email_sent
+              ? "Existing user added and password setup email sent!"
+              : "Existing user added to team!"
       );
     },
     onError: (error: any) => {
