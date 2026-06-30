@@ -49,7 +49,7 @@ const Auth = () => {
         if (error) throw error;
         toast({
           title: "Account created!",
-          description: "Your account is pending admin approval. You'll be notified once approved.",
+          description: "You can start using RentKeeper now.",
         });
         navigate("/dashboard");
       }

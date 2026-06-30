@@ -17,11 +17,9 @@ import Reminders from "@/pages/Reminders";
 import Team from "@/pages/Team";
 import BillingAddresses from "@/pages/BillingAddresses";
 import AdminApprovals from "@/pages/AdminApprovals";
-import PendingApproval from "@/pages/PendingApproval";
 import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
 import { FinancialYearProvider } from "@/contexts/FinancialYearContext";
-import { useApprovalStatus } from "@/hooks/useApprovalStatus";
-import { useIsAdmin, useIsSuperAdmin } from "@/hooks/useUserRole";
+import { useIsSuperAdmin } from "@/hooks/useUserRole";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -29,8 +27,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: isApproved, isLoading: approvalLoading } = useApprovalStatus();
-  const { isAdmin, isLoading: adminLoading } = useIsAdmin();
   const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
 
   useEffect(() => {
@@ -53,7 +49,7 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  if (loading || approvalLoading || adminLoading || superAdminLoading) {
+  if (loading || superAdminLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -62,10 +58,6 @@ const Dashboard = () => {
   }
 
   if (!user) return null;
-
-  if (!isApproved && !isAdmin && !isSuperAdmin) {
-    return <PendingApproval />;
-  }
 
   const renderContent = () => {
     const path = location.pathname;
