@@ -36,6 +36,7 @@ const isPasswordSetupCallback = () => {
 
 const AuthLinkGate = () => {
   const [message, setMessage] = useState("Verifying your secure link…");
+  const canonicalHref = window.location.href.replace(window.location.origin, "https://terntripsindia.in");
 
   useEffect(() => {
     let redirected = false;
