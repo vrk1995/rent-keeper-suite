@@ -1,6 +1,5 @@
 // deno-lint-ignore-file
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createHash } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +10,11 @@ type AppRole = "admin" | "member" | "viewer";
 const APP_REDIRECT_TO = "https://terntripsindia.in/";
 const INVITE_LINK_EXPIRY_DAYS = 14;
 
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+const sha256 = async (value: string) => {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 const generateToken = () => {
   const bytes = new Uint8Array(32);
@@ -88,7 +91,7 @@ Deno.serve(async (req) => {
     const expiresAt = new Date(Date.now() + INVITE_LINK_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     const { error: inviteRecordErr } = await admin.from("team_invites").insert({
-      token_hash: sha256(inviteToken),
+      token_hash: await sha256(inviteToken),
       email,
       full_name: fullName || null,
       role,

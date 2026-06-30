@@ -1,13 +1,16 @@
 // deno-lint-ignore-file
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { createHash } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+const sha256 = async (value: string) => {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -35,7 +38,7 @@ Deno.serve(async (req) => {
     const { data: invite, error } = await admin
       .from("team_invites")
       .select("email, full_name, role, invited_by_name, expires_at, accepted_at")
-      .eq("token_hash", sha256(token))
+      .eq("token_hash", await sha256(token))
       .maybeSingle();
 
     if (error) throw error;
