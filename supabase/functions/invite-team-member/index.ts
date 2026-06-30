@@ -77,8 +77,6 @@ Deno.serve(async (req) => {
     const email: string = (body.email ?? "").trim().toLowerCase();
     const role: AppRole = body.role ?? "member";
     const fullName: string | undefined = body.full_name?.trim();
-    const redirectTo = APP_REDIRECT_TO;
-
     if (!email || !["admin", "member", "viewer"].includes(role)) {
       return new Response(JSON.stringify({ error: "Invalid email or role" }), {
         status: 400,
@@ -107,74 +105,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find existing user by email
-    let targetUserId: string | null = null;
-    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const existing = list?.users?.find((u: any) => (u.email ?? "").toLowerCase() === email);
-
-    let setupEmailSent = false;
-
-    if (existing) {
-      targetUserId = existing.id;
-      await admin.auth.admin.updateUserById(existing.id, {
-        user_metadata: {
-          ...(existing.user_metadata ?? {}),
-          ...(fullName ? { full_name: fullName } : {}),
-          invited_by_name: invitedByName,
-        },
-      });
-      const { error: resetErr } = await admin.auth.resetPasswordForEmail(email, {
-        redirectTo,
-      });
-      setupEmailSent = !resetErr;
-    } else {
-      const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: {
-          ...(fullName ? { full_name: fullName } : {}),
-          invited_by_name: invitedByName,
-        },
-        redirectTo,
-      });
-      if (!inviteErr && invited?.user) {
-        targetUserId = invited.user.id;
-        setupEmailSent = true;
-      }
-    }
-
-    if (targetUserId) {
-      // Ensure profile exists. Only set full_name when provided so we don't
-      // overwrite an existing name with null.
-      const profilePayload: Record<string, unknown> = {
-        user_id: targetUserId,
-        is_approved: true,
-      };
-      if (fullName && fullName.trim().length > 0) {
-        profilePayload.full_name = fullName.trim();
-      }
-      await admin
-        .from("profiles")
-        .upsert(profilePayload, { onConflict: "user_id" });
-
-      // Upsert role (replace existing role rows for this user)
-      await admin.from("user_roles").delete().eq("user_id", targetUserId);
-      const { error: roleErr } = await admin
-        .from("user_roles")
-        .insert({ user_id: targetUserId, role });
-
-      if (roleErr) {
-        return new Response(JSON.stringify({ error: roleErr.message }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
     return new Response(
       JSON.stringify({
         success: true,
-        user_id: targetUserId,
-        invited: !existing,
-        setup_email_sent: setupEmailSent,
+        user_id: null,
+        invited: true,
+        setup_email_sent: false,
         invite_link: inviteLink,
         expires_at: expiresAt,
       }),
