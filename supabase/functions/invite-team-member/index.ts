@@ -1,5 +1,6 @@
 // deno-lint-ignore-file
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createHash } from "node:crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,15 @@ const corsHeaders = {
 
 type AppRole = "admin" | "member" | "viewer";
 const APP_REDIRECT_TO = "https://terntripsindia.in/";
+const INVITE_LINK_EXPIRY_DAYS = 14;
+
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+
+const generateToken = () => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -73,6 +83,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    const inviteToken = generateToken();
+    const inviteLink = `${APP_REDIRECT_TO}#/invite-signup?invite=${inviteToken}`;
+    const expiresAt = new Date(Date.now() + INVITE_LINK_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error: inviteRecordErr } = await admin.from("team_invites").insert({
+      token_hash: sha256(inviteToken),
+      email,
+      full_name: fullName || null,
+      role,
+      invited_by_user_id: userData.user.id,
+      invited_by_name: invitedByName,
+      expires_at: expiresAt,
+    });
+
+    if (inviteRecordErr) {
+      return new Response(JSON.stringify({ error: inviteRecordErr.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Find existing user by email
     let targetUserId: string | null = null;
     const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -92,15 +123,7 @@ Deno.serve(async (req) => {
       const { error: resetErr } = await admin.auth.resetPasswordForEmail(email, {
         redirectTo,
       });
-      if (resetErr) {
-        return new Response(
-          JSON.stringify({
-            error: `User already exists, but the password setup email could not be sent: ${resetErr.message}`,
-          }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      setupEmailSent = true;
+      setupEmailSent = !resetErr;
     } else {
       const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
         data: {
@@ -109,40 +132,38 @@ Deno.serve(async (req) => {
         },
         redirectTo,
       });
-      if (inviteErr || !invited?.user) {
-        return new Response(
-          JSON.stringify({ error: inviteErr?.message ?? "Failed to invite user" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!inviteErr && invited?.user) {
+        targetUserId = invited.user.id;
+        setupEmailSent = true;
       }
-      targetUserId = invited.user.id;
-      setupEmailSent = true;
     }
 
-    // Ensure profile exists. Only set full_name when provided so we don't
-    // overwrite an existing name with null.
-    const profilePayload: Record<string, unknown> = {
-      user_id: targetUserId,
-      is_approved: true,
-    };
-    if (fullName && fullName.trim().length > 0) {
-      profilePayload.full_name = fullName.trim();
-    }
-    await admin
-      .from("profiles")
-      .upsert(profilePayload, { onConflict: "user_id" });
+    if (targetUserId) {
+      // Ensure profile exists. Only set full_name when provided so we don't
+      // overwrite an existing name with null.
+      const profilePayload: Record<string, unknown> = {
+        user_id: targetUserId,
+        is_approved: true,
+      };
+      if (fullName && fullName.trim().length > 0) {
+        profilePayload.full_name = fullName.trim();
+      }
+      await admin
+        .from("profiles")
+        .upsert(profilePayload, { onConflict: "user_id" });
 
-    // Upsert role (replace existing role rows for this user)
-    await admin.from("user_roles").delete().eq("user_id", targetUserId);
-    const { error: roleErr } = await admin
-      .from("user_roles")
-      .insert({ user_id: targetUserId, role });
+      // Upsert role (replace existing role rows for this user)
+      await admin.from("user_roles").delete().eq("user_id", targetUserId);
+      const { error: roleErr } = await admin
+        .from("user_roles")
+        .insert({ user_id: targetUserId, role });
 
-    if (roleErr) {
-      return new Response(JSON.stringify({ error: roleErr.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (roleErr) {
+        return new Response(JSON.stringify({ error: roleErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(
@@ -151,6 +172,8 @@ Deno.serve(async (req) => {
         user_id: targetUserId,
         invited: !existing,
         setup_email_sent: setupEmailSent,
+        invite_link: inviteLink,
+        expires_at: expiresAt,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
