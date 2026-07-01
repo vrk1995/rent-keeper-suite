@@ -661,4 +661,125 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   );
 };
 
+// Single floor row with corp-no. sub-list
+interface FloorRowProps {
+  index: number;
+  control: any;
+  canRemove: boolean;
+  onRemove: () => void;
+  getUnits: () => { id?: string; corp_number: string; area_sqft: number }[];
+  setUnits: (units: { id?: string; corp_number: string; area_sqft: number }[]) => void;
+}
+
+const FloorRow = ({ index, control, canRemove, onRemove, getUnits, setUnits }: FloorRowProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const units = getUnits();
+
+  return (
+    <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
+      <div className="flex gap-2 items-start">
+        <FormField
+          control={control}
+          name={`floors.${index}.floor_name`}
+          render={({ field }) => (
+            <FormItem className="flex-1">
+              {index === 0 && <FormLabel className="text-xs">Floor</FormLabel>}
+              <FormControl>
+                <Input placeholder="G, 1, 2, B1..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={control}
+          name={`floors.${index}.floor_sqft`}
+          render={({ field }) => (
+            <FormItem className="flex-[2]">
+              {index === 0 && <FormLabel className="text-xs">Sq. Ft.</FormLabel>}
+              <FormControl>
+                <Input type="number" min={0} placeholder="2000" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {canRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={index === 0 ? "mt-6" : ""}
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            className="text-xs text-primary hover:underline"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? "▾" : "▸"} Unit / Corp Nos. ({units.length})
+          </button>
+          {expanded && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setUnits([...units, { corp_number: "", area_sqft: 0 }])}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Add Corp No.
+            </Button>
+          )}
+        </div>
+        {expanded && units.length > 0 && (
+          <div className="space-y-2">
+            {units.map((u, uIdx) => (
+              <div key={uIdx} className="flex gap-2 items-center">
+                <Input
+                  placeholder="Corp / Building No."
+                  value={u.corp_number}
+                  onChange={(e) => {
+                    const next = [...units];
+                    next[uIdx] = { ...next[uIdx], corp_number: e.target.value };
+                    setUnits(next);
+                  }}
+                  className="flex-[2]"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Sq. Ft."
+                  value={u.area_sqft}
+                  onChange={(e) => {
+                    const next = [...units];
+                    next[uIdx] = { ...next[uIdx], area_sqft: Number(e.target.value) };
+                    setUnits(next);
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setUnits(units.filter((_, i) => i !== uIdx))}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default AddPropertyDialog;
+
