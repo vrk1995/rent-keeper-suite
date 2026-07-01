@@ -334,6 +334,62 @@ export function PropertyDetailSheet({
                 )}
               </TabsContent>
 
+              {/* Corp Nos. Tab */}
+              <TabsContent value="units" className="p-6 m-0">
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground">Total Corp Nos.</p>
+                  <p className="text-xl font-bold">{floorUnits?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Manage corp numbers by editing the property and expanding each floor.
+                  </p>
+                </div>
+
+                {(!floorUnits || floorUnits.length === 0) ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No corp numbers added yet. Edit the property to add them.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {floors.map((floor) => {
+                      const unitsOnFloor = floorUnits.filter(u => u.floor_id === floor.id);
+                      if (unitsOnFloor.length === 0) return null;
+                      return (
+                        <div key={floor.id}>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                            Floor: {floor.floor_name}
+                          </p>
+                          <div className="space-y-2">
+                            {unitsOnFloor.map((u) => {
+                              const occupant = tenants.find(
+                                t => t.floor_unit_id === u.id && t.status === "active"
+                              );
+                              return (
+                                <Card key={u.id}>
+                                  <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                      <p className="font-medium">{u.corp_number}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {Number(u.area_sqft).toLocaleString()} sq.ft
+                                      </p>
+                                    </div>
+                                    {occupant ? (
+                                      <Badge variant="glow">Occupied — {occupant.name}</Badge>
+                                    ) : (
+                                      <Badge variant="secondary">Vacant</Badge>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
+
               {/* Expenses Tab */}
               <TabsContent value="expenses" className="p-6 m-0">
                 <div className="flex items-center justify-between mb-4">
