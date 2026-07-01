@@ -102,6 +102,7 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
   const onSubmit = async (data: ExpenseFormData) => {
     await createExpense.mutateAsync({
       property_id: propertyId,
+      floor_unit_id: data.floor_unit_id || null,
       title: data.title,
       description: data.description,
       amount: data.amount,
