@@ -97,7 +97,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       new_owner_name: "",
       floors_owned: 1,
       notes: "",
-      floors: [{ floor_name: "G", floor_sqft: 0 }],
+      floors: [{ floor_name: "G", floor_sqft: 0, units: [] }],
       owner_shares: [],
     },
   });
