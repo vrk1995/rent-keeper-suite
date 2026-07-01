@@ -318,6 +318,9 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           })),
         });
 
+        // Sync floor units (corp numbers)
+        await syncFloorUnits(newProperty.id, values.floors);
+
         // Create owner shares for new property
         if (values.owner_shares.length > 0) {
           await bulkUpsertOwnerShares.mutateAsync({
