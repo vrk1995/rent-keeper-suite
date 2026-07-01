@@ -183,12 +183,70 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           new_owner_name: "",
           floors_owned: 1,
           notes: "",
-          floors: [{ floor_name: "G", floor_sqft: 0 }],
+          floors: [{ floor_name: "G", floor_sqft: 0, units: [] }],
           owner_shares: [],
         });
       }
     }
-  }, [open, editProperty, existingFloors, existingShares, form]);
+  }, [open, editProperty, existingFloors, existingShares, existingFloorUnits, form]);
+
+  // Sync corp-no. rows for a property with the DB
+  const syncFloorUnits = async (
+    propertyId: string,
+    floors: PropertyFormValues["floors"]
+  ) => {
+    // Load current floors so we can map floor_name -> floor_id
+    const { data: dbFloors } = await supabase
+      .from("property_floors")
+      .select("id, floor_name")
+      .eq("property_id", propertyId);
+    const floorIdByName = new Map((dbFloors || []).map((f: any) => [f.floor_name, f.id]));
+
+    // Load existing units for diffing
+    const { data: dbUnits } = await supabase
+      .from("floor_units")
+      .select("id, floor_id, corp_number, area_sqft")
+      .eq("property_id", propertyId);
+    const dbUnitsById = new Map((dbUnits || []).map((u: any) => [u.id, u]));
+    const keptIds = new Set<string>();
+
+    for (const f of floors) {
+      const floorId = floorIdByName.get(f.floor_name);
+      if (!floorId) continue;
+      for (const u of f.units || []) {
+        if (u.id && dbUnitsById.has(u.id)) {
+          keptIds.add(u.id);
+          const prev = dbUnitsById.get(u.id) as any;
+          if (
+            prev.corp_number !== u.corp_number ||
+            Number(prev.area_sqft) !== Number(u.area_sqft) ||
+            prev.floor_id !== floorId
+          ) {
+            await updateFloorUnit.mutateAsync({
+              id: u.id,
+              property_id: propertyId,
+              floor_id: floorId,
+              corp_number: u.corp_number,
+              area_sqft: u.area_sqft,
+            });
+          }
+        } else {
+          await createFloorUnit.mutateAsync({
+            property_id: propertyId,
+            floor_id: floorId,
+            corp_number: u.corp_number,
+            area_sqft: u.area_sqft,
+          });
+        }
+      }
+    }
+    // Delete units that were removed in the form
+    for (const [id, u] of dbUnitsById) {
+      if (!keptIds.has(id)) {
+        await deleteFloorUnit.mutateAsync({ id, property_id: propertyId });
+      }
+    }
+  };
 
   const onSubmit = async (values: PropertyFormValues) => {
     // Calculate total sqft from floors
