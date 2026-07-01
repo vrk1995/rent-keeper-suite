@@ -79,8 +79,12 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const bulkUpsertOwnerShares = useBulkUpsertOwnerShares();
   const { data: existingFloors } = usePropertyFloors(editProperty?.id || "");
   const { data: existingShares } = usePropertyOwnerShares(editProperty?.id);
+  const { data: existingFloorUnits } = useFloorUnitsByProperty(editProperty?.id);
   const { data: propertyOwners } = usePropertyOwners();
   const createPropertyOwner = useCreatePropertyOwner();
+  const createFloorUnit = useCreateFloorUnit();
+  const updateFloorUnit = useUpdateFloorUnit();
+  const deleteFloorUnit = useDeleteFloorUnit();
   const [showNewOwnerInput, setShowNewOwnerInput] = useState(false);
   
   const form = useForm<PropertyFormValues>({
