@@ -251,10 +251,14 @@ export function PropertyDetailSheet({
           </SheetHeader>
 
           <Tabs defaultValue="tenants" className="flex-1">
-            <TabsList className="w-full justify-start px-6 py-2 h-auto bg-transparent border-b rounded-none">
+            <TabsList className="w-full justify-start px-6 py-2 h-auto bg-transparent border-b rounded-none overflow-x-auto">
               <TabsTrigger value="tenants" className="gap-2">
                 <Users className="w-4 h-4" />
                 Tenants
+              </TabsTrigger>
+              <TabsTrigger value="units" className="gap-2">
+                <Building2 className="w-4 h-4" />
+                Corp Nos.
               </TabsTrigger>
               <TabsTrigger value="expenses" className="gap-2">
                 <Wallet className="w-4 h-4" />
