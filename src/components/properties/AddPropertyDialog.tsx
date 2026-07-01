@@ -131,7 +131,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           newFloors.push(existingFloor);
         } else {
           const floorName = i === 0 ? "G" : String(i);
-          newFloors.push({ floor_name: floorName, floor_sqft: 0 });
+          newFloors.push({ floor_name: floorName, floor_sqft: 0, units: [] });
         }
       }
       replaceFloors(newFloors);
