@@ -40,6 +40,7 @@ import { useCreateTenant, useUpdateTenant, Tenant, useTenants } from "@/hooks/us
 import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
+import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
 import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { useTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
