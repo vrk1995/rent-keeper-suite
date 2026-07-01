@@ -81,6 +81,8 @@ const paymentMethods = [
 export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
   const [open, setOpen] = useState(false);
   const createExpense = useCreateExpense();
+  const { data: floorUnits } = useFloorUnitsByProperty(propertyId);
+  const { data: floors } = usePropertyFloors(propertyId);
 
   const form = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
@@ -93,6 +95,7 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
       vendor_contact: "",
       category: "general",
       payment_method: "",
+      floor_unit_id: "",
     },
   });
 
