@@ -413,6 +413,7 @@ const AddTenantDialog = ({
       property_id: propertyId!,
       unit_id: values.assignment_type === "unit" ? values.unit_id : undefined,
       floor_id: values.floor_id || undefined,
+      floor_unit_id: values.floor_unit_id || undefined,
       property_owner_id: values.property_owner_id || undefined,
       name: values.name,
       email: values.email || undefined,
