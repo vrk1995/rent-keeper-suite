@@ -997,6 +997,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_team: { Args: { _user_id: string }; Returns: boolean }
       daily_payment_processing: { Args: never; Returns: Json }
       generate_monthly_rent_payments: { Args: never; Returns: Json }
       get_user_role: {
@@ -1012,6 +1013,7 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_team_member: { Args: { _user_id: string }; Returns: boolean }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
       update_overdue_payments: { Args: never; Returns: Json }
     }
