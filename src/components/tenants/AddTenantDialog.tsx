@@ -598,6 +598,57 @@ const AddTenantDialog = ({
               />
             )}
 
+            {/* Unit / Corp No. Selection - filtered by selected floor */}
+            {floorUnits && floorUnits.length > 0 && (() => {
+              const watchedFloor = form.watch("floor_id");
+              const relevantUnits = watchedFloor
+                ? floorUnits.filter(u => u.floor_id === watchedFloor)
+                : floorUnits;
+              if (relevantUnits.length === 0) return null;
+              return (
+                <FormField
+                  control={form.control}
+                  name="floor_unit_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unit / Corp No.</FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                        value={field.value || "__none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select corp no. (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none">No specific corp no.</SelectItem>
+                          {relevantUnits.map((u) => {
+                            const occupant = allTenants?.find(
+                              t => t.floor_unit_id === u.id &&
+                                t.status === "active" &&
+                                t.id !== editTenant?.id
+                            );
+                            const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
+                            return (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.corp_number}
+                                <span className="text-muted-foreground ml-2 text-xs">
+                                  {floorName ? `(F: ${floorName}, ` : "("}
+                                  {Number(u.area_sqft).toLocaleString()} sq.ft) {occupant ? `— Occupied by ${occupant.name}` : "— Vacant"}
+                                </span>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            })()}
+
             {/* Multi-Owner Assignment - only show if property has multiple owners */}
             {hasMultipleOwners && (
               <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
