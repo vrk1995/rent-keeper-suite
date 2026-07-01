@@ -91,6 +91,7 @@ export function PropertyDetailSheet({
   const { data: documents, refetch: refetchDocuments } = useDocumentsByProperty(property?.id || "");
   const { data: allInvoices } = useInvoices();
   const { data: allPayments } = usePayments();
+  const { data: floorUnits } = useFloorUnitsByProperty(property?.id);
   const deleteExpense = useDeleteExpense();
   const deleteDocument = useDeleteDocument();
 
