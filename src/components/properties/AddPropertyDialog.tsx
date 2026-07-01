@@ -146,12 +146,16 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         const floors = existingFloors?.map(f => ({
           floor_name: f.floor_name,
           floor_sqft: f.floor_sqft,
+          units: (existingFloorUnits || [])
+            .filter(u => u.floor_id === f.id)
+            .map(u => ({ id: u.id, corp_number: u.corp_number, area_sqft: Number(u.area_sqft) })),
         })) || [];
         
         const floorEntries = floors.length > 0 ? floors : 
           Array.from({ length: editProperty.floors_owned || 1 }, (_, i) => ({
             floor_name: i === 0 ? "G" : String(i),
             floor_sqft: 0,
+            units: [] as { id?: string; corp_number: string; area_sqft: number }[],
           }));
 
         const shares = existingShares?.map(s => ({
