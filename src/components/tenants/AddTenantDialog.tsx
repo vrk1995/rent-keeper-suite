@@ -129,6 +129,7 @@ const AddTenantDialog = ({
   );
   
   const { data: floors } = usePropertyFloors(selectedPropertyId);
+  const { data: floorUnits } = useFloorUnitsByProperty(selectedPropertyId);
   const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
   const { ownerShares: existingTenantOwnerShares, upsertOwnerShares: upsertTenantOwnerShares } = useTenantOwnerShares(editTenant?.id);
   const { data: allPropertyOwners } = usePropertyOwners();
