@@ -275,6 +275,44 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
               )}
             />
 
+            {floorUnits && floorUnits.length > 0 && (
+              <FormField
+                control={form.control}
+                name="floor_unit_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unit / Corp No. (optional)</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                      value={field.value || "__none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tag a corp no. (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none">Whole property</SelectItem>
+                        {floorUnits.map((u) => {
+                          const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
+                          return (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.corp_number}
+                              <span className="text-muted-foreground ml-2 text-xs">
+                                {floorName ? `(F: ${floorName})` : ""}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+
             <FormField
               control={form.control}
               name="description"
