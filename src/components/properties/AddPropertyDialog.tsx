@@ -606,7 +606,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                       removeFloor(index);
                       form.setValue("floors_owned", floorFields.length - 1);
                     }}
-                    getUnits={() => form.getValues(`floors.${index}.units`) || []}
+                    getUnits={() => (form.getValues(`floors.${index}.units`) || []) as { id?: string; corp_number: string; area_sqft: number }[]}
                     setUnits={(units) => form.setValue(`floors.${index}.units`, units, { shouldDirty: true })}
                   />
                 ))}
