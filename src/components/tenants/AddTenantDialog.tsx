@@ -57,6 +57,7 @@ const tenantSchema = z.object({
   property_id: z.string().optional(),
   unit_id: z.string().optional(),
   floor_id: z.string().optional(),
+  floor_unit_id: z.string().optional(),
   property_owner_id: z.string().optional(),
   owner_shares: z.array(ownerShareSchema).optional(),
   name: z.string().min(1, "Tenant name is required").max(100),
