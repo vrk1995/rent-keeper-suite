@@ -53,6 +53,7 @@ import { useDocumentsByProperty, useDeleteDocument } from "@/hooks/useDocuments"
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usePayments";
 import { useIsAdmin } from "@/hooks/useUserRole";
+import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { formatINR } from "@/lib/currency";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
@@ -90,6 +91,7 @@ export function PropertyDetailSheet({
   const { data: documents, refetch: refetchDocuments } = useDocumentsByProperty(property?.id || "");
   const { data: allInvoices } = useInvoices();
   const { data: allPayments } = usePayments();
+  const { data: floorUnits } = useFloorUnitsByProperty(property?.id);
   const deleteExpense = useDeleteExpense();
   const deleteDocument = useDeleteDocument();
 
@@ -249,10 +251,14 @@ export function PropertyDetailSheet({
           </SheetHeader>
 
           <Tabs defaultValue="tenants" className="flex-1">
-            <TabsList className="w-full justify-start px-6 py-2 h-auto bg-transparent border-b rounded-none">
+            <TabsList className="w-full justify-start px-6 py-2 h-auto bg-transparent border-b rounded-none overflow-x-auto">
               <TabsTrigger value="tenants" className="gap-2">
                 <Users className="w-4 h-4" />
                 Tenants
+              </TabsTrigger>
+              <TabsTrigger value="units" className="gap-2">
+                <Building2 className="w-4 h-4" />
+                Corp Nos.
               </TabsTrigger>
               <TabsTrigger value="expenses" className="gap-2">
                 <Wallet className="w-4 h-4" />
@@ -327,6 +333,62 @@ export function PropertyDetailSheet({
                   </div>
                 )}
               </TabsContent>
+
+              {/* Corp Nos. Tab */}
+              <TabsContent value="units" className="p-6 m-0">
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground">Total Corp Nos.</p>
+                  <p className="text-xl font-bold">{floorUnits?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Manage corp numbers by editing the property and expanding each floor.
+                  </p>
+                </div>
+
+                {(!floorUnits || floorUnits.length === 0) ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No corp numbers added yet. Edit the property to add them.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {floors.map((floor) => {
+                      const unitsOnFloor = floorUnits.filter(u => u.floor_id === floor.id);
+                      if (unitsOnFloor.length === 0) return null;
+                      return (
+                        <div key={floor.id}>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                            Floor: {floor.floor_name}
+                          </p>
+                          <div className="space-y-2">
+                            {unitsOnFloor.map((u) => {
+                              const occupant = tenants.find(
+                                t => t.floor_unit_id === u.id && t.status === "active"
+                              );
+                              return (
+                                <Card key={u.id}>
+                                  <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                      <p className="font-medium">{u.corp_number}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {Number(u.area_sqft).toLocaleString()} sq.ft
+                                      </p>
+                                    </div>
+                                    {occupant ? (
+                                      <Badge variant="glow">Occupied — {occupant.name}</Badge>
+                                    ) : (
+                                      <Badge variant="secondary">Vacant</Badge>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+
 
               {/* Expenses Tab */}
               <TabsContent value="expenses" className="p-6 m-0">

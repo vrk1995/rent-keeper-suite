@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useCreateExpense } from "@/hooks/useExpenses";
+import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
+import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 
 const expenseSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -47,6 +49,7 @@ const expenseSchema = z.object({
   vendor_contact: z.string().optional(),
   category: z.string().optional(),
   payment_method: z.string().optional(),
+  floor_unit_id: z.string().optional(),
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
@@ -78,6 +81,8 @@ const paymentMethods = [
 export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
   const [open, setOpen] = useState(false);
   const createExpense = useCreateExpense();
+  const { data: floorUnits } = useFloorUnitsByProperty(propertyId);
+  const { data: floors } = usePropertyFloors(propertyId);
 
   const form = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
@@ -90,12 +95,14 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
       vendor_contact: "",
       category: "general",
       payment_method: "",
+      floor_unit_id: "",
     },
   });
 
   const onSubmit = async (data: ExpenseFormData) => {
     await createExpense.mutateAsync({
       property_id: propertyId,
+      floor_unit_id: data.floor_unit_id || null,
       title: data.title,
       description: data.description,
       amount: data.amount,
@@ -267,6 +274,44 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
                 </FormItem>
               )}
             />
+
+            {floorUnits && floorUnits.length > 0 && (
+              <FormField
+                control={form.control}
+                name="floor_unit_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unit / Corp No. (optional)</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                      value={field.value || "__none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tag a corp no. (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none">Whole property</SelectItem>
+                        {floorUnits.map((u) => {
+                          const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
+                          return (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.corp_number}
+                              <span className="text-muted-foreground ml-2 text-xs">
+                                {floorName ? `(F: ${floorName})` : ""}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
 
             <FormField
               control={form.control}

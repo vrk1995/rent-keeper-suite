@@ -128,6 +128,54 @@ export type Database = {
           },
         ]
       }
+      floor_units: {
+        Row: {
+          area_sqft: number
+          corp_number: string
+          created_at: string
+          floor_id: string
+          id: string
+          notes: string | null
+          property_id: string
+          updated_at: string
+        }
+        Insert: {
+          area_sqft?: number
+          corp_number: string
+          created_at?: string
+          floor_id: string
+          id?: string
+          notes?: string | null
+          property_id: string
+          updated_at?: string
+        }
+        Update: {
+          area_sqft?: number
+          corp_number?: string
+          created_at?: string
+          floor_id?: string
+          id?: string
+          notes?: string | null
+          property_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_units_floor_id_fkey"
+            columns: ["floor_id"]
+            isOneToOne: false
+            referencedRelation: "property_floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_sequences: {
         Row: {
           created_at: string
@@ -323,6 +371,7 @@ export type Database = {
           created_by: string
           description: string | null
           expense_date: string
+          floor_unit_id: string | null
           id: string
           paid_by: string | null
           payment_method: string | null
@@ -340,6 +389,7 @@ export type Database = {
           created_by: string
           description?: string | null
           expense_date?: string
+          floor_unit_id?: string | null
           id?: string
           paid_by?: string | null
           payment_method?: string | null
@@ -357,6 +407,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           expense_date?: string
+          floor_unit_id?: string | null
           id?: string
           paid_by?: string | null
           payment_method?: string | null
@@ -368,6 +419,13 @@ export type Database = {
           vendor_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "property_expenses_floor_unit_id_fkey"
+            columns: ["floor_unit_id"]
+            isOneToOne: false
+            referencedRelation: "floor_units"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "property_expenses_property_id_fkey"
             columns: ["property_id"]
@@ -806,6 +864,7 @@ export type Database = {
           created_at: string
           email: string | null
           floor_id: string | null
+          floor_unit_id: string | null
           id: string
           lease_end_date: string
           lease_start_date: string
@@ -833,6 +892,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           floor_id?: string | null
+          floor_unit_id?: string | null
           id?: string
           lease_end_date: string
           lease_start_date: string
@@ -860,6 +920,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           floor_id?: string | null
+          floor_unit_id?: string | null
           id?: string
           lease_end_date?: string
           lease_start_date?: string
@@ -883,6 +944,13 @@ export type Database = {
             columns: ["floor_id"]
             isOneToOne: false
             referencedRelation: "property_floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenants_floor_unit_id_fkey"
+            columns: ["floor_unit_id"]
+            isOneToOne: false
+            referencedRelation: "floor_units"
             referencedColumns: ["id"]
           },
           {

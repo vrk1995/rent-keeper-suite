@@ -32,10 +32,19 @@ import { useCreateProperty, useUpdateProperty, Property } from "@/hooks/usePrope
 import { usePropertyFloors, useBulkUpsertFloors } from "@/hooks/usePropertyFloors";
 import { usePropertyOwners, useCreatePropertyOwner } from "@/hooks/usePropertyOwners";
 import { usePropertyOwnerShares, useBulkUpsertOwnerShares } from "@/hooks/usePropertyOwnerShares";
+import { useFloorUnitsByProperty, useCreateFloorUnit, useUpdateFloorUnit, useDeleteFloorUnit } from "@/hooks/useFloorUnits";
+import { supabase } from "@/integrations/supabase/client";
+
+const floorUnitSchema = z.object({
+  id: z.string().optional(),
+  corp_number: z.string().min(1, "Corp no. required"),
+  area_sqft: z.coerce.number().min(0, "Must be positive"),
+});
 
 const floorSchema = z.object({
   floor_name: z.string().min(1, "Floor name required"),
   floor_sqft: z.coerce.number().min(0, "Must be positive"),
+  units: z.array(floorUnitSchema).optional().default([]),
 });
 
 const ownerShareSchema = z.object({
@@ -70,8 +79,12 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const bulkUpsertOwnerShares = useBulkUpsertOwnerShares();
   const { data: existingFloors } = usePropertyFloors(editProperty?.id || "");
   const { data: existingShares } = usePropertyOwnerShares(editProperty?.id);
+  const { data: existingFloorUnits } = useFloorUnitsByProperty(editProperty?.id);
   const { data: propertyOwners } = usePropertyOwners();
   const createPropertyOwner = useCreatePropertyOwner();
+  const createFloorUnit = useCreateFloorUnit();
+  const updateFloorUnit = useUpdateFloorUnit();
+  const deleteFloorUnit = useDeleteFloorUnit();
   const [showNewOwnerInput, setShowNewOwnerInput] = useState(false);
   
   const form = useForm<PropertyFormValues>({
@@ -84,7 +97,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       new_owner_name: "",
       floors_owned: 1,
       notes: "",
-      floors: [{ floor_name: "G", floor_sqft: 0 }],
+      floors: [{ floor_name: "G", floor_sqft: 0, units: [] }],
       owner_shares: [],
     },
   });
@@ -118,7 +131,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           newFloors.push(existingFloor);
         } else {
           const floorName = i === 0 ? "G" : String(i);
-          newFloors.push({ floor_name: floorName, floor_sqft: 0 });
+          newFloors.push({ floor_name: floorName, floor_sqft: 0, units: [] });
         }
       }
       replaceFloors(newFloors);
@@ -133,12 +146,16 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         const floors = existingFloors?.map(f => ({
           floor_name: f.floor_name,
           floor_sqft: f.floor_sqft,
+          units: (existingFloorUnits || [])
+            .filter(u => u.floor_id === f.id)
+            .map(u => ({ id: u.id, corp_number: u.corp_number, area_sqft: Number(u.area_sqft) })),
         })) || [];
         
         const floorEntries = floors.length > 0 ? floors : 
           Array.from({ length: editProperty.floors_owned || 1 }, (_, i) => ({
             floor_name: i === 0 ? "G" : String(i),
             floor_sqft: 0,
+            units: [] as { id?: string; corp_number: string; area_sqft: number }[],
           }));
 
         const shares = existingShares?.map(s => ({
@@ -166,12 +183,70 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           new_owner_name: "",
           floors_owned: 1,
           notes: "",
-          floors: [{ floor_name: "G", floor_sqft: 0 }],
+          floors: [{ floor_name: "G", floor_sqft: 0, units: [] }],
           owner_shares: [],
         });
       }
     }
-  }, [open, editProperty, existingFloors, existingShares, form]);
+  }, [open, editProperty, existingFloors, existingShares, existingFloorUnits, form]);
+
+  // Sync corp-no. rows for a property with the DB
+  const syncFloorUnits = async (
+    propertyId: string,
+    floors: PropertyFormValues["floors"]
+  ) => {
+    // Load current floors so we can map floor_name -> floor_id
+    const { data: dbFloors } = await supabase
+      .from("property_floors")
+      .select("id, floor_name")
+      .eq("property_id", propertyId);
+    const floorIdByName = new Map((dbFloors || []).map((f: any) => [f.floor_name, f.id]));
+
+    // Load existing units for diffing
+    const { data: dbUnits } = await supabase
+      .from("floor_units")
+      .select("id, floor_id, corp_number, area_sqft")
+      .eq("property_id", propertyId);
+    const dbUnitsById = new Map((dbUnits || []).map((u: any) => [u.id, u]));
+    const keptIds = new Set<string>();
+
+    for (const f of floors) {
+      const floorId = floorIdByName.get(f.floor_name);
+      if (!floorId) continue;
+      for (const u of f.units || []) {
+        if (u.id && dbUnitsById.has(u.id)) {
+          keptIds.add(u.id);
+          const prev = dbUnitsById.get(u.id) as any;
+          if (
+            prev.corp_number !== u.corp_number ||
+            Number(prev.area_sqft) !== Number(u.area_sqft) ||
+            prev.floor_id !== floorId
+          ) {
+            await updateFloorUnit.mutateAsync({
+              id: u.id,
+              property_id: propertyId,
+              floor_id: floorId,
+              corp_number: u.corp_number,
+              area_sqft: u.area_sqft,
+            });
+          }
+        } else {
+          await createFloorUnit.mutateAsync({
+            property_id: propertyId,
+            floor_id: floorId,
+            corp_number: u.corp_number,
+            area_sqft: u.area_sqft,
+          });
+        }
+      }
+    }
+    // Delete units that were removed in the form
+    for (const [id, u] of dbUnitsById) {
+      if (!keptIds.has(id)) {
+        await deleteFloorUnit.mutateAsync({ id, property_id: propertyId });
+      }
+    }
+  };
 
   const onSubmit = async (values: PropertyFormValues) => {
     // Calculate total sqft from floors
@@ -210,6 +285,9 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         })),
       });
 
+      // Sync floor units (corp numbers)
+      await syncFloorUnits(editProperty.id, values.floors);
+
       // Update owner shares
       await bulkUpsertOwnerShares.mutateAsync({
         property_id: editProperty.id,
@@ -239,6 +317,9 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
             floor_sqft: f.floor_sqft,
           })),
         });
+
+        // Sync floor units (corp numbers)
+        await syncFloorUnits(newProperty.id, values.floors);
 
         // Create owner shares for new property
         if (values.owner_shares.length > 0) {
@@ -514,50 +595,20 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 Enter the floor name (G for Ground, 1, 2, B1 for basement, etc.) and square footage for each floor.
               </p>
               
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {floorFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2 items-start">
-                    <FormField
-                      control={form.control}
-                      name={`floors.${index}.floor_name`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          {index === 0 && <FormLabel className="text-xs">Floor</FormLabel>}
-                          <FormControl>
-                            <Input placeholder="G, 1, 2, B1..." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`floors.${index}.floor_sqft`}
-                      render={({ field }) => (
-                        <FormItem className="flex-[2]">
-                          {index === 0 && <FormLabel className="text-xs">Sq. Ft.</FormLabel>}
-                          <FormControl>
-                            <Input type="number" min={0} placeholder="2000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {floorFields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={index === 0 ? "mt-6" : ""}
-                        onClick={() => {
-                          removeFloor(index);
-                          form.setValue("floors_owned", floorFields.length - 1);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
+                  <FloorRow
+                    key={field.id}
+                    index={index}
+                    control={form.control}
+                    canRemove={floorFields.length > 1}
+                    onRemove={() => {
+                      removeFloor(index);
+                      form.setValue("floors_owned", floorFields.length - 1);
+                    }}
+                    getUnits={() => (form.getValues(`floors.${index}.units`) || []) as { id?: string; corp_number: string; area_sqft: number }[]}
+                    setUnits={(units) => form.setValue(`floors.${index}.units`, units, { shouldDirty: true })}
+                  />
                 ))}
               </div>
               
@@ -566,7 +617,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0 });
+                  appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0, units: [] });
                   form.setValue("floors_owned", floorFields.length + 1);
                 }}
               >
@@ -574,6 +625,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 Add Floor
               </Button>
             </div>
+
             
             <Separator />
 
@@ -609,4 +661,125 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   );
 };
 
+// Single floor row with corp-no. sub-list
+interface FloorRowProps {
+  index: number;
+  control: any;
+  canRemove: boolean;
+  onRemove: () => void;
+  getUnits: () => { id?: string; corp_number: string; area_sqft: number }[];
+  setUnits: (units: { id?: string; corp_number: string; area_sqft: number }[]) => void;
+}
+
+const FloorRow = ({ index, control, canRemove, onRemove, getUnits, setUnits }: FloorRowProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const units = getUnits();
+
+  return (
+    <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
+      <div className="flex gap-2 items-start">
+        <FormField
+          control={control}
+          name={`floors.${index}.floor_name`}
+          render={({ field }) => (
+            <FormItem className="flex-1">
+              {index === 0 && <FormLabel className="text-xs">Floor</FormLabel>}
+              <FormControl>
+                <Input placeholder="G, 1, 2, B1..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={control}
+          name={`floors.${index}.floor_sqft`}
+          render={({ field }) => (
+            <FormItem className="flex-[2]">
+              {index === 0 && <FormLabel className="text-xs">Sq. Ft.</FormLabel>}
+              <FormControl>
+                <Input type="number" min={0} placeholder="2000" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {canRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={index === 0 ? "mt-6" : ""}
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            className="text-xs text-primary hover:underline"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? "▾" : "▸"} Unit / Corp Nos. ({units.length})
+          </button>
+          {expanded && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setUnits([...units, { corp_number: "", area_sqft: 0 }])}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Add Corp No.
+            </Button>
+          )}
+        </div>
+        {expanded && units.length > 0 && (
+          <div className="space-y-2">
+            {units.map((u, uIdx) => (
+              <div key={uIdx} className="flex gap-2 items-center">
+                <Input
+                  placeholder="Corp / Building No."
+                  value={u.corp_number}
+                  onChange={(e) => {
+                    const next = [...units];
+                    next[uIdx] = { ...next[uIdx], corp_number: e.target.value };
+                    setUnits(next);
+                  }}
+                  className="flex-[2]"
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Sq. Ft."
+                  value={u.area_sqft}
+                  onChange={(e) => {
+                    const next = [...units];
+                    next[uIdx] = { ...next[uIdx], area_sqft: Number(e.target.value) };
+                    setUnits(next);
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setUnits(units.filter((_, i) => i !== uIdx))}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default AddPropertyDialog;
+

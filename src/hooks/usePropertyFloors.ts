@@ -112,23 +112,34 @@ export const useBulkUpsertFloors = () => {
       property_id: string; 
       floors: Array<{ floor_name: string; floor_sqft: number }> 
     }) => {
-      // First delete existing floors
-      await supabase
+      // Load existing floors so we can preserve IDs (keeps tenants/floor_units linked)
+      const { data: existing } = await supabase
         .from("property_floors")
-        .delete()
+        .select("id, floor_name")
         .eq("property_id", property_id);
 
-      // Then insert new floors
-      if (floors.length > 0) {
-        const { error } = await supabase
-          .from("property_floors")
-          .insert(floors.map(f => ({
-            property_id,
-            floor_name: f.floor_name,
-            floor_sqft: f.floor_sqft,
-          })));
+      const existingByName = new Map((existing || []).map(f => [f.floor_name, f.id]));
+      const incomingNames = new Set(floors.map(f => f.floor_name));
 
-        if (error) throw error;
+      // Delete floors that no longer exist in the incoming list
+      const toDelete = (existing || []).filter(f => !incomingNames.has(f.floor_name)).map(f => f.id);
+      if (toDelete.length > 0) {
+        await supabase.from("property_floors").delete().in("id", toDelete);
+      }
+
+      // Upsert each incoming floor: update if exists, insert if new
+      for (const f of floors) {
+        const existingId = existingByName.get(f.floor_name);
+        if (existingId) {
+          await supabase
+            .from("property_floors")
+            .update({ floor_sqft: f.floor_sqft })
+            .eq("id", existingId);
+        } else {
+          await supabase
+            .from("property_floors")
+            .insert({ property_id, floor_name: f.floor_name, floor_sqft: f.floor_sqft });
+        }
       }
 
       return { property_id };
