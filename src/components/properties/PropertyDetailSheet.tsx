@@ -53,6 +53,7 @@ import { useDocumentsByProperty, useDeleteDocument } from "@/hooks/useDocuments"
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usePayments";
 import { useIsAdmin } from "@/hooks/useUserRole";
+import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { formatINR } from "@/lib/currency";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
