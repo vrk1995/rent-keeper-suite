@@ -5,6 +5,7 @@ import { toast } from "sonner";
 export interface Expense {
   id: string;
   property_id: string;
+  floor_unit_id: string | null;
   title: string;
   description: string | null;
   amount: number;
@@ -22,6 +23,7 @@ export interface Expense {
 
 export interface CreateExpenseInput {
   property_id: string;
+  floor_unit_id?: string | null;
   title: string;
   description?: string;
   amount: number;
