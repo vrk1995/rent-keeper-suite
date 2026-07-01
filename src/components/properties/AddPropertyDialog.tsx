@@ -32,10 +32,19 @@ import { useCreateProperty, useUpdateProperty, Property } from "@/hooks/usePrope
 import { usePropertyFloors, useBulkUpsertFloors } from "@/hooks/usePropertyFloors";
 import { usePropertyOwners, useCreatePropertyOwner } from "@/hooks/usePropertyOwners";
 import { usePropertyOwnerShares, useBulkUpsertOwnerShares } from "@/hooks/usePropertyOwnerShares";
+import { useFloorUnitsByProperty, useCreateFloorUnit, useUpdateFloorUnit, useDeleteFloorUnit } from "@/hooks/useFloorUnits";
+import { supabase } from "@/integrations/supabase/client";
+
+const floorUnitSchema = z.object({
+  id: z.string().optional(),
+  corp_number: z.string().min(1, "Corp no. required"),
+  area_sqft: z.coerce.number().min(0, "Must be positive"),
+});
 
 const floorSchema = z.object({
   floor_name: z.string().min(1, "Floor name required"),
   floor_sqft: z.coerce.number().min(0, "Must be positive"),
+  units: z.array(floorUnitSchema).optional().default([]),
 });
 
 const ownerShareSchema = z.object({
