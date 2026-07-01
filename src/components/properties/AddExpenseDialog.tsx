@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useCreateExpense } from "@/hooks/useExpenses";
+import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
+import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 
 const expenseSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -47,6 +49,7 @@ const expenseSchema = z.object({
   vendor_contact: z.string().optional(),
   category: z.string().optional(),
   payment_method: z.string().optional(),
+  floor_unit_id: z.string().optional(),
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
