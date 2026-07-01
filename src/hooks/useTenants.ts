@@ -8,6 +8,7 @@ export interface Tenant {
   unit_id: string | null;
   floor_id: string | null;
   floor_unit_id: string | null;
+  property_owner_id: string | null;
   name: string;
   email: string | null;
   phone: string | null;
