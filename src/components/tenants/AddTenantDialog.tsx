@@ -217,6 +217,7 @@ const AddTenantDialog = ({
       property_id: editTenant?.property_id || defaultPropertyId || "",
       unit_id: editTenant?.unit_id || defaultUnitId || "",
       floor_id: editTenant?.floor_id || "",
+      floor_unit_id: editTenant?.floor_unit_id || "",
       property_owner_id: editTenant?.property_owner_id || "",
       owner_shares: [],
       name: editTenant?.name || "",
