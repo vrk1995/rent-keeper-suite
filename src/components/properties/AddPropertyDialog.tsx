@@ -595,50 +595,20 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 Enter the floor name (G for Ground, 1, 2, B1 for basement, etc.) and square footage for each floor.
               </p>
               
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {floorFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-2 items-start">
-                    <FormField
-                      control={form.control}
-                      name={`floors.${index}.floor_name`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          {index === 0 && <FormLabel className="text-xs">Floor</FormLabel>}
-                          <FormControl>
-                            <Input placeholder="G, 1, 2, B1..." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`floors.${index}.floor_sqft`}
-                      render={({ field }) => (
-                        <FormItem className="flex-[2]">
-                          {index === 0 && <FormLabel className="text-xs">Sq. Ft.</FormLabel>}
-                          <FormControl>
-                            <Input type="number" min={0} placeholder="2000" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {floorFields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className={index === 0 ? "mt-6" : ""}
-                        onClick={() => {
-                          removeFloor(index);
-                          form.setValue("floors_owned", floorFields.length - 1);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
+                  <FloorRow
+                    key={field.id}
+                    index={index}
+                    control={form.control}
+                    canRemove={floorFields.length > 1}
+                    onRemove={() => {
+                      removeFloor(index);
+                      form.setValue("floors_owned", floorFields.length - 1);
+                    }}
+                    getUnits={() => form.getValues(`floors.${index}.units`) || []}
+                    setUnits={(units) => form.setValue(`floors.${index}.units`, units, { shouldDirty: true })}
+                  />
                 ))}
               </div>
               
@@ -647,7 +617,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0 });
+                  appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0, units: [] });
                   form.setValue("floors_owned", floorFields.length + 1);
                 }}
               >
@@ -655,6 +625,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                 Add Floor
               </Button>
             </div>
+
             
             <Separator />
 
