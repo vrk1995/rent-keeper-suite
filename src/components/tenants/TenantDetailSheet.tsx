@@ -37,6 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatINR } from "@/lib/currency";
 import { toast } from "sonner";
 import AddTenantDialog from "./AddTenantDialog";
+import VacateTenantDialog from "./VacateTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { RentPayment } from "@/hooks/usePayments";
 import { paymentStatusConfig } from "@/lib/statusConfig";
