@@ -446,6 +446,13 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         onOpenChange={(open) => !open && setMarkPaidPayment(null)}
         payment={markPaidPayment}
       />
+
+      <VacateTenantDialog
+        tenant={tenant}
+        open={vacateDialogOpen}
+        onOpenChange={setVacateDialogOpen}
+        onVacated={() => onOpenChange(false)}
+      />
     </>
   );
 };
