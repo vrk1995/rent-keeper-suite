@@ -30,6 +30,8 @@ import {
   Settings,
   CreditCard,
   IndianRupee,
+  IndianRupee,
+  LogOut,
 } from "lucide-react";
 import { Tenant } from "@/hooks/useTenants";
 import { useQuery } from "@tanstack/react-query";
