@@ -104,7 +104,8 @@ const AddTenantDialog = ({
   onOpenChange, 
   editTenant, 
   defaultPropertyId,
-  defaultUnitId 
+  defaultUnitId,
+  prefillFromTenant,
 }: AddTenantDialogProps) => {
   const queryClient = useQueryClient();
   const createTenant = useCreateTenant();
@@ -119,15 +120,15 @@ const AddTenantDialog = ({
   const [selectedBillingAddressId, setSelectedBillingAddressId] = useState<string | null>(null);
   
   const getDefaultAssignmentType = () => {
-    if (editTenant?.unit_id || defaultUnitId) return "unit";
+    if (editTenant?.unit_id || defaultUnitId || prefillFromTenant?.unit_id) return "unit";
     return "property";
   };
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
-    editTenant?.property_id || defaultPropertyId || null
+    editTenant?.property_id || defaultPropertyId || prefillFromTenant?.property_id || null
   );
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(
-    editTenant?.floor_id || null
+    editTenant?.floor_id || prefillFromTenant?.floor_id || null
   );
   
   const { data: floors } = usePropertyFloors(selectedPropertyId);
