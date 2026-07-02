@@ -30,6 +30,7 @@ import {
   Settings,
   CreditCard,
   IndianRupee,
+  LogOut,
 } from "lucide-react";
 import { Tenant } from "@/hooks/useTenants";
 import { useQuery } from "@tanstack/react-query";
@@ -37,6 +38,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatINR } from "@/lib/currency";
 import { toast } from "sonner";
 import AddTenantDialog from "./AddTenantDialog";
+import VacateTenantDialog from "./VacateTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { RentPayment } from "@/hooks/usePayments";
 import { paymentStatusConfig } from "@/lib/statusConfig";
@@ -50,6 +52,7 @@ interface TenantDetailSheetProps {
 
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
   const [generatingReceipt, setGeneratingReceipt] = useState<string | null>(null);
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
@@ -153,7 +156,12 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
           <SheetHeader className="p-6 pb-4 border-b border-border">
             <div className="flex items-start justify-between">
               <div>
-                <SheetTitle className="text-xl">{tenant.name}</SheetTitle>
+                <div className="flex items-center gap-2">
+                  <SheetTitle className="text-xl">{tenant.name}</SheetTitle>
+                  {tenant.status === "vacated" && (
+                    <Badge variant="secondary" className="text-xs">Vacated</Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground mt-1">
                   {tenant.unit ? (
                     <span className="flex items-center gap-1">
@@ -165,10 +173,18 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                   )}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
-                <Settings className="w-4 h-4 mr-1" />
-                Edit
-              </Button>
+              <div className="flex gap-2">
+                {tenant.status !== "vacated" && (
+                  <Button variant="outline" size="sm" onClick={() => setVacateDialogOpen(true)}>
+                    <LogOut className="w-4 h-4 mr-1" />
+                    Vacate
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+                  <Settings className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
+              </div>
             </div>
 
             {/* Summary cards */}
@@ -429,6 +445,13 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         open={!!markPaidPayment}
         onOpenChange={(open) => !open && setMarkPaidPayment(null)}
         payment={markPaidPayment}
+      />
+
+      <VacateTenantDialog
+        tenant={tenant}
+        open={vacateDialogOpen}
+        onOpenChange={setVacateDialogOpen}
+        onVacated={() => onOpenChange(false)}
       />
     </>
   );

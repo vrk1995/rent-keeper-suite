@@ -106,8 +106,9 @@ const Tenants = () => {
     }
   };
 
-  const getLeaseStatus = (endDate: string) => {
-    const daysLeft = differenceInDays(new Date(endDate), new Date());
+  const getLeaseStatus = (tenant: Tenant) => {
+    if (tenant.status === "vacated") return { label: "Vacated", variant: "secondary" as const };
+    const daysLeft = differenceInDays(new Date(tenant.lease_end_date), new Date());
     if (daysLeft < 0) return { label: "Expired", variant: "destructive" as const };
     if (daysLeft <= 30) return { label: `${daysLeft}d left`, variant: "secondary" as const };
     return { label: "Active", variant: "glow" as const };
@@ -183,7 +184,7 @@ const Tenants = () => {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
         >
           {filteredTenants?.map((tenant, index) => {
-            const leaseStatus = getLeaseStatus(tenant.lease_end_date);
+            const leaseStatus = getLeaseStatus(tenant);
             return (
               <motion.div
                 key={tenant.id}
