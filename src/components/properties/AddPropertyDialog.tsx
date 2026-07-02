@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2, Layers, UserPlus, Users } from "lucide-react";
@@ -672,8 +672,9 @@ interface FloorRowProps {
 }
 
 const FloorRow = ({ index, control, canRemove, onRemove, getUnits, setUnits }: FloorRowProps) => {
-  const [expanded, setExpanded] = useState(false);
-  const units = getUnits();
+  const [expanded, setExpanded] = useState(true);
+  const watched = useWatch({ control, name: `floors.${index}.units` }) as { id?: string; corp_number: string; area_sqft: number }[] | undefined;
+  const units = watched ?? getUnits();
 
   return (
     <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
