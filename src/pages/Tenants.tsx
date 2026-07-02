@@ -106,8 +106,9 @@ const Tenants = () => {
     }
   };
 
-  const getLeaseStatus = (endDate: string) => {
-    const daysLeft = differenceInDays(new Date(endDate), new Date());
+  const getLeaseStatus = (tenant: Tenant) => {
+    if (tenant.status === "vacated") return { label: "Vacated", variant: "secondary" as const };
+    const daysLeft = differenceInDays(new Date(tenant.lease_end_date), new Date());
     if (daysLeft < 0) return { label: "Expired", variant: "destructive" as const };
     if (daysLeft <= 30) return { label: `${daysLeft}d left`, variant: "secondary" as const };
     return { label: "Active", variant: "glow" as const };
