@@ -184,7 +184,7 @@ const Tenants = () => {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
         >
           {filteredTenants?.map((tenant, index) => {
-            const leaseStatus = getLeaseStatus(tenant.lease_end_date);
+            const leaseStatus = getLeaseStatus(tenant);
             return (
               <motion.div
                 key={tenant.id}
