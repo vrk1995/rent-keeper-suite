@@ -51,6 +51,7 @@ interface TenantDetailSheetProps {
 
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
   const [generatingReceipt, setGeneratingReceipt] = useState<string | null>(null);
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
