@@ -95,6 +95,8 @@ interface AddTenantDialogProps {
   editTenant?: Tenant | null;
   defaultPropertyId?: string;
   defaultUnitId?: string;
+  /** Prefill building/location + rent structure from a vacating tenant. Personal fields stay blank. */
+  prefillFromTenant?: Tenant | null;
 }
 
 const AddTenantDialog = ({ 
