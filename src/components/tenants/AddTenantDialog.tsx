@@ -332,8 +332,9 @@ const AddTenantDialog = ({
 
   useEffect(() => {
     if (open) {
-      setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || null);
-      setSelectedFloorId(editTenant?.floor_id || null);
+      const pf = !editTenant ? prefillFromTenant : null;
+      setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || pf?.property_id || null);
+      setSelectedFloorId(editTenant?.floor_id || pf?.floor_id || null);
       setSaveAsNewAddress(false);
       
       // Pre-select billing address if editing or use default
@@ -353,11 +354,11 @@ const AddTenantDialog = ({
       
       form.reset({
         assignment_type: getDefaultAssignmentType(),
-        property_id: editTenant?.property_id || defaultPropertyId || "",
-        unit_id: editTenant?.unit_id || defaultUnitId || "",
-        floor_id: editTenant?.floor_id || "",
-        floor_unit_id: editTenant?.floor_unit_id || "",
-        property_owner_id: editTenant?.property_owner_id || "",
+        property_id: editTenant?.property_id || defaultPropertyId || pf?.property_id || "",
+        unit_id: editTenant?.unit_id || defaultUnitId || pf?.unit_id || "",
+        floor_id: editTenant?.floor_id || pf?.floor_id || "",
+        floor_unit_id: editTenant?.floor_unit_id || pf?.floor_unit_id || "",
+        property_owner_id: editTenant?.property_owner_id || pf?.property_owner_id || "",
         owner_shares: existingTenantOwnerShares?.map(share => ({
           owner_id: share.owner_id,
           share_percentage: share.share_percentage,
@@ -369,19 +370,19 @@ const AddTenantDialog = ({
         lease_start_date: editTenant?.lease_start_date ? new Date(editTenant.lease_start_date) : undefined,
         lease_end_date: editTenant?.lease_end_date ? new Date(editTenant.lease_end_date) : undefined,
         security_deposit: editTenant?.security_deposit || 0,
-        rented_sqft: editTenant?.rented_sqft || 0,
-        monthly_rent: editTenant?.monthly_rent || 0,
-        rent_due_day: editTenant?.rent_due_day || 1,
-        requires_gst: editTenant?.requires_gst || false,
-        bill_from_name: editTenant?.bill_from_name || defaultBillingAddress?.name || "",
-        bill_from_address: editTenant?.bill_from_address || defaultBillingAddress?.address || "",
-        bill_from_gstin: editTenant?.bill_from_gstin || defaultBillingAddress?.gstin || "",
+        rented_sqft: editTenant?.rented_sqft ?? pf?.rented_sqft ?? 0,
+        monthly_rent: editTenant?.monthly_rent ?? pf?.monthly_rent ?? 0,
+        rent_due_day: editTenant?.rent_due_day || pf?.rent_due_day || 1,
+        requires_gst: editTenant?.requires_gst ?? pf?.requires_gst ?? false,
+        bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
+        bill_from_address: editTenant?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
+        bill_from_gstin: editTenant?.bill_from_gstin || pf?.bill_from_gstin || defaultBillingAddress?.gstin || "",
         bill_to_name: editTenant?.bill_to_name || "",
         bill_to_address: editTenant?.bill_to_address || "",
         bill_to_gstin: editTenant?.bill_to_gstin || "",
       });
     }
-  }, [open, editTenant, defaultPropertyId, defaultUnitId, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares]);
+  }, [open, editTenant, defaultPropertyId, defaultUnitId, prefillFromTenant, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares]);
 
   const onSubmit = async (values: TenantFormValues) => {
     // Auto-save billing address if checkbox is checked and address has a name
