@@ -884,6 +884,32 @@ const AddTenantDialog = ({
               </div>
               <FormField
                 control={form.control}
+                name="rent_due_month_offset"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Month</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(parseInt(v))}
+                      value={String(field.value ?? 0)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select due month" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="-1">In advance — previous month (e.g. April rent due in March)</SelectItem>
+                        <SelectItem value="0">Same month (e.g. April rent due in April)</SelectItem>
+                        <SelectItem value="1">In arrears — following month (e.g. April rent due in May)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Controls which calendar month the due date falls in relative to the rent period.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
                 name="requires_gst"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
