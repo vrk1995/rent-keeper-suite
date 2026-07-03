@@ -70,6 +70,7 @@ const tenantSchema = z.object({
   rented_sqft: z.coerce.number().min(0).optional(),
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
   rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
+  rent_due_month_offset: z.coerce.number().min(-1).max(1),
   requires_gst: z.boolean(),
   // Billing details
   bill_from_name: z.string().max(100).optional(),
@@ -233,6 +234,7 @@ const AddTenantDialog = ({
       rented_sqft: editTenant?.rented_sqft || 0,
       monthly_rent: editTenant?.monthly_rent || 0,
       rent_due_day: editTenant?.rent_due_day || 1,
+      rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? 0,
       requires_gst: editTenant?.requires_gst || false,
       bill_from_name: editTenant?.bill_from_name || "",
       bill_from_address: editTenant?.bill_from_address || "",
@@ -373,6 +375,7 @@ const AddTenantDialog = ({
         rented_sqft: editTenant?.rented_sqft ?? pf?.rented_sqft ?? 0,
         monthly_rent: editTenant?.monthly_rent ?? pf?.monthly_rent ?? 0,
         rent_due_day: editTenant?.rent_due_day || pf?.rent_due_day || 1,
+        rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? (pf as any)?.rent_due_month_offset ?? 0,
         requires_gst: editTenant?.requires_gst ?? pf?.requires_gst ?? false,
         bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
         bill_from_address: editTenant?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
@@ -429,6 +432,7 @@ const AddTenantDialog = ({
       rented_sqft: values.rented_sqft,
       monthly_rent: values.monthly_rent,
       rent_due_day: values.rent_due_day,
+      rent_due_month_offset: values.rent_due_month_offset,
       requires_gst: values.requires_gst,
       bill_from_name: values.bill_from_name || undefined,
       bill_from_address: values.bill_from_address || undefined,
@@ -878,6 +882,34 @@ const AddTenantDialog = ({
                   )}
                 />
               </div>
+              <FormField
+                control={form.control}
+                name="rent_due_month_offset"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Month</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(parseInt(v))}
+                      value={String(field.value ?? 0)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select due month" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="-1">In advance — previous month (e.g. April rent due in March)</SelectItem>
+                        <SelectItem value="0">Same month (e.g. April rent due in April)</SelectItem>
+                        <SelectItem value="1">In arrears — following month (e.g. April rent due in May)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Controls which calendar month the due date falls in relative to the rent period.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="requires_gst"

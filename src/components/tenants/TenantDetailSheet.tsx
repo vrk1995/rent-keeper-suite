@@ -409,6 +409,17 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                     <p className="text-xs text-muted-foreground">Rent Due Day</p>
                     <p className="text-sm">{tenant.rent_due_day || 1}</p>
                   </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Due Month</p>
+                    <p className="text-sm">
+                      {(() => {
+                        const off = (tenant as any).rent_due_month_offset ?? 0;
+                        if (off === -1) return "Previous month (advance)";
+                        if (off === 1) return "Following month (arrears)";
+                        return "Same month";
+                      })()}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Billing Details */}

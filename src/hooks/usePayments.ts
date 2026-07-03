@@ -205,7 +205,7 @@ export const useGenerateMonthlyPayments = () => {
       // Get active tenants
       const { data: tenants, error: tenantsError } = await supabase
         .from("tenants")
-        .select("id, property_id, unit_id, monthly_rent, rent_due_day, name")
+        .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, name")
         .eq("status", "active");
 
       if (tenantsError) throw tenantsError;
@@ -227,8 +227,9 @@ export const useGenerateMonthlyPayments = () => {
         ?.filter(tenant => !existingSet.has(tenant.id) && (tenant.monthly_rent || 0) > 0)
         .map(tenant => {
           const dueDay = Math.min(tenant.rent_due_day || 1, 28);
-          // Due date is in the billing month
-          const dueDate = new Date(year, month - 1, dueDay)
+          const offset = (tenant as any).rent_due_month_offset ?? 0;
+          // Due date is in the billing month shifted by the tenant's offset
+          const dueDate = new Date(year, month - 1 + offset, dueDay)
             .toISOString()
             .split('T')[0];
 
