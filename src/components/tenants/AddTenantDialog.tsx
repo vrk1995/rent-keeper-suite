@@ -432,6 +432,7 @@ const AddTenantDialog = ({
       rented_sqft: values.rented_sqft,
       monthly_rent: values.monthly_rent,
       rent_due_day: values.rent_due_day,
+      rent_due_month_offset: values.rent_due_month_offset,
       requires_gst: values.requires_gst,
       bill_from_name: values.bill_from_name || undefined,
       bill_from_address: values.bill_from_address || undefined,
