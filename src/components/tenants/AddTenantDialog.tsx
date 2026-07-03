@@ -70,6 +70,7 @@ const tenantSchema = z.object({
   rented_sqft: z.coerce.number().min(0).optional(),
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
   rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
+  rent_due_month_offset: z.coerce.number().min(-1).max(1),
   requires_gst: z.boolean(),
   // Billing details
   bill_from_name: z.string().max(100).optional(),
