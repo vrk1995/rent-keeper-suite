@@ -139,14 +139,14 @@ const Properties = () => {
         }
       }
       
-      // Aggregate by floor_id for floor-level utilization
-      if (tenant.floor_id) {
+      // Aggregate by floor_id for floor-level utilization (vacated tenants don't occupy space)
+      if (tenant.floor_id && tenant.status === 'active') {
         const currentFloor = floorMap.get(tenant.floor_id) || 0;
         floorMap.set(tenant.floor_id, currentFloor + rentedSqft);
       }
-      
-      // Aggregate by property (sum ALL tenant sqft for property-level total)
-      if (tenant.property_id && !tenant.unit_id) {
+
+      // Aggregate by property (sum ALL active tenant sqft for property-level total)
+      if (tenant.property_id && !tenant.unit_id && tenant.status === 'active') {
         const current = propMap.get(tenant.property_id) || 0;
         propMap.set(tenant.property_id, current + rentedSqft);
 
@@ -160,9 +160,9 @@ const Properties = () => {
           propertyOwnerSqft.set(tenant.property_owner_id, ownerCurrent + rentedSqft);
         }
       }
-      
+
       // Aggregate by unit
-      if (tenant.unit_id) {
+      if (tenant.unit_id && tenant.status === 'active') {
         tenantMap.set(tenant.unit_id, tenant.name);
         const current = unitSqftMap.get(tenant.unit_id) || 0;
         unitSqftMap.set(tenant.unit_id, current + rentedSqft);
