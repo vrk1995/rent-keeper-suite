@@ -54,6 +54,7 @@ import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usePayments";
 import { useIsAdmin } from "@/hooks/useUserRole";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
+import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
@@ -92,6 +93,7 @@ export function PropertyDetailSheet({
   const { data: allInvoices } = useInvoices();
   const { data: allPayments } = usePayments();
   const { data: floorUnits } = useFloorUnitsByProperty(property?.id);
+  const { allTenantFloorUnits } = useAllTenantFloorUnits();
   const deleteExpense = useDeleteExpense();
   const deleteDocument = useDeleteDocument();
 
@@ -360,9 +362,9 @@ export function PropertyDetailSheet({
                           </p>
                           <div className="space-y-2">
                             {unitsOnFloor.map((u) => {
-                              const occupant = tenants.find(
-                                t => t.floor_unit_id === u.id && t.status === "active"
-                              );
+                              const occupants = allTenantFloorUnits?.filter(
+                                tfu => tfu.floor_unit_id === u.id && tfu.tenants?.status === "active"
+                              ) || [];
                               return (
                                 <Card key={u.id}>
                                   <CardContent className="p-3 flex items-center justify-between">
@@ -372,8 +374,10 @@ export function PropertyDetailSheet({
                                         {Number(u.area_sqft).toLocaleString()} sq.ft
                                       </p>
                                     </div>
-                                    {occupant ? (
-                                      <Badge variant="glow">Occupied — {occupant.name}</Badge>
+                                    {occupants.length > 0 ? (
+                                      <Badge variant="glow">
+                                        Occupied — {occupants.map(o => o.tenants?.name).join(", ")}
+                                      </Badge>
                                     ) : (
                                       <Badge variant="secondary">Vacant</Badge>
                                     )}

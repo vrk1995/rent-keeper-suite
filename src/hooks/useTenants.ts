@@ -7,7 +7,6 @@ export interface Tenant {
   property_id: string;
   unit_id: string | null;
   floor_id: string | null;
-  floor_unit_id: string | null;
   property_owner_id: string | null;
   name: string;
   email: string | null;
@@ -57,7 +56,6 @@ export interface CreateTenantInput {
   property_id: string;
   unit_id?: string;
   floor_id?: string;
-  floor_unit_id?: string;
   property_owner_id?: string;
   name: string;
   email?: string;

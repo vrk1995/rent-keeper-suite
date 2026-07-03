@@ -41,6 +41,7 @@ import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
+import { useTenantFloorUnits, useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
 import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { useTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
@@ -57,7 +58,7 @@ const tenantSchema = z.object({
   property_id: z.string().optional(),
   unit_id: z.string().optional(),
   floor_id: z.string().optional(),
-  floor_unit_id: z.string().optional(),
+  floor_unit_ids: z.array(z.string()).optional(),
   property_owner_id: z.string().optional(),
   owner_shares: z.array(ownerShareSchema).optional(),
   name: z.string().min(1, "Tenant name is required").max(100),
@@ -137,6 +138,9 @@ const AddTenantDialog = ({
   const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
   const { ownerShares: existingTenantOwnerShares, upsertOwnerShares: upsertTenantOwnerShares } = useTenantOwnerShares(editTenant?.id);
   const { data: allPropertyOwners } = usePropertyOwners();
+  const { tenantFloorUnits: existingTenantFloorUnits, upsertFloorUnits: upsertTenantFloorUnits } = useTenantFloorUnits(editTenant?.id);
+  const { tenantFloorUnits: prefillTenantFloorUnits } = useTenantFloorUnits(!editTenant ? prefillFromTenant?.id : undefined);
+  const { allTenantFloorUnits } = useAllTenantFloorUnits();
 
   // Check if property has multiple owners
   const hasMultipleOwners = (ownerShares?.length || 0) > 1;
@@ -221,7 +225,7 @@ const AddTenantDialog = ({
       property_id: editTenant?.property_id || defaultPropertyId || "",
       unit_id: editTenant?.unit_id || defaultUnitId || "",
       floor_id: editTenant?.floor_id || "",
-      floor_unit_id: editTenant?.floor_unit_id || "",
+      floor_unit_ids: [],
       property_owner_id: editTenant?.property_owner_id || "",
       owner_shares: [],
       name: editTenant?.name || "",
@@ -359,7 +363,9 @@ const AddTenantDialog = ({
         property_id: editTenant?.property_id || defaultPropertyId || pf?.property_id || "",
         unit_id: editTenant?.unit_id || defaultUnitId || pf?.unit_id || "",
         floor_id: editTenant?.floor_id || pf?.floor_id || "",
-        floor_unit_id: editTenant?.floor_unit_id || pf?.floor_unit_id || "",
+        floor_unit_ids: existingTenantFloorUnits?.map(x => x.floor_unit_id)
+          || prefillTenantFloorUnits?.map(x => x.floor_unit_id)
+          || [],
         property_owner_id: editTenant?.property_owner_id || pf?.property_owner_id || "",
         owner_shares: existingTenantOwnerShares?.map(share => ({
           owner_id: share.owner_id,
@@ -385,7 +391,7 @@ const AddTenantDialog = ({
         bill_to_gstin: editTenant?.bill_to_gstin || "",
       });
     }
-  }, [open, editTenant, defaultPropertyId, defaultUnitId, prefillFromTenant, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares]);
+  }, [open, editTenant, defaultPropertyId, defaultUnitId, prefillFromTenant, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares, existingTenantFloorUnits, prefillTenantFloorUnits]);
 
   const onSubmit = async (values: TenantFormValues) => {
     // Auto-save billing address if checkbox is checked and address has a name
@@ -420,7 +426,6 @@ const AddTenantDialog = ({
       property_id: propertyId!,
       unit_id: values.assignment_type === "unit" ? values.unit_id : undefined,
       floor_id: values.floor_id || undefined,
-      floor_unit_id: values.floor_unit_id || undefined,
       property_owner_id: values.property_owner_id || undefined,
       name: values.name,
       email: values.email || undefined,
@@ -461,6 +466,12 @@ const AddTenantDialog = ({
         })),
       });
     }
+
+    // Sync corp number (floor unit) assignments — a tenant can hold multiple, a corp number can be shared
+    await upsertTenantFloorUnits.mutateAsync({
+      tenantId,
+      floorUnitIds: values.floor_unit_ids || [],
+    });
 
     // Persist GSTIN and billing address back to the property owner
     if (values.property_owner_id && values.bill_from_gstin) {
@@ -606,7 +617,7 @@ const AddTenantDialog = ({
               />
             )}
 
-            {/* Unit / Corp No. Selection - filtered by selected floor */}
+            {/* Unit / Corp No. Selection - filtered by selected floor, multiple allowed */}
             {floorUnits && floorUnits.length > 0 && (() => {
               const watchedFloor = form.watch("floor_id");
               const relevantUnits = watchedFloor
@@ -616,40 +627,47 @@ const AddTenantDialog = ({
               return (
                 <FormField
                   control={form.control}
-                  name="floor_unit_id"
+                  name="floor_unit_ids"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Unit / Corp No.</FormLabel>
-                      <Select
-                        onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
-                        value={field.value || "__none"}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select corp no. (optional)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="__none">No specific corp no.</SelectItem>
-                          {relevantUnits.map((u) => {
-                            const occupant = allTenants?.find(
-                              t => t.floor_unit_id === u.id &&
-                                t.status === "active" &&
-                                t.id !== editTenant?.id
-                            );
-                            const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
-                            return (
-                              <SelectItem key={u.id} value={u.id}>
+                      <FormLabel>Unit / Corp No. (select any that apply)</FormLabel>
+                      <div className="space-y-2 rounded-lg border p-3 max-h-48 overflow-y-auto">
+                        {relevantUnits.map((u) => {
+                          const occupants = allTenantFloorUnits?.filter(
+                            tfu => tfu.floor_unit_id === u.id &&
+                              tfu.tenants?.status === "active" &&
+                              tfu.tenant_id !== editTenant?.id
+                          ) || [];
+                          const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
+                          const checked = (field.value || []).includes(u.id);
+                          return (
+                            <div key={u.id} className="flex items-start gap-2">
+                              <Checkbox
+                                id={`floor-unit-${u.id}`}
+                                checked={checked}
+                                onCheckedChange={(isChecked) => {
+                                  const current = field.value || [];
+                                  field.onChange(
+                                    isChecked
+                                      ? [...current, u.id]
+                                      : current.filter((id) => id !== u.id)
+                                  );
+                                }}
+                              />
+                              <Label htmlFor={`floor-unit-${u.id}`} className="text-sm font-normal cursor-pointer flex-1">
                                 {u.corp_number}
                                 <span className="text-muted-foreground ml-2 text-xs">
                                   {floorName ? `(F: ${floorName}, ` : "("}
-                                  {Number(u.area_sqft).toLocaleString()} sq.ft) {occupant ? `— Occupied by ${occupant.name}` : "— Vacant"}
+                                  {Number(u.area_sqft).toLocaleString()} sq.ft){" "}
+                                  {occupants.length > 0
+                                    ? `— Occupied by ${occupants.map(o => o.tenants?.name).join(", ")}`
+                                    : "— Vacant"}
                                 </span>
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
