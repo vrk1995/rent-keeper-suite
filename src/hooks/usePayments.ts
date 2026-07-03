@@ -16,6 +16,9 @@ export interface RentPayment {
   payment_method: string | null;
   marked_by: string | null;
   notes: string | null;
+  paid_amount: number;
+  tds_applicable: boolean;
+  tds_amount: number;
   created_at: string;
   updated_at: string;
   property?: {
@@ -29,6 +32,7 @@ export interface RentPayment {
   };
   tenant?: {
     name: string;
+    tds_applicable?: boolean;
   };
 }
 
@@ -53,7 +57,7 @@ export const usePayments = () => {
           *,
           property:properties(name),
           unit:units(name, building:buildings(name)),
-          tenant:tenants(name)
+          tenant:tenants(name, tds_applicable)
         `);
 
       if (selectedFY) {
@@ -82,7 +86,7 @@ export const useUpcomingPayments = () => {
           *,
           property:properties(name),
           unit:units(name, building:buildings(name)),
-          tenant:tenants(name)
+          tenant:tenants(name, tds_applicable)
         `)
         .gte("due_date", today)
         .lte("due_date", thirtyDaysLater)
@@ -136,6 +140,8 @@ export const useMarkPaymentPaid = () => {
       notes,
       paid_amount,
       status,
+      tds_applicable,
+      tds_amount,
     }: {
       id: string;
       paid_date: string;
@@ -143,9 +149,11 @@ export const useMarkPaymentPaid = () => {
       notes?: string;
       paid_amount: number;
       status: "paid" | "partial";
+      tds_applicable: boolean;
+      tds_amount: number;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { data, error } = await supabase
         .from("rent_payments")
         .update({
@@ -154,6 +162,8 @@ export const useMarkPaymentPaid = () => {
           payment_method,
           notes,
           paid_amount,
+          tds_applicable,
+          tds_amount,
           marked_by: user?.id,
         } as any)
         .eq("id", id)

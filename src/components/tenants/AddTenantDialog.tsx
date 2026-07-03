@@ -73,6 +73,7 @@ const tenantSchema = z.object({
   rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
   rent_due_month_offset: z.coerce.number().min(-1).max(1),
   requires_gst: z.boolean(),
+  tds_applicable: z.boolean(),
   // Billing details
   bill_from_name: z.string().max(100).optional(),
   bill_from_address: z.string().max(500).optional(),
@@ -240,6 +241,7 @@ const AddTenantDialog = ({
       rent_due_day: editTenant?.rent_due_day || 1,
       rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? 0,
       requires_gst: editTenant?.requires_gst || false,
+      tds_applicable: editTenant?.tds_applicable || false,
       bill_from_name: editTenant?.bill_from_name || "",
       bill_from_address: editTenant?.bill_from_address || "",
       bill_from_gstin: editTenant?.bill_from_gstin || "",
@@ -383,6 +385,7 @@ const AddTenantDialog = ({
         rent_due_day: editTenant?.rent_due_day || pf?.rent_due_day || 1,
         rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? (pf as any)?.rent_due_month_offset ?? 0,
         requires_gst: editTenant?.requires_gst ?? pf?.requires_gst ?? false,
+        tds_applicable: editTenant?.tds_applicable ?? pf?.tds_applicable ?? false,
         bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
         bill_from_address: editTenant?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
         bill_from_gstin: editTenant?.bill_from_gstin || pf?.bill_from_gstin || defaultBillingAddress?.gstin || "",
@@ -439,6 +442,7 @@ const AddTenantDialog = ({
       rent_due_day: values.rent_due_day,
       rent_due_month_offset: values.rent_due_month_offset,
       requires_gst: values.requires_gst,
+      tds_applicable: values.tds_applicable,
       bill_from_name: values.bill_from_name || undefined,
       bill_from_address: values.bill_from_address || undefined,
       bill_from_gstin: values.bill_from_gstin || undefined,
@@ -937,6 +941,26 @@ const AddTenantDialog = ({
                       <FormLabel>GST Invoice Required</FormLabel>
                       <p className="text-xs text-muted-foreground">
                         Enable if tenant requires GST invoice for rent
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tds_applicable"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>TDS Applicable</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Default for this tenant when recording rent payments; 10% is deducted from rent due
                       </p>
                     </div>
                     <FormControl>

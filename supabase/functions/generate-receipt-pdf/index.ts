@@ -212,7 +212,9 @@ serve(async (req: Request): Promise<Response> => {
     const baseAmount = payment.amount;
     const requiresGst = tenant?.requires_gst || false;
     const gstAmount = requiresGst ? baseAmount * 0.18 : 0;
-    const totalAmount = baseAmount + gstAmount;
+    const tdsApplicable = payment.tds_applicable || false;
+    const tdsAmount = tdsApplicable ? (payment.tds_amount || 0) : 0;
+    const totalAmount = baseAmount + gstAmount - tdsAmount;
 
     // Line items
     if (ownerShares.length > 1) {
@@ -234,6 +236,12 @@ serve(async (req: Request): Promise<Response> => {
       yPos -= 18;
       drawText("SGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
       drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
+      yPos -= 18;
+    }
+
+    if (tdsApplicable) {
+      drawText("Less: TDS Deducted @ 10%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
+      drawText(`- ${formatCurrency(tdsAmount)}`, leftMargin + 360, yPos, fontRegular, 10, grayColor);
       yPos -= 18;
     }
 

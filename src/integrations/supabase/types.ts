@@ -705,6 +705,8 @@ export type Database = {
           property_id: string
           receipt_url: string | null
           status: string | null
+          tds_amount: number
+          tds_applicable: boolean
           tenant_id: string
           unit_id: string | null
           updated_at: string
@@ -723,6 +725,8 @@ export type Database = {
           property_id: string
           receipt_url?: string | null
           status?: string | null
+          tds_amount?: number
+          tds_applicable?: boolean
           tenant_id: string
           unit_id?: string | null
           updated_at?: string
@@ -741,6 +745,8 @@ export type Database = {
           property_id?: string
           receipt_url?: string | null
           status?: string | null
+          tds_amount?: number
+          tds_applicable?: boolean
           tenant_id?: string
           unit_id?: string | null
           updated_at?: string
@@ -915,6 +921,7 @@ export type Database = {
           requires_gst: boolean | null
           security_deposit: number | null
           status: string | null
+          tds_applicable: boolean
           unit_id: string | null
           updated_at: string
         }
@@ -943,6 +950,7 @@ export type Database = {
           requires_gst?: boolean | null
           security_deposit?: number | null
           status?: string | null
+          tds_applicable?: boolean
           unit_id?: string | null
           updated_at?: string
         }
@@ -971,6 +979,7 @@ export type Database = {
           requires_gst?: boolean | null
           security_deposit?: number | null
           status?: string | null
+          tds_applicable?: boolean
           unit_id?: string | null
           updated_at?: string
         }

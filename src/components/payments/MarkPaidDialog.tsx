@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ import { openPdfFromBase64 } from "@/lib/pdfUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+
+const TDS_RATE = 0.1;
 
 interface MarkPaidDialogProps {
   open: boolean;
@@ -55,14 +58,30 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [notes, setNotes] = useState("");
   const [paymentType, setPaymentType] = useState<"full" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
+  const [tdsApplicable, setTdsApplicable] = useState(false);
   const markPaid = useMarkPaymentPaid();
 
+  // Default the TDS toggle from the tenant's preference each time the dialog opens for a payment
+  useEffect(() => {
+    if (open) {
+      setTdsApplicable(payment?.tenant?.tds_applicable || false);
+    }
+  }, [open, payment?.id]);
+
+  // TDS only applies to settling the full remaining amount in one go
+  useEffect(() => {
+    if (tdsApplicable) setPaymentType("full");
+  }, [tdsApplicable]);
+
   const totalDue = payment?.amount || 0;
-  const previouslyPaid = (payment as any)?.paid_amount || 0;
+  const previouslyPaid = payment?.paid_amount || 0;
   const remainingDue = totalDue - previouslyPaid;
 
-  const receivedAmount = paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
-  const newTotalPaid = previouslyPaid + receivedAmount;
+  const tdsAmount = tdsApplicable ? Math.round(remainingDue * TDS_RATE * 100) / 100 : 0;
+  const receivedAmount = tdsApplicable
+    ? remainingDue - tdsAmount
+    : paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
+  const newTotalPaid = previouslyPaid + receivedAmount + tdsAmount;
   const isFullyPaid = newTotalPaid >= totalDue;
 
   const handleSubmit = async () => {
@@ -80,6 +99,8 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
       notes: notes.trim() || undefined,
       paid_amount: newTotalPaid,
       status: isFullyPaid ? "paid" : "partial",
+      tds_applicable: tdsApplicable,
+      tds_amount: tdsAmount,
     });
 
     // Generate receipt for the payment
@@ -106,6 +127,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     setNotes("");
     setPaymentType("full");
     setPartialAmount("");
+    setTdsApplicable(false);
   };
 
   if (!payment) return null;
@@ -139,31 +161,62 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             </div>
           </div>
 
-          {/* Full / Partial Selection */}
-          <div className="space-y-2">
-            <Label>Amount Received</Label>
-            <RadioGroup
-              value={paymentType}
-              onValueChange={(v) => setPaymentType(v as "full" | "partial")}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="full" id="full" />
-                <Label htmlFor="full" className="font-normal cursor-pointer">
-                  Full Amount ({formatINR(remainingDue)})
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="partial" id="partial" />
-                <Label htmlFor="partial" className="font-normal cursor-pointer">
-                  Partial Amount
-                </Label>
-              </div>
-            </RadioGroup>
+          {/* TDS Toggle */}
+          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>TDS Applicable</Label>
+              <p className="text-xs text-muted-foreground">
+                Tenant deducts 10% TDS from rent before paying
+              </p>
+            </div>
+            <Switch checked={tdsApplicable} onCheckedChange={setTdsApplicable} />
           </div>
 
+          {/* TDS Breakup */}
+          {tdsApplicable && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Rent Due</span>
+                <span className="font-semibold">{formatINR(remainingDue)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Less: TDS Deducted (10%)</span>
+                <span className="font-semibold text-destructive">- {formatINR(tdsAmount)}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-border pt-2">
+                <span className="text-muted-foreground font-medium">Net Amount Receivable</span>
+                <span className="font-bold text-primary">{formatINR(receivedAmount)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Full / Partial Selection */}
+          {!tdsApplicable && (
+            <div className="space-y-2">
+              <Label>Amount Received</Label>
+              <RadioGroup
+                value={paymentType}
+                onValueChange={(v) => setPaymentType(v as "full" | "partial")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="full" id="full" />
+                  <Label htmlFor="full" className="font-normal cursor-pointer">
+                    Full Amount ({formatINR(remainingDue)})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="partial" id="partial" />
+                  <Label htmlFor="partial" className="font-normal cursor-pointer">
+                    Partial Amount
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
+
           {/* Partial Amount Input */}
-          {paymentType === "partial" && (
+          {!tdsApplicable && paymentType === "partial" && (
             <div className="space-y-2">
               <Label>Amount Received (₹)</Label>
               <Input

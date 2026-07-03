@@ -20,6 +20,7 @@ export interface Tenant {
   rent_due_day: number;
   rent_due_month_offset: number;
   requires_gst: boolean;
+  tds_applicable: boolean;
   status: string;
   created_at: string;
   updated_at: string;
@@ -69,6 +70,7 @@ export interface CreateTenantInput {
   rent_due_day?: number;
   rent_due_month_offset?: number;
   requires_gst?: boolean;
+  tds_applicable?: boolean;
   status?: string;
   // Billing details
   bill_from_name?: string;
