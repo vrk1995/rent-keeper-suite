@@ -375,6 +375,7 @@ const AddTenantDialog = ({
         rented_sqft: editTenant?.rented_sqft ?? pf?.rented_sqft ?? 0,
         monthly_rent: editTenant?.monthly_rent ?? pf?.monthly_rent ?? 0,
         rent_due_day: editTenant?.rent_due_day || pf?.rent_due_day || 1,
+        rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? (pf as any)?.rent_due_month_offset ?? 0,
         requires_gst: editTenant?.requires_gst ?? pf?.requires_gst ?? false,
         bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
         bill_from_address: editTenant?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
