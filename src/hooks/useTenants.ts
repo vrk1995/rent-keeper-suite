@@ -69,6 +69,7 @@ export interface CreateTenantInput {
   rented_sqft?: number;
   monthly_rent?: number;
   rent_due_day?: number;
+  rent_due_month_offset?: number;
   requires_gst?: boolean;
   status?: string;
   // Billing details
