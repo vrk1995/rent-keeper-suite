@@ -875,6 +875,7 @@ export type Database = {
           property_id: string
           property_owner_id: string | null
           rent_due_day: number | null
+          rent_due_month_offset: number
           rented_sqft: number | null
           requires_gst: boolean | null
           security_deposit: number | null
@@ -903,6 +904,7 @@ export type Database = {
           property_id: string
           property_owner_id?: string | null
           rent_due_day?: number | null
+          rent_due_month_offset?: number
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
@@ -931,6 +933,7 @@ export type Database = {
           property_id?: string
           property_owner_id?: string | null
           rent_due_day?: number | null
+          rent_due_month_offset?: number
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
