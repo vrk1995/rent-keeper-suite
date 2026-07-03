@@ -910,6 +910,8 @@ const AddTenantDialog = ({
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
                 name="requires_gst"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
