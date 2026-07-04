@@ -74,7 +74,9 @@ const Properties = () => {
           *,
           property_owners (
             id,
-            name
+            name,
+            gstin,
+            billing_address
           )
         `)
         .order("share_percentage", { ascending: false });
