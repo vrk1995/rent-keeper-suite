@@ -112,11 +112,21 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
     }
   };
 
+  // Invoices aren't directly linked to payments by FK, so match on the same natural
+  // key the DB's monthly-payment generator uses to avoid duplicates: property + due date + amount.
+  const invoiceNumberByPayment = new Map<string, string>();
+  invoices?.forEach((inv) => {
+    invoiceNumberByPayment.set(`${inv.property_id}|${inv.due_date}|${Number(inv.amount).toFixed(2)}`, inv.invoice_number);
+  });
+  const getInvoiceNumber = (p: RentPayment) =>
+    invoiceNumberByPayment.get(`${p.property_id}|${p.due_date}|${Number(p.amount).toFixed(2)}`) || "";
+
   const handleDownloadLedger = () => {
     if (!payments || !tenant) return;
 
-    const headers = ["Billing Month", "Due Date", "Amount", "Paid Amount", "Status", "Paid Date", "Payment Method", "Notes"];
+    const headers = ["Invoice #", "Billing Month", "Due Date", "Amount", "Paid Amount", "Status", "Paid Date", "Payment Method", "Notes"];
     const rows = payments.map((p) => [
+      getInvoiceNumber(p),
       p.billing_month || "",
       p.due_date,
       p.amount,
@@ -129,8 +139,8 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
 
     const totalDue = payments.reduce((s, p) => s + p.amount, 0);
     const totalPaid = payments.reduce((s, p) => s + ((p as any).paid_amount || 0), 0);
-    rows.push(["", "", "", "", "", "", "", ""]);
-    rows.push(["TOTAL", "", totalDue, totalPaid, "", "", "", ""]);
+    rows.push(["", "", "", "", "", "", "", "", ""]);
+    rows.push(["", "TOTAL", "", totalDue, totalPaid, "", "", "", ""]);
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.map(v => `"${v}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -340,6 +350,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs">Month</TableHead>
+                          <TableHead className="text-xs">Invoice #</TableHead>
                           <TableHead className="text-xs">Due</TableHead>
                           <TableHead className="text-xs">Paid</TableHead>
                           <TableHead className="text-xs">Status</TableHead>
@@ -353,6 +364,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                                 ? new Date(parseInt(p.billing_month.split("-")[0]), parseInt(p.billing_month.split("-")[1]) - 1).toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
                                 : format(new Date(p.due_date), "MMM yy")}
                             </TableCell>
+                            <TableCell className="text-xs font-mono">{getInvoiceNumber(p) || "—"}</TableCell>
                             <TableCell className="text-xs font-medium">{formatINR(p.amount)}</TableCell>
                             <TableCell className="text-xs">{formatINR((p as any).paid_amount || 0)}</TableCell>
                             <TableCell>
@@ -364,6 +376,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                         ))}
                         <TableRow className="font-bold border-t-2">
                           <TableCell className="text-xs">Total</TableCell>
+                          <TableCell></TableCell>
                           <TableCell className="text-xs">{formatINR(totalDue)}</TableCell>
                           <TableCell className="text-xs">{formatINR(totalPaid)}</TableCell>
                           <TableCell></TableCell>

@@ -103,6 +103,15 @@ export function PropertyDetailSheet({
   const propertyInvoices = allInvoices?.filter((inv) => inv.property_id === property.id) || [];
   const propertyPayments = allPayments?.filter((pay) => pay.property_id === property.id) || [];
 
+  // Invoices aren't directly linked to payments by FK, so match on the same natural
+  // key the DB's monthly-payment generator uses to avoid duplicates: tenant + due date + amount.
+  const invoiceNumberByPayment = new Map<string, string>();
+  propertyInvoices.forEach((inv) => {
+    invoiceNumberByPayment.set(`${inv.tenant_id}|${inv.due_date}|${Number(inv.amount).toFixed(2)}`, inv.invoice_number);
+  });
+  const getInvoiceNumber = (p: (typeof propertyPayments)[number]) =>
+    invoiceNumberByPayment.get(`${p.tenant_id}|${p.due_date}|${Number(p.amount).toFixed(2)}`) || "";
+
   const totalSqft = property.total_sqft || 0;
   const rentedSqft = tenants
     .filter((t) => t.status === "active")
@@ -114,6 +123,7 @@ export function PropertyDetailSheet({
   // Export ledger to Excel
   const handleExportLedger = () => {
     const ledgerData = propertyPayments.map((payment) => ({
+      "Invoice #": getInvoiceNumber(payment) || "-",
       "Due Date": payment.due_date,
       Tenant: payment.tenant?.name || "Unknown",
       Amount: payment.amount,
@@ -621,7 +631,12 @@ export function PropertyDetailSheet({
                       >
                         <div>
                           <p className="font-medium">{payment.tenant?.name}</p>
-                          <p className="text-xs text-muted-foreground">Due: {payment.due_date}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {getInvoiceNumber(payment) && (
+                              <span className="font-mono">{getInvoiceNumber(payment)} • </span>
+                            )}
+                            Due: {payment.due_date}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p
