@@ -57,6 +57,7 @@ export type Database = {
           owner_id: string
           total_floors: number | null
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           address: string
@@ -67,6 +68,7 @@ export type Database = {
           owner_id: string
           total_floors?: number | null
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           address?: string
@@ -77,8 +79,17 @@ export type Database = {
           owner_id?: string
           total_floors?: number | null
           updated_at?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "buildings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -90,6 +101,7 @@ export type Database = {
           property_id: string | null
           tenant_id: string | null
           uploaded_by: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -100,6 +112,7 @@ export type Database = {
           property_id?: string | null
           tenant_id?: string | null
           uploaded_by: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -110,6 +123,7 @@ export type Database = {
           property_id?: string | null
           tenant_id?: string | null
           uploaded_by?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -126,6 +140,13 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "documents_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       floor_units: {
@@ -138,6 +159,7 @@ export type Database = {
           notes: string | null
           property_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           area_sqft?: number
@@ -148,6 +170,7 @@ export type Database = {
           notes?: string | null
           property_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           area_sqft?: number
@@ -158,6 +181,7 @@ export type Database = {
           notes?: string | null
           property_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -174,6 +198,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "floor_units_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoice_sequences: {
@@ -183,6 +214,7 @@ export type Database = {
           last_sequence: number
           property_id: string
           updated_at: string
+          workspace_id: string
           year: number
         }
         Insert: {
@@ -191,6 +223,7 @@ export type Database = {
           last_sequence?: number
           property_id: string
           updated_at?: string
+          workspace_id?: string
           year: number
         }
         Update: {
@@ -199,6 +232,7 @@ export type Database = {
           last_sequence?: number
           property_id?: string
           updated_at?: string
+          workspace_id?: string
           year?: number
         }
         Relationships: [
@@ -207,6 +241,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_sequences_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -225,6 +266,7 @@ export type Database = {
           status: string | null
           tenant_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           amount: number
@@ -239,6 +281,7 @@ export type Database = {
           status?: string | null
           tenant_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           amount?: number
@@ -253,6 +296,7 @@ export type Database = {
           status?: string | null
           tenant_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -267,6 +311,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -320,6 +371,7 @@ export type Database = {
           status: string | null
           total_sqft: number | null
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           address: string
@@ -336,6 +388,7 @@ export type Database = {
           status?: string | null
           total_sqft?: number | null
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           address?: string
@@ -352,6 +405,7 @@ export type Database = {
           status?: string | null
           total_sqft?: number | null
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -359,6 +413,13 @@ export type Database = {
             columns: ["property_owner_id"]
             isOneToOne: false
             referencedRelation: "property_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -381,6 +442,7 @@ export type Database = {
           updated_at: string
           vendor_contact: string | null
           vendor_name: string | null
+          workspace_id: string
         }
         Insert: {
           amount?: number
@@ -399,6 +461,7 @@ export type Database = {
           updated_at?: string
           vendor_contact?: string | null
           vendor_name?: string | null
+          workspace_id?: string
         }
         Update: {
           amount?: number
@@ -417,6 +480,7 @@ export type Database = {
           updated_at?: string
           vendor_contact?: string | null
           vendor_name?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -433,6 +497,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_expenses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       property_floors: {
@@ -444,6 +515,7 @@ export type Database = {
           notes: string | null
           property_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -453,6 +525,7 @@ export type Database = {
           notes?: string | null
           property_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -462,6 +535,7 @@ export type Database = {
           notes?: string | null
           property_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -469,6 +543,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_floors_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -481,6 +562,7 @@ export type Database = {
           property_id: string
           share_percentage: number
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -489,6 +571,7 @@ export type Database = {
           property_id: string
           share_percentage: number
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -497,6 +580,7 @@ export type Database = {
           property_id?: string
           share_percentage?: number
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -513,6 +597,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "property_owner_shares_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       property_owners: {
@@ -524,6 +615,7 @@ export type Database = {
           name: string
           updated_at: string
           user_id: string
+          workspace_id: string
         }
         Insert: {
           billing_address?: string | null
@@ -533,6 +625,7 @@ export type Database = {
           name: string
           updated_at?: string
           user_id: string
+          workspace_id?: string
         }
         Update: {
           billing_address?: string | null
@@ -542,8 +635,17 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "property_owners_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reminders: {
         Row: {
@@ -557,6 +659,7 @@ export type Database = {
           tenant_id: string | null
           title: string
           user_id: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -569,6 +672,7 @@ export type Database = {
           tenant_id?: string | null
           title: string
           user_id: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -581,6 +685,7 @@ export type Database = {
           tenant_id?: string | null
           title?: string
           user_id?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -597,6 +702,13 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "reminders_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       rent_increment_history: {
@@ -611,6 +723,7 @@ export type Database = {
           notes: string | null
           previous_rent: number
           tenant_id: string
+          workspace_id: string
         }
         Insert: {
           applied_at?: string
@@ -623,6 +736,7 @@ export type Database = {
           notes?: string | null
           previous_rent: number
           tenant_id: string
+          workspace_id?: string
         }
         Update: {
           applied_at?: string
@@ -635,6 +749,7 @@ export type Database = {
           notes?: string | null
           previous_rent?: number
           tenant_id?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -642,6 +757,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_increment_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -657,6 +779,7 @@ export type Database = {
           next_increment_date: string
           tenant_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -668,6 +791,7 @@ export type Database = {
           next_increment_date: string
           tenant_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -679,6 +803,7 @@ export type Database = {
           next_increment_date?: string
           tenant_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -686,6 +811,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_increments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -710,6 +842,7 @@ export type Database = {
           tenant_id: string
           unit_id: string | null
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           amount: number
@@ -730,6 +863,7 @@ export type Database = {
           tenant_id: string
           unit_id?: string | null
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           amount?: number
@@ -750,6 +884,7 @@ export type Database = {
           tenant_id?: string
           unit_id?: string | null
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -773,6 +908,13 @@ export type Database = {
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rent_payments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       team_invites: {
@@ -788,6 +930,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           token_hash: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           accepted_at?: string | null
@@ -801,6 +944,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           token_hash: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           accepted_at?: string | null
@@ -814,8 +958,17 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           token_hash?: string
           updated_at?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "team_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_floor_units: {
         Row: {
@@ -823,18 +976,21 @@ export type Database = {
           floor_unit_id: string
           id: string
           tenant_id: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
           floor_unit_id: string
           id?: string
           tenant_id: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
           floor_unit_id?: string
           id?: string
           tenant_id?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -851,6 +1007,13 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tenant_floor_units_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tenant_owner_shares: {
@@ -861,6 +1024,7 @@ export type Database = {
           share_percentage: number
           tenant_id: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -869,6 +1033,7 @@ export type Database = {
           share_percentage: number
           tenant_id: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           created_at?: string
@@ -877,6 +1042,7 @@ export type Database = {
           share_percentage?: number
           tenant_id?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -891,6 +1057,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_owner_shares_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -925,6 +1098,7 @@ export type Database = {
           tds_applicable: boolean
           unit_id: string | null
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           bill_from_address?: string | null
@@ -955,6 +1129,7 @@ export type Database = {
           tds_applicable?: boolean
           unit_id?: string | null
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           bill_from_address?: string | null
@@ -985,6 +1160,7 @@ export type Database = {
           tds_applicable?: boolean
           unit_id?: string | null
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -1022,6 +1198,13 @@ export type Database = {
             referencedRelation: "units"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tenants_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       units: {
@@ -1038,6 +1221,7 @@ export type Database = {
           total_sqft: number | null
           unit_type: string
           updated_at: string
+          workspace_id: string
         }
         Insert: {
           building_id: string
@@ -1052,6 +1236,7 @@ export type Database = {
           total_sqft?: number | null
           unit_type?: string
           updated_at?: string
+          workspace_id?: string
         }
         Update: {
           building_id?: string
@@ -1066,6 +1251,7 @@ export type Database = {
           total_sqft?: number | null
           unit_type?: string
           updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -1082,6 +1268,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "units_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -1091,6 +1284,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
           user_id: string
+          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -1098,6 +1292,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id: string
+          workspace_id: string
         }
         Update: {
           created_at?: string
@@ -1105,6 +1300,39 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
           user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1114,6 +1342,7 @@ export type Database = {
     }
     Functions: {
       can_edit_team: { Args: { _user_id: string }; Returns: boolean }
+      current_workspace_id: { Args: never; Returns: string }
       daily_payment_processing: { Args: never; Returns: Json }
       generate_monthly_rent_payments: { Args: never; Returns: Json }
       get_user_role: {

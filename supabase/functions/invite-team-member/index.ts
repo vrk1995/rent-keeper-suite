@@ -57,11 +57,12 @@ Deno.serve(async (req) => {
       userData.user.email ||
       "Your admin";
 
-    // Verify caller is admin or super_admin
+    // Verify caller is admin or super_admin AND capture their workspace
     const { data: callerRoles } = await admin
       .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id);
+      .select("role, workspace_id, created_at")
+      .eq("user_id", userData.user.id)
+      .order("created_at", { ascending: true });
 
     const allowed = (callerRoles ?? []).some(
       (r: any) => r.role === "admin" || r.role === "super_admin"
@@ -69,6 +70,14 @@ Deno.serve(async (req) => {
     if (!allowed) {
       return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
         status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const callerWorkspaceId = (callerRoles ?? [])[0]?.workspace_id;
+    if (!callerWorkspaceId) {
+      return new Response(JSON.stringify({ error: "No workspace found for inviter" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -96,6 +105,7 @@ Deno.serve(async (req) => {
       invited_by_user_id: userData.user.id,
       invited_by_name: invitedByName,
       expires_at: expiresAt,
+      workspace_id: callerWorkspaceId,
     });
 
     if (inviteRecordErr) {

@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const tokenHash = await sha256(token);
     const { data: invite, error: inviteErr } = await admin
       .from("team_invites")
-      .select("id, email, full_name, role, expires_at, accepted_at")
+      .select("id, email, full_name, role, expires_at, accepted_at, workspace_id")
       .eq("token_hash", tokenHash)
       .maybeSingle();
 
@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
         user_metadata: {
           ...(existing.user_metadata ?? {}),
           full_name: fullName,
+          invited_workspace_id: invite.workspace_id,
         },
       });
       if (error) throw error;
@@ -98,7 +99,10 @@ Deno.serve(async (req) => {
         email,
         password,
         email_confirm: true,
-        user_metadata: { full_name: fullName },
+        user_metadata: {
+          full_name: fullName,
+          invited_workspace_id: invite.workspace_id,
+        },
       });
       if (error || !created.user) throw error ?? new Error("Could not create user");
       userId = created.user.id;
@@ -109,10 +113,15 @@ Deno.serve(async (req) => {
       { onConflict: "user_id" },
     );
 
-    await admin.from("user_roles").delete().eq("user_id", userId);
+    // Remove any prior role in this specific workspace, then insert the invite's role.
+    await admin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", userId)
+      .eq("workspace_id", invite.workspace_id);
     const { error: roleErr } = await admin
       .from("user_roles")
-      .insert({ user_id: userId, role: invite.role });
+      .insert({ user_id: userId, role: invite.role, workspace_id: invite.workspace_id });
     if (roleErr) throw roleErr;
 
     await admin.from("team_invites").update({ accepted_at: new Date().toISOString() }).eq("id", invite.id);
