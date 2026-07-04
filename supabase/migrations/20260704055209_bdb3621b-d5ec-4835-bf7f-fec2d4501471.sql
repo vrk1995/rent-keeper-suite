@@ -1,0 +1,3 @@
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS tds_applicable BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.rent_payments ADD COLUMN IF NOT EXISTS tds_applicable BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.rent_payments ADD COLUMN IF NOT EXISTS tds_amount NUMERIC NOT NULL DEFAULT 0;

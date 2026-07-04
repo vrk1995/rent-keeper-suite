@@ -906,6 +906,7 @@ export type Database = {
           created_at: string
           email: string | null
           floor_id: string | null
+          floor_unit_id: string | null
           id: string
           lease_end_date: string
           lease_start_date: string
@@ -935,6 +936,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           floor_id?: string | null
+          floor_unit_id?: string | null
           id?: string
           lease_end_date: string
           lease_start_date: string
@@ -964,6 +966,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           floor_id?: string | null
+          floor_unit_id?: string | null
           id?: string
           lease_end_date?: string
           lease_start_date?: string
@@ -989,6 +992,13 @@ export type Database = {
             columns: ["floor_id"]
             isOneToOne: false
             referencedRelation: "property_floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenants_floor_unit_id_fkey"
+            columns: ["floor_unit_id"]
+            isOneToOne: false
+            referencedRelation: "floor_units"
             referencedColumns: ["id"]
           },
           {
