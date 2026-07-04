@@ -68,26 +68,22 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     }
   }, [open, payment?.id]);
 
-  // TDS only applies to settling the full remaining amount in one go
-  useEffect(() => {
-    if (tdsApplicable) setPaymentType("full");
-  }, [tdsApplicable]);
-
   const totalDue = payment?.amount || 0;
   const previouslyPaid = payment?.paid_amount || 0;
   const remainingDue = totalDue - previouslyPaid;
 
-  const tdsAmount = tdsApplicable ? Math.round(remainingDue * TDS_RATE * 100) / 100 : 0;
-  const receivedAmount = tdsApplicable
-    ? remainingDue - tdsAmount
-    : paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
-  const newTotalPaid = previouslyPaid + receivedAmount + tdsAmount;
+  // Rent being settled in this transaction (before any TDS deduction) — the full remaining
+  // due, or a user-chosen portion of it for a partial payment.
+  const grossSettled = paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
+  const tdsAmount = tdsApplicable ? Math.round(grossSettled * TDS_RATE * 100) / 100 : 0;
+  const receivedAmount = grossSettled - tdsAmount;
+  const newTotalPaid = previouslyPaid + grossSettled;
   const isFullyPaid = newTotalPaid >= totalDue;
 
   const handleSubmit = async () => {
     if (!payment) return;
 
-    if (paymentType === "partial" && (receivedAmount <= 0 || receivedAmount > remainingDue)) {
+    if (paymentType === "partial" && (grossSettled <= 0 || grossSettled > remainingDue)) {
       toast.error(`Please enter an amount between 1 and ${formatINR(remainingDue)}`);
       return;
     }
@@ -172,53 +168,33 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             <Switch checked={tdsApplicable} onCheckedChange={setTdsApplicable} />
           </div>
 
-          {/* TDS Breakup */}
-          {tdsApplicable && (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Rent Due</span>
-                <span className="font-semibold">{formatINR(remainingDue)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Less: TDS Deducted (10%)</span>
-                <span className="font-semibold text-destructive">- {formatINR(tdsAmount)}</span>
-              </div>
-              <div className="flex justify-between text-sm border-t border-border pt-2">
-                <span className="text-muted-foreground font-medium">Net Amount Receivable</span>
-                <span className="font-bold text-primary">{formatINR(receivedAmount)}</span>
-              </div>
-            </div>
-          )}
-
           {/* Full / Partial Selection */}
-          {!tdsApplicable && (
-            <div className="space-y-2">
-              <Label>Amount Received</Label>
-              <RadioGroup
-                value={paymentType}
-                onValueChange={(v) => setPaymentType(v as "full" | "partial")}
-                className="flex gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="full" id="full" />
-                  <Label htmlFor="full" className="font-normal cursor-pointer">
-                    Full Amount ({formatINR(remainingDue)})
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="partial" id="partial" />
-                  <Label htmlFor="partial" className="font-normal cursor-pointer">
-                    Partial Amount
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>{tdsApplicable ? "Rent Being Settled" : "Amount Received"}</Label>
+            <RadioGroup
+              value={paymentType}
+              onValueChange={(v) => setPaymentType(v as "full" | "partial")}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="full" id="full" />
+                <Label htmlFor="full" className="font-normal cursor-pointer">
+                  Full Amount ({formatINR(remainingDue)})
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="partial" id="partial" />
+                <Label htmlFor="partial" className="font-normal cursor-pointer">
+                  Partial Amount
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
 
           {/* Partial Amount Input */}
-          {!tdsApplicable && paymentType === "partial" && (
+          {paymentType === "partial" && (
             <div className="space-y-2">
-              <Label>Amount Received (₹)</Label>
+              <Label>{tdsApplicable ? "Rent Amount Being Settled (₹)" : "Amount Received (₹)"}</Label>
               <Input
                 type="number"
                 placeholder={`Max ${remainingDue}`}
@@ -227,11 +203,40 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
                 max={remainingDue}
                 min={1}
               />
-              {receivedAmount > 0 && receivedAmount <= remainingDue && (
+              {tdsApplicable && (
                 <p className="text-xs text-muted-foreground">
-                  Balance after this payment: {formatINR(remainingDue - receivedAmount)}
+                  This is the rent amount being cleared before TDS; the net cash you'll receive is shown below.
                 </p>
               )}
+              {grossSettled > 0 && grossSettled <= remainingDue && (
+                <p className="text-xs text-muted-foreground">
+                  Balance after this payment: {formatINR(remainingDue - grossSettled)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* TDS Breakup */}
+          {tdsApplicable && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Rent Due</span>
+                <span className="font-semibold">{formatINR(remainingDue)}</span>
+              </div>
+              {paymentType === "partial" && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Amount Being Settled</span>
+                  <span className="font-semibold">{formatINR(grossSettled)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Less: TDS Deducted (10%)</span>
+                <span className="font-semibold text-destructive">- {formatINR(tdsAmount)}</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-border pt-2">
+                <span className="text-muted-foreground font-medium">Net Amount Receivable</span>
+                <span className="font-bold text-primary">{formatINR(receivedAmount)}</span>
+              </div>
             </div>
           )}
 
@@ -298,7 +303,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={markPaid.isPending || (paymentType === "partial" && (receivedAmount <= 0 || receivedAmount > remainingDue))}
+            disabled={markPaid.isPending || (paymentType === "partial" && (grossSettled <= 0 || grossSettled > remainingDue))}
           >
             {markPaid.isPending ? "Saving..." : `Record ${formatINR(receivedAmount)}`}
           </Button>
