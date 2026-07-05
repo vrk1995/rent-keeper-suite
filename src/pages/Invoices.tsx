@@ -40,9 +40,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { invoiceStatusConfig } from "@/lib/statusConfig";
 import { openPdfFromBase64 } from "@/lib/pdfUtils";
+import { ErrorState } from "@/components/ui/error-state";
 
 const Invoices = () => {
-  const { data: invoices, isLoading } = useInvoices();
+  const { data: invoices, isLoading, isError, refetch } = useInvoices();
   const { propertyOptions, tenantOptions, properties, tenants } = useFilterOptions();
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
@@ -233,6 +234,8 @@ const Invoices = () => {
 
       {isLoading ? (
         <div className="h-64 bg-secondary/30 rounded-xl animate-pulse" />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : filteredInvoices?.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}

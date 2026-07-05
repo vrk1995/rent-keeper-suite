@@ -205,12 +205,13 @@ export function PropertyDetailSheet({
               </div>
               {isAdmin && !roleLoading && (
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={() => setEditDialogOpen(true)}>
+                  <Button variant="outline" size="icon" aria-label="Edit property" onClick={() => setEditDialogOpen(true)}>
                     <Edit className="w-4 h-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="icon"
+                    aria-label="Delete property"
                     onClick={() => {
                       onDeleteProperty(property.id);
                       onOpenChange(false);
@@ -446,6 +447,7 @@ export function PropertyDetailSheet({
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  aria-label="Delete expense"
                                   onClick={() => setDeleteExpenseId(expense.id)}
                                 >
                                   <Trash2 className="w-4 h-4 text-destructive" />
@@ -512,6 +514,7 @@ export function PropertyDetailSheet({
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  aria-label="Delete document"
                                   onClick={() => setDeleteDocumentData({ id: doc.id, file_url: doc.file_url, name: doc.name })}
                                 >
                                   <Trash2 className="w-4 h-4 text-destructive" />

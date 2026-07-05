@@ -760,6 +760,7 @@ const AddTenantDialog = ({
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label="Remove owner"
                       onClick={() => removeOwnerShare(index)}
                       className="text-destructive hover:text-destructive"
                     >

@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
@@ -23,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { useDocuments, useUploadDocument, useDeleteDocument, Document } from "@/hooks/useDocuments";
 import { useProperties } from "@/hooks/useProperties";
+import { ErrorState } from "@/components/ui/error-state";
 
 const documentTypeLabels: Record<string, string> = {
   lease: "Lease Agreement",
@@ -34,7 +45,7 @@ const documentTypeLabels: Record<string, string> = {
 };
 
 const Documents = () => {
-  const { data: documents, isLoading } = useDocuments();
+  const { data: documents, isLoading, isError, refetch } = useDocuments();
   const { data: properties } = useProperties();
   const uploadDocument = useUploadDocument();
   const deleteDocument = useDeleteDocument();
@@ -44,6 +55,7 @@ const Documents = () => {
   const [documentName, setDocumentName] = useState("");
   const [documentType, setDocumentType] = useState("other");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [deleteDocumentData, setDeleteDocumentData] = useState<Document | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredDocuments = documents?.filter(
@@ -79,8 +91,11 @@ const Documents = () => {
     setSelectedFile(null);
   };
 
-  const handleDelete = async (doc: Document) => {
-    await deleteDocument.mutateAsync(doc);
+  const handleDelete = async () => {
+    if (deleteDocumentData) {
+      await deleteDocument.mutateAsync(deleteDocumentData);
+      setDeleteDocumentData(null);
+    }
   };
 
   return (
@@ -112,6 +127,8 @@ const Documents = () => {
             <div key={i} className="h-32 bg-secondary/30 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : filteredDocuments?.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -163,11 +180,11 @@ const Documents = () => {
                     </span>
                     <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" asChild>
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer" aria-label="Download document">
                           <Download className="w-4 h-4" />
                         </a>
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(doc)}>
+                      <Button variant="ghost" size="icon" aria-label="Delete document" onClick={() => setDeleteDocumentData(doc)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
@@ -257,6 +274,21 @@ const Documents = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteDocumentData} onOpenChange={() => setDeleteDocumentData(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteDocumentData?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

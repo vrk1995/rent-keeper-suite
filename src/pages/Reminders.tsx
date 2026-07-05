@@ -14,6 +14,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,6 +37,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useReminders, useCreateReminder, useCompleteReminder, useDeleteReminder } from "@/hooks/useReminders";
 import { useProperties } from "@/hooks/useProperties";
+import { ErrorState } from "@/components/ui/error-state";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Trash2 } from "lucide-react";
 
@@ -45,7 +56,7 @@ const reminderTypeColors: Record<string, "glow" | "secondary" | "destructive" | 
 };
 
 const Reminders = () => {
-  const { data: reminders, isLoading } = useReminders();
+  const { data: reminders, isLoading, isError, refetch } = useReminders();
   const { data: properties } = useProperties();
   const createReminder = useCreateReminder();
   const completeReminder = useCompleteReminder();
@@ -58,6 +69,7 @@ const Reminders = () => {
   const [reminderType, setReminderType] = useState("custom");
   const [selectedProperty, setSelectedProperty] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
+  const [deleteReminderId, setDeleteReminderId] = useState<string | null>(null);
 
   const filteredReminders = reminders?.filter((r) => {
     const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -91,8 +103,11 @@ const Reminders = () => {
     await completeReminder.mutateAsync(id);
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteReminder.mutateAsync(id);
+  const handleDelete = async () => {
+    if (deleteReminderId) {
+      await deleteReminder.mutateAsync(deleteReminderId);
+      setDeleteReminderId(null);
+    }
   };
 
   return (
@@ -134,6 +149,8 @@ const Reminders = () => {
             <div key={i} className="h-20 bg-secondary/30 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : filteredReminders?.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -197,7 +214,8 @@ const Reminders = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(reminder.id)}
+                        aria-label="Delete reminder"
+                        onClick={() => setDeleteReminderId(reminder.id)}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -326,6 +344,21 @@ const Reminders = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteReminderId} onOpenChange={() => setDeleteReminderId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Reminder</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this reminder? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -42,6 +42,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { AddTeamMemberDialog } from "@/components/team/AddTeamMemberDialog";
+import { ErrorState } from "@/components/ui/error-state";
 
 const roleConfig: Record<AppRole, { label: string; icon: React.ElementType; color: string; description: string }> = {
   super_admin: {
@@ -71,7 +72,7 @@ const roleConfig: Record<AppRole, { label: string; icon: React.ElementType; colo
 };
 
 const Team = () => {
-  const { data: teamMembers, isLoading } = useTeamMembers();
+  const { data: teamMembers, isLoading, isError, refetch } = useTeamMembers();
   const { data: currentUserRole } = useCurrentUserRole();
   const updateRole = useUpdateUserRole();
   const removeMember = useRemoveTeamMember();
@@ -177,6 +178,8 @@ const Team = () => {
                 <div key={i} className="h-16 bg-muted/30 rounded-lg animate-pulse" />
               ))}
             </div>
+          ) : isError ? (
+            <ErrorState onRetry={() => refetch()} />
           ) : teamMembers?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -261,6 +264,7 @@ const Team = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Edit name"
                           onClick={() => openEdit(member.user_id, member.profile?.full_name)}
                           title="Edit name"
                         >
@@ -272,6 +276,7 @@ const Team = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Remove team member"
                           onClick={() => setRemoveMemberId(member.user_id)}
                           disabled={removeMember.isPending}
                         >

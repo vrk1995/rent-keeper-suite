@@ -25,9 +25,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ErrorState } from "@/components/ui/error-state";
 
 const Tenants = () => {
-  const { data: tenants, isLoading } = useTenants();
+  const { data: tenants, isLoading, isError, refetch } = useTenants();
   const { allOwnerShares: tenantOwnerShares } = useAllTenantOwnerShares();
   const deleteTenant = useDeleteTenant();
   const { isAdmin } = useIsAdmin();
@@ -159,6 +160,8 @@ const Tenants = () => {
             <div key={i} className="h-48 bg-secondary/30 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : filteredTenants?.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -214,6 +217,7 @@ const Tenants = () => {
                       <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Rent increments"
                           className="h-7 w-7 text-muted-foreground hover:text-primary"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -227,6 +231,7 @@ const Tenants = () => {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Delete tenant"
                           className="h-7 w-7 text-muted-foreground hover:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation();

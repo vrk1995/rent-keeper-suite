@@ -154,6 +154,7 @@ const PropertyCard = ({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Edit property"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(property);
@@ -164,6 +165,7 @@ const PropertyCard = ({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Delete property"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(property.id);

@@ -146,6 +146,7 @@ export function UploadDocumentDialog({ propertyId, tenants = [], defaultTenantId
                     type="button"
                     variant="ghost"
                     size="icon"
+                    aria-label="Remove selected file"
                     className="h-8 w-8 flex-shrink-0"
                     onClick={() => setSelectedFile(null)}
                   >

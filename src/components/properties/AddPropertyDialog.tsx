@@ -496,6 +496,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                     type="button"
                     variant="ghost"
                     size="icon"
+                    aria-label="Remove owner"
                     className={index === 0 ? "mt-6" : ""}
                     onClick={() => removeOwner(index)}
                   >
@@ -710,6 +711,7 @@ const FloorRow = ({ index, control, canRemove, onRemove, getUnits, setUnits }: F
             type="button"
             variant="ghost"
             size="icon"
+            aria-label="Remove floor"
             className={index === 0 ? "mt-6" : ""}
             onClick={onRemove}
           >
@@ -769,6 +771,7 @@ const FloorRow = ({ index, control, canRemove, onRemove, getUnits, setUnits }: F
                   type="button"
                   variant="ghost"
                   size="icon"
+                  aria-label="Remove corp number"
                   onClick={() => setUnits(units.filter((_, i) => i !== uIdx))}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />

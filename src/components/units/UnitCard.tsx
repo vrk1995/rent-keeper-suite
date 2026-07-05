@@ -82,14 +82,14 @@ export const UnitCard = ({ unit, tenantName, rentedSqft = 0, onEdit, onDelete, o
           </span>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {unit.status === "vacant" && onAddTenant && (
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onAddTenant} title="Add Tenant">
+              <Button variant="ghost" size="icon" aria-label="Add tenant" className="h-8 w-8" onClick={onAddTenant} title="Add Tenant">
                 <UserPlus className="h-3 w-3" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+            <Button variant="ghost" size="icon" aria-label="Edit unit" className="h-8 w-8" onClick={onEdit}>
               <Pencil className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onDelete}>
+            <Button variant="ghost" size="icon" aria-label="Delete unit" className="h-8 w-8" onClick={onDelete}>
               <Trash2 className="h-3 w-3 text-destructive" />
             </Button>
           </div>

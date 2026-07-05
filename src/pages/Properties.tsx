@@ -29,9 +29,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ErrorState } from "@/components/ui/error-state";
 
 const Properties = () => {
-  const { data: propertiesWithUnits, isLoading } = usePropertiesWithUnits();
+  const { data: propertiesWithUnits, isLoading, isError, refetch } = usePropertiesWithUnits();
   const { data: tenants } = useTenants();
   const { data: payments } = usePayments();
   const { selectedOwnerId } = useOwnerFilter();
@@ -443,6 +444,8 @@ const Properties = () => {
             <div key={i} className="h-48 bg-secondary/30 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : filteredProperties?.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}

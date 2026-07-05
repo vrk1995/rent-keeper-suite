@@ -19,15 +19,16 @@ import { usePayments } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
 import { paymentStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/error-state";
 import { format, differenceInDays, isToday, isTomorrow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 
 const DashboardOverview = () => {
   const navigate = useNavigate();
-  const { data: properties = [], isLoading: propertiesLoading } = useProperties();
-  const { data: tenants = [], isLoading: tenantsLoading } = useTenants();
-  const { data: payments = [], isLoading: paymentsLoading } = usePayments();
+  const { data: properties = [], isLoading: propertiesLoading, isError: propertiesError, refetch: refetchProperties } = useProperties();
+  const { data: tenants = [], isLoading: tenantsLoading, isError: tenantsError, refetch: refetchTenants } = useTenants();
+  const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError, refetch: refetchPayments } = usePayments();
 
   // Calculate payment stats
   const paymentStats = useMemo(() => {
@@ -101,6 +102,12 @@ const DashboardOverview = () => {
   ];
 
   const isLoading = propertiesLoading || tenantsLoading || paymentsLoading;
+  const isError = propertiesError || tenantsError || paymentsError;
+  const refetchAll = () => {
+    refetchProperties();
+    refetchTenants();
+    refetchPayments();
+  };
 
   const getDueDateLabel = (dueDate: string) => {
     const date = new Date(dueDate);
@@ -125,6 +132,10 @@ const DashboardOverview = () => {
         </Button>
       </div>
 
+      {isError ? (
+        <ErrorState onRetry={refetchAll} />
+      ) : (
+      <>
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {stats.map((stat) => (
@@ -322,6 +333,8 @@ const DashboardOverview = () => {
           </CardContent>
         </Card>
       </div>
+      </>
+      )}
     </div>
   );
 };

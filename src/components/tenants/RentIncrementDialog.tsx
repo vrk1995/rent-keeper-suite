@@ -53,6 +53,7 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
   const [nextDate, setNextDate] = useState<Date | undefined>();
   const [applyConfirm, setApplyConfirm] = useState<string | null>(null);
   const [applyNotes, setApplyNotes] = useState("");
+  const [deleteIncrementId, setDeleteIncrementId] = useState<string | null>(null);
 
   const resetForm = () => {
     setShowAddForm(false);
@@ -156,8 +157,9 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="Delete increment rule"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteIncrement.mutate({ id: inc.id, tenantId })}
+                        onClick={() => setDeleteIncrementId(inc.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -312,6 +314,30 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleApply}>Apply Increment</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteIncrementId} onOpenChange={() => setDeleteIncrementId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Increment Rule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this increment rule? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteIncrementId) {
+                  deleteIncrement.mutate({ id: deleteIncrementId, tenantId });
+                  setDeleteIncrementId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -12,6 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useAllExpenses, useDeleteExpense } from "@/hooks/useExpenses";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
@@ -19,6 +29,7 @@ import { formatINR } from "@/lib/currency";
 import { AddAdhocPaymentDialog } from "@/components/payments/AddAdhocPaymentDialog";
 import { RowListSkeleton } from "@/components/ui/list-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 
 const categoryOptions = [
   { value: "taxes", label: "Taxes" },
@@ -33,12 +44,13 @@ const categoryOptions = [
 ];
 
 export default function PaymentsLog() {
-  const { data: expenses = [], isLoading } = useAllExpenses();
+  const { data: expenses = [], isLoading, isError, refetch } = useAllExpenses();
   const { propertyOptions } = useFilterOptions();
   const deleteExpense = useDeleteExpense();
 
   const [propertyFilter, setPropertyFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [deleteExpenseData, setDeleteExpenseData] = useState<{ id: string; propertyId: string; title: string } | null>(null);
 
   const filtered = useMemo(() => {
     return expenses.filter((e) => {
@@ -107,6 +119,8 @@ export default function PaymentsLog() {
         <CardContent>
           {isLoading ? (
             <RowListSkeleton />
+          ) : isError ? (
+            <ErrorState onRetry={() => refetch()} />
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={Receipt}
@@ -160,8 +174,9 @@ export default function PaymentsLog() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          aria-label="Delete payment"
                           onClick={() =>
-                            deleteExpense.mutate({ id: e.id, propertyId: e.property_id })
+                            setDeleteExpenseData({ id: e.id, propertyId: e.property_id, title: e.title })
                           }
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
@@ -175,6 +190,30 @@ export default function PaymentsLog() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteExpenseData} onOpenChange={() => setDeleteExpenseData(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteExpenseData?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteExpenseData) {
+                  deleteExpense.mutate({ id: deleteExpenseData.id, propertyId: deleteExpenseData.propertyId });
+                  setDeleteExpenseData(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

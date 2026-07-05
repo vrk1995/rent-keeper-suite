@@ -31,6 +31,7 @@ import {
   useDeleteBillingAddress,
   BillingAddress,
 } from "@/hooks/useBillingAddresses";
+import { ErrorState } from "@/components/ui/error-state";
 
 interface BillingAddressFormData {
   name: string;
@@ -40,7 +41,7 @@ interface BillingAddressFormData {
 }
 
 const BillingAddresses = () => {
-  const { data: addresses, isLoading } = useBillingAddresses();
+  const { data: addresses, isLoading, isError, refetch } = useBillingAddresses();
   const createAddress = useCreateBillingAddress();
   const updateAddress = useUpdateBillingAddress();
   const deleteAddress = useDeleteBillingAddress();
@@ -128,6 +129,8 @@ const BillingAddresses = () => {
             <div key={i} className="h-40 bg-secondary/30 rounded-xl animate-pulse" />
           ))}
         </div>
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : addresses?.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -161,6 +164,7 @@ const BillingAddresses = () => {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Edit billing address"
                       onClick={() => handleOpenDialog(address)}
                     >
                       <Edit className="w-4 h-4" />
@@ -168,6 +172,7 @@ const BillingAddresses = () => {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Delete billing address"
                       onClick={() => setDeleteId(address.id)}
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />

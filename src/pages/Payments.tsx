@@ -36,6 +36,7 @@ import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { paymentStatusConfig } from "@/lib/statusConfig";
 import { generateAndOpenInvoicePdf, generateAndOpenReceiptPdf } from "@/lib/pdfUtils";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/ui/error-state";
 
 const getMonthOptions = () => {
   const now = new Date();
@@ -62,7 +63,7 @@ const formatBillingMonth = (billingMonth: string | null, dueDate: string) => {
 };
 
 const Payments = () => {
-  const { data: payments, isLoading } = usePayments();
+  const { data: payments, isLoading, isError, refetch } = usePayments();
   const { propertyOptions, tenantOptions } = useFilterOptions();
   const generatePayments = useGenerateMonthlyPayments();
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -232,6 +233,8 @@ const Payments = () => {
       {/* Payments Table */}
       {isLoading ? (
         <div className="h-64 bg-secondary/30 rounded-xl animate-pulse" />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
       ) : filteredPayments?.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
