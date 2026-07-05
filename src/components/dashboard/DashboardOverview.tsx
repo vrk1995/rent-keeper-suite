@@ -17,6 +17,8 @@ import { useProperties } from "@/hooks/useProperties";
 import { useTenants } from "@/hooks/useTenants";
 import { usePayments } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
+import { paymentStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays, isToday, isTomorrow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useMemo } from "react";
@@ -143,13 +145,17 @@ const DashboardOverview = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className={`text-xl md:text-3xl font-display font-bold ${stat.highlight ? 'text-destructive' : ''}`}>
-                {isLoading ? "..." : stat.value}
-              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-20 mb-1" />
+              ) : (
+                <div className={`text-xl md:text-3xl font-display font-bold ${stat.highlight ? 'text-destructive' : ''}`}>
+                  {stat.value}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 {stat.trend === "up" && <TrendingUp className="w-3 h-3 text-success" />}
                 {stat.trend === "warning" && <AlertTriangle className="w-3 h-3 text-destructive" />}
-                {stat.change}
+                {isLoading ? <Skeleton className="h-3 w-24" /> : stat.change}
               </p>
             </CardContent>
           </Card>
@@ -238,7 +244,11 @@ const DashboardOverview = () => {
           <CardContent>
             <div className="space-y-3">
               {isLoading ? (
-                <p className="text-muted-foreground text-sm">Loading...</p>
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14 bg-secondary/30 rounded-lg" />
+                  ))}
+                </div>
               ) : payments.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No payments yet. Generate monthly payments to get started!</p>
               ) : (
@@ -257,11 +267,8 @@ const DashboardOverview = () => {
                         <p className="text-xs text-muted-foreground">
                           {format(new Date(payment.due_date), "MMM d")}
                         </p>
-                        <Badge 
-                          variant={
-                            payment.status === "paid" ? "glow" : 
-                            payment.status === "overdue" ? "destructive" : "secondary"
-                          }
+                        <Badge
+                          variant={paymentStatusConfig[payment.status]?.variant || "secondary"}
                           className="text-xs"
                         >
                           {payment.status}
@@ -287,7 +294,11 @@ const DashboardOverview = () => {
           <CardContent>
             <div className="space-y-3">
               {isLoading ? (
-                <p className="text-muted-foreground text-sm">Loading...</p>
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14 bg-secondary/30 rounded-lg" />
+                  ))}
+                </div>
               ) : properties.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No properties added yet. Add your first property to get started!</p>
               ) : (
@@ -301,7 +312,7 @@ const DashboardOverview = () => {
                       <p className="font-medium truncate">{property.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{property.address}</p>
                     </div>
-                    <Badge variant={property.status === "occupied" ? "glow" : "secondary"} className="flex-shrink-0">
+                    <Badge variant={occupancyStatusConfig[property.status] || "secondary"} className="flex-shrink-0">
                       {property.status}
                     </Badge>
                   </div>

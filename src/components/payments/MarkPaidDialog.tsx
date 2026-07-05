@@ -148,7 +148,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             {previouslyPaid > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Previously Received</span>
-                <span className="font-semibold text-green-500">{formatINR(previouslyPaid)}</span>
+                <span className="font-semibold text-success">{formatINR(previouslyPaid)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm border-t border-white/10 pt-2">

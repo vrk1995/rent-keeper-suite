@@ -431,7 +431,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                   <h4 className="font-medium">Property Owners</h4>
                 </div>
                 {totalPercentage > 0 && (
-                  <span className={`text-sm font-medium ${totalPercentage === 100 ? 'text-green-600' : totalPercentage > 100 ? 'text-destructive' : 'text-amber-600'}`}>
+                  <span className={`text-sm font-medium ${totalPercentage === 100 ? 'text-success' : totalPercentage > 100 ? 'text-destructive' : 'text-warning'}`}>
                     Total: {totalPercentage.toFixed(2)}%
                   </span>
                 )}

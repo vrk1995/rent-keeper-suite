@@ -17,6 +17,8 @@ import { useAllExpenses, useDeleteExpense } from "@/hooks/useExpenses";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
 import { AddAdhocPaymentDialog } from "@/components/payments/AddAdhocPaymentDialog";
+import { RowListSkeleton } from "@/components/ui/list-skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const categoryOptions = [
   { value: "taxes", label: "Taxes" },
@@ -104,12 +106,13 @@ export default function PaymentsLog() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <RowListSkeleton />
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No payments recorded yet</p>
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title="No payments recorded yet"
+              description='Use "Record Ad-hoc Payment" above to log a tax, repair, or other expense.'
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table>

@@ -56,6 +56,7 @@ import { useIsAdmin } from "@/hooks/useUserRole";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
+import { paymentStatusConfig, invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
 import AddPropertyDialog from "./AddPropertyDialog";
@@ -196,7 +197,7 @@ export function PropertyDetailSheet({
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                     <MapPin className="w-3 h-3" />
                     {property.address}
-                    <Badge variant={property.status === "occupied" ? "glow" : "secondary"}>
+                    <Badge variant={occupancyStatusConfig[property.status] || "secondary"}>
                       {property.status}
                     </Badge>
                   </div>
@@ -385,11 +386,11 @@ export function PropertyDetailSheet({
                                       </p>
                                     </div>
                                     {occupants.length > 0 ? (
-                                      <Badge variant="glow">
+                                      <Badge variant={occupancyStatusConfig.occupied}>
                                         Occupied — {occupants.map(o => o.tenants?.name).join(", ")}
                                       </Badge>
                                     ) : (
-                                      <Badge variant="secondary">Vacant</Badge>
+                                      <Badge variant={occupancyStatusConfig.vacant}>Vacant</Badge>
                                     )}
                                   </CardContent>
                                 </Card>
@@ -550,15 +551,7 @@ export function PropertyDetailSheet({
                           <TableCell>{formatINR(invoice.amount)}</TableCell>
                           <TableCell>{invoice.due_date}</TableCell>
                           <TableCell>
-                            <Badge
-                              variant={
-                                invoice.status === "paid"
-                                  ? "glow"
-                                  : invoice.status === "overdue"
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                            >
+                            <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"}>
                               {invoice.status}
                             </Badge>
                           </TableCell>
@@ -641,19 +634,13 @@ export function PropertyDetailSheet({
                         <div className="text-right">
                           <p
                             className={`font-semibold ${
-                              payment.status === "paid" ? "text-green-600" : "text-orange-600"
+                              payment.status === "paid" ? "text-success" : "text-warning"
                             }`}
                           >
                             {formatINR(payment.amount)}
                           </p>
                           <Badge
-                            variant={
-                              payment.status === "paid"
-                                ? "glow"
-                                : payment.status === "overdue"
-                                ? "destructive"
-                                : "secondary"
-                            }
+                            variant={paymentStatusConfig[payment.status]?.variant || "secondary"}
                             className="text-xs"
                           >
                             {payment.status}

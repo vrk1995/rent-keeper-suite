@@ -20,7 +20,7 @@ const OwnerFilterSelect = () => {
         value={selectedOwnerId || "all"}
         onValueChange={(value) => setSelectedOwnerId(value === "all" ? null : value)}
       >
-        <SelectTrigger className="w-[200px] bg-secondary/50 border-white/10">
+        <SelectTrigger className="w-auto min-w-0 max-w-[45vw] sm:w-[200px] sm:max-w-none bg-secondary/50 border-white/10">
           <SelectValue placeholder="Filter by owner" />
         </SelectTrigger>
         <SelectContent>

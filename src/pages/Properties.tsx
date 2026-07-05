@@ -407,7 +407,7 @@ const Properties = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Due This Month</p>
-                <p className="text-xl font-bold text-orange-600">{formatINR(rentSummary.totalDue)}</p>
+                <p className="text-xl font-bold text-warning">{formatINR(rentSummary.totalDue)}</p>
               </div>
             </div>
           </CardContent>
@@ -420,7 +420,7 @@ const Properties = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Received This Month</p>
-                <p className="text-xl font-bold text-green-600">{formatINR(rentSummary.totalReceived)}</p>
+                <p className="text-xl font-bold text-success">{formatINR(rentSummary.totalReceived)}</p>
               </div>
             </div>
           </CardContent>

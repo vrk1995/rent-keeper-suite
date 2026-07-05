@@ -16,7 +16,7 @@ const FinancialYearSelect = () => {
 
   return (
     <div className="flex items-center gap-2">
-      <CalendarIcon className="w-4 h-4 text-muted-foreground hidden sm:block" />
+      <CalendarIcon className="w-4 h-4 text-muted-foreground" />
       <Select
         value={selectedFY?.value ?? "all"}
         onValueChange={(val) => {
@@ -28,7 +28,7 @@ const FinancialYearSelect = () => {
           }
         }}
       >
-        <SelectTrigger className="w-[130px] bg-secondary/50 border-white/10 text-sm">
+        <SelectTrigger className="w-auto min-w-0 max-w-[40vw] sm:w-[130px] sm:max-w-none bg-secondary/50 border-white/10 text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -143,7 +143,7 @@ const AdminApprovals = () => {
       <Card className="glass border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-yellow-500" />
+            <Clock className="w-5 h-5 text-warning" />
             Pending Approvals
           </CardTitle>
           <CardDescription>
@@ -174,14 +174,14 @@ const AdminApprovals = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-yellow-500 border-yellow-500/30">
+                    <Badge variant="outline" className="text-warning border-warning/30">
                       Pending
                     </Badge>
                     <Button
                       size="sm"
                       onClick={() => approveMutation.mutate(user.user_id)}
                       disabled={approveMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-success hover:bg-success/90"
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Approve
@@ -192,7 +192,7 @@ const AdminApprovals = () => {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500/50" />
+              <CheckCircle className="w-12 h-12 mx-auto mb-3 text-success/50" />
               <p>No pending approvals</p>
             </div>
           )}
@@ -203,7 +203,7 @@ const AdminApprovals = () => {
       <Card className="glass border-white/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-green-500" />
+            <CheckCircle className="w-5 h-5 text-success" />
             Approved Users
           </CardTitle>
           <CardDescription>
@@ -219,8 +219,8 @@ const AdminApprovals = () => {
                   className="flex items-center justify-between p-3 rounded-lg bg-secondary/20"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <User className="w-4 h-4 text-green-500" />
+                    <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                      <User className="w-4 h-4 text-success" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">
@@ -236,7 +236,7 @@ const AdminApprovals = () => {
                     variant="ghost"
                     onClick={() => rejectMutation.mutate(user.user_id)}
                     disabled={rejectMutation.isPending}
-                    className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     <XCircle className="w-4 h-4 mr-1" />
                     Revoke

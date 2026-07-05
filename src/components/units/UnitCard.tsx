@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Unit } from "@/hooks/useUnits";
 import { formatINR } from "@/lib/currency";
+import { occupancyStatusConfig } from "@/lib/statusConfig";
 
 interface UnitCardProps {
   unit: Unit;
@@ -31,12 +32,6 @@ const unitTypeLabels: Record<string, string> = {
   commercial: "Commercial",
 };
 
-const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  vacant: "secondary",
-  occupied: "default",
-  maintenance: "destructive",
-};
-
 export const UnitCard = ({ unit, tenantName, rentedSqft = 0, onEdit, onDelete, onAddTenant }: UnitCardProps) => {
   const totalSqft = unit.total_sqft || 0;
   const utilizationPercent = totalSqft > 0 ? Math.min(100, (rentedSqft / totalSqft) * 100) : 0;
@@ -57,7 +52,7 @@ export const UnitCard = ({ unit, tenantName, rentedSqft = 0, onEdit, onDelete, o
               </p>
             </div>
           </div>
-          <Badge variant={statusColors[unit.status] || "secondary"}>
+          <Badge variant={occupancyStatusConfig[unit.status] || "secondary"}>
             {unit.status}
           </Badge>
         </div>

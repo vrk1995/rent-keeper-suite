@@ -41,7 +41,7 @@ import AddTenantDialog from "./AddTenantDialog";
 import VacateTenantDialog from "./VacateTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { RentPayment } from "@/hooks/usePayments";
-import { paymentStatusConfig } from "@/lib/statusConfig";
+import { paymentStatusConfig, invoiceStatusConfig } from "@/lib/statusConfig";
 import { generateAndOpenInvoicePdf, generateAndOpenReceiptPdf } from "@/lib/pdfUtils";
 
 interface TenantDetailSheetProps {
@@ -205,16 +205,16 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                   <p className="text-lg font-bold text-primary">{formatINR(tenant.monthly_rent || 0)}</p>
                 </CardContent>
               </Card>
-              <Card className="bg-green-500/5 border-green-500/20">
+              <Card className="bg-success/5 border-success/20">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Total Collected</p>
-                  <p className="text-lg font-bold text-green-600">{formatINR(totalPaid)}</p>
+                  <p className="text-lg font-bold text-success">{formatINR(totalPaid)}</p>
                 </CardContent>
               </Card>
-              <Card className="bg-orange-500/5 border-orange-500/20">
+              <Card className="bg-warning/5 border-warning/20">
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Outstanding</p>
-                  <p className="text-lg font-bold text-orange-600">{formatINR(totalPending)}</p>
+                  <p className="text-lg font-bold text-warning">{formatINR(totalPending)}</p>
                 </CardContent>
               </Card>
             </div>
@@ -324,7 +324,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={invoice.status === "paid" ? "glow" : invoice.status === "overdue" ? "destructive" : "secondary"}>
+                          <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"}>
                             {invoice.status}
                           </Badge>
                         </div>

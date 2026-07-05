@@ -12,6 +12,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatINR } from "@/lib/currency";
+import { occupancyStatusConfig } from "@/lib/statusConfig";
 import {
   Tooltip,
   TooltipContent,
@@ -33,13 +34,6 @@ interface PropertyCardProps {
   onDelete: (id: string) => void;
   onViewTenants: (property: Property) => void;
 }
-
-const statusColors: Record<string, string> = {
-  occupied: "glow",
-  vacant: "secondary",
-  partial: "default",
-  maintenance: "destructive",
-};
 
 const propertyTypeIcons: Record<string, string> = {
   apartment: "🏢",
@@ -83,7 +77,7 @@ const PropertyCard = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold">{property.name}</h3>
-              <Badge variant={statusColors[property.status] as "glow" | "secondary" | "destructive" | "default"}>
+              <Badge variant={occupancyStatusConfig[property.status] || "secondary"}>
                 {property.status}
               </Badge>
             </div>
@@ -145,7 +139,7 @@ const PropertyCard = ({
           {/* Rent Summary - Right side, larger, green */}
           {totalRentWithoutGST > 0 && (
             <div className="text-right">
-              <div className="flex items-center gap-1 text-lg font-bold text-green-600 dark:text-green-400">
+              <div className="flex items-center gap-1 text-lg font-bold text-success">
                 <IndianRupee className="w-4 h-4" />
                 {formatINR(totalRentWithoutGST)}
               </div>
@@ -227,10 +221,10 @@ const PropertyCard = ({
                       </div>
                       <Progress value={floorUtilization} className="h-2" />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span className="text-green-600 dark:text-green-400">
+                        <span className="text-success">
                           Rented: {floorRented.toLocaleString()} sq.ft ({floorUtilization.toFixed(0)}%)
                         </span>
-                        <span className="text-orange-600 dark:text-orange-400">
+                        <span className="text-warning">
                           Vacant: {floorVacant.toLocaleString()} sq.ft
                         </span>
                       </div>
@@ -246,10 +240,10 @@ const PropertyCard = ({
                   </div>
                   <Progress value={utilizationPercent} className="h-2" />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span className="text-green-600 dark:text-green-400">
+                    <span className="text-success">
                       Rented: {rentedSqft.toLocaleString()} sq.ft ({utilizationPercent.toFixed(0)}%)
                     </span>
-                    <span className="text-orange-600 dark:text-orange-400">
+                    <span className="text-warning">
                       Vacant: {vacantSqft.toLocaleString()} sq.ft
                     </span>
                   </div>
