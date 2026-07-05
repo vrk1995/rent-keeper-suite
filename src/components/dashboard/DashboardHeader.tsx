@@ -1,10 +1,9 @@
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bell, LogOut, Search, Building2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { LogOut, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import OwnerFilterSelect from "@/components/filters/OwnerFilterSelect";
 import FinancialYearSelect from "@/components/filters/FinancialYearSelect";
 import { Link } from "react-router-dom";
@@ -15,14 +14,10 @@ interface DashboardHeaderProps {
 
 const DashboardHeader = ({ user }: DashboardHeaderProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    toast({
-      title: "Signed out",
-      description: "You have been signed out successfully.",
-    });
+    toast.success("Signed out successfully.");
     navigate("/");
   };
 
@@ -36,15 +31,8 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
         <span className="text-lg font-display font-bold">RentFlow</span>
       </Link>
 
-      {/* Search and Filter - hidden on mobile */}
+      {/* Filter - hidden on mobile */}
       <div className="hidden md:flex items-center gap-4">
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search properties, tenants..."
-            className="pl-10 bg-secondary/50 border-white/10"
-          />
-        </div>
         <OwnerFilterSelect />
         <FinancialYearSelect />
       </div>
@@ -56,11 +44,6 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
           <OwnerFilterSelect />
           <FinancialYearSelect />
         </div>
-
-        <Button variant="ghost" size="icon" className="relative h-8 w-8 md:h-10 md:w-10">
-          <Bell className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-        </Button>
 
         {/* User info - hidden on mobile */}
         <div className="hidden md:flex items-center gap-3">
@@ -84,7 +67,7 @@ const DashboardHeader = ({ user }: DashboardHeaderProps) => {
           </span>
         </div>
 
-        <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-8 w-8 md:h-10 md:w-10">
+        <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign out" className="h-8 w-8 md:h-10 md:w-10">
           <LogOut className="w-4 h-4 md:w-5 md:h-5" />
         </Button>
       </div>

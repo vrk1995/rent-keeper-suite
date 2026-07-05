@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
 import { CheckCircle, XCircle, Clock, User, Mail, ShieldCheck } from "lucide-react";
 
@@ -19,7 +19,6 @@ interface PendingUser {
 }
 
 const AdminApprovals = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
 
@@ -70,16 +69,13 @@ const AdminApprovals = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-users"] });
       queryClient.invalidateQueries({ queryKey: ["approved-users"] });
-      toast({
-        title: "User approved",
+      toast.success("User approved", {
         description: "The user can now access the dashboard.",
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error.message || "Failed to approve user",
-        variant: "destructive",
       });
     },
   });
@@ -97,16 +93,13 @@ const AdminApprovals = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-users"] });
       queryClient.invalidateQueries({ queryKey: ["approved-users"] });
-      toast({
-        title: "Access revoked",
+      toast.success("Access revoked", {
         description: "The user's access has been revoked.",
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error.message || "Failed to revoke access",
-        variant: "destructive",
       });
     },
   });

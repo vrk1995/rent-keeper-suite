@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const SetPassword = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [fullName, setFullName] = useState("");
@@ -28,10 +27,8 @@ const SetPassword = () => {
           body: { token: inviteToken },
         });
         if (error || (data as any)?.error) {
-          toast({
-            title: "Invitation expired or invalid",
+          toast.error("Invitation expired or invalid", {
             description: (data as any)?.error || error?.message || "Please ask your admin to re-send the invitation.",
-            variant: "destructive",
           });
           navigate("/auth");
           return;
@@ -45,10 +42,8 @@ const SetPassword = () => {
 
       const { data } = await supabase.auth.getUser();
       if (!data.user) {
-        toast({
-          title: "Invitation expired or invalid",
+        toast.error("Invitation expired or invalid", {
           description: "Please ask your admin to re-send the invitation.",
-          variant: "destructive",
         });
         navigate("/auth");
         return;
@@ -59,16 +54,16 @@ const SetPassword = () => {
       setInvitedBy(metadata.invited_by_name ?? "");
       setReady(true);
     })();
-  }, [inviteToken, navigate, toast]);
+  }, [inviteToken, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
-      toast({ title: "Password too short", description: "Min 6 characters.", variant: "destructive" });
+      toast.error("Password too short", { description: "Min 6 characters." });
       return;
     }
     if (password !== confirm) {
-      toast({ title: "Passwords do not match", variant: "destructive" });
+      toast.error("Passwords do not match");
       return;
     }
     setLoading(true);
@@ -85,7 +80,7 @@ const SetPassword = () => {
         });
         if (signInError) throw signInError;
 
-        toast({ title: "Welcome aboard!", description: "Your account is ready." });
+        toast.success("Welcome aboard!", { description: "Your account is ready." });
         navigate("/dashboard");
         return;
       }
@@ -103,10 +98,10 @@ const SetPassword = () => {
           .upsert({ user_id: u.user.id, full_name: fullName }, { onConflict: "user_id" });
       }
 
-      toast({ title: "Welcome aboard!", description: "Your password has been set." });
+      toast.success("Welcome aboard!", { description: "Your password has been set." });
       navigate("/dashboard");
     } catch (err: any) {
-      toast({ title: "Error", description: err.message ?? "Failed to set password", variant: "destructive" });
+      toast.error("Error", { description: err.message ?? "Failed to set password" });
     } finally {
       setLoading(false);
     }

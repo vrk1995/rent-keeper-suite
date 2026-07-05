@@ -484,7 +484,6 @@ const Properties = () => {
                     rentedSqft={propertyRentedSqft.get(property.id) || 0}
                     floorRentedMap={floorRentedMap}
                     unitCount={property.units?.length || 0}
-                    isExpanded={false}
                     totalRentWithoutGST={rentData?.withoutGST || 0}
                     totalRentWithGST={rentData?.withGST || 0}
                     hasGSTTenants={rentData?.hasGST || false}

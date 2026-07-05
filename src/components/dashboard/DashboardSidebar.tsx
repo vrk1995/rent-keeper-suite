@@ -6,7 +6,9 @@ import {
   Home,
   Calendar,
   FileText,
+  FolderOpen,
   Users,
+  UserCog,
   Bell,
   Receipt,
   CreditCard,
@@ -22,10 +24,10 @@ const navItems = [
   { icon: Calendar, label: "Receipts", href: "/dashboard/payments" },
   { icon: CreditCard, label: "Payments", href: "/dashboard/payments-log" },
   { icon: FileText, label: "Invoices", href: "/dashboard/invoices" },
-  { icon: FileText, label: "Documents", href: "/dashboard/documents" },
+  { icon: FolderOpen, label: "Documents", href: "/dashboard/documents" },
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
-  { icon: Users, label: "Team", href: "/dashboard/team" },
-  { icon: Receipt, label: "Billing Addresses", href: "/dashboard/billing-addresses" },
+  { icon: UserCog, label: "Team", href: "/dashboard/team" },
+  { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses" },
 ];
 
 const DashboardSidebar = () => {
@@ -96,7 +98,7 @@ const DashboardSidebar = () => {
       <div className="p-4 border-t border-white/10">
         <div className="glass rounded-xl p-4 text-center">
           <p className="text-xs text-muted-foreground mb-2">Need help?</p>
-          <p className="text-sm font-medium text-primary">Contact Support</p>
+          <p className="text-sm font-medium text-muted-foreground">Contact Support</p>
         </div>
       </div>
     </motion.aside>

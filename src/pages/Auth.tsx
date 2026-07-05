@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { getCanonicalAuthRedirectUrl } from "@/lib/authRedirect";
 
 const Auth = () => {
@@ -17,7 +17,6 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +29,7 @@ const Auth = () => {
           password,
         });
         if (error) throw error;
-        toast({
-          title: "Welcome back!",
+        toast.success("Welcome back!", {
           description: "You have successfully signed in.",
         });
         navigate("/dashboard");
@@ -47,17 +45,14 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        toast({
-          title: "Account created!",
+        toast.success("Account created!", {
           description: "You can start using RentKeeper now.",
         });
         navigate("/dashboard");
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error.message || "An error occurred",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -67,10 +62,8 @@ const Auth = () => {
   const handlePasswordReset = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) {
-      toast({
-        title: "Enter your email first",
+      toast.error("Enter your email first", {
         description: "We'll send the password setup link to that address.",
-        variant: "destructive",
       });
       return;
     }
@@ -81,15 +74,12 @@ const Auth = () => {
         redirectTo: getCanonicalAuthRedirectUrl(),
       });
       if (error) throw error;
-      toast({
-        title: "Password setup email sent",
+      toast.success("Password setup email sent", {
         description: "Open the email link to set a password and sign in.",
       });
     } catch (error: any) {
-      toast({
-        title: "Could not send email",
+      toast.error("Could not send email", {
         description: error.message || "Please try again.",
-        variant: "destructive",
       });
     } finally {
       setResetLoading(false);

@@ -4,9 +4,11 @@ import {
   LayoutDashboard,
   Home,
   Users,
+  UserCog,
   Calendar,
   MoreHorizontal,
   FileText,
+  FolderOpen,
   Bell,
   Receipt,
   CreditCard,
@@ -27,9 +29,9 @@ const primaryNavItems = [
 const moreNavItems = [
   { icon: CreditCard, label: "Payments", href: "/dashboard/payments-log" },
   { icon: FileText, label: "Invoices", href: "/dashboard/invoices" },
-  { icon: FileText, label: "Documents", href: "/dashboard/documents" },
+  { icon: FolderOpen, label: "Documents", href: "/dashboard/documents" },
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
-  { icon: Users, label: "Team", href: "/dashboard/team" },
+  { icon: UserCog, label: "Team", href: "/dashboard/team" },
   { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses" },
 ];
 
@@ -63,7 +65,7 @@ const MobileBottomNav = () => {
             >
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className="text-sm font-medium text-muted-foreground">More</span>
-                <button onClick={() => setMoreOpen(false)} className="p-1">
+                <button onClick={() => setMoreOpen(false)} aria-label="Close menu" className="p-1">
                   <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
