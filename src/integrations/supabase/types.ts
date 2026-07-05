@@ -207,6 +207,66 @@ export type Database = {
           },
         ]
       }
+      invoice_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          from_email: string | null
+          id: string
+          invoice_id: string
+          method: string | null
+          provider_message_id: string | null
+          reason: string | null
+          sent_at: string
+          status: string
+          to_email: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          from_email?: string | null
+          id?: string
+          invoice_id: string
+          method?: string | null
+          provider_message_id?: string | null
+          reason?: string | null
+          sent_at?: string
+          status: string
+          to_email?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          from_email?: string | null
+          id?: string
+          invoice_id?: string
+          method?: string | null
+          provider_message_id?: string | null
+          reason?: string | null
+          sent_at?: string
+          status?: string
+          to_email?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_email_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_email_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_sequences: {
         Row: {
           created_at: string
@@ -315,6 +375,76 @@ export type Database = {
           },
           {
             foreignKeyName: "invoices_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      owner_email_senders: {
+        Row: {
+          cc: string | null
+          created_at: string
+          domain_id: string | null
+          from_email: string | null
+          from_name: string | null
+          gmail_email: string | null
+          gmail_refresh_token_encrypted: string | null
+          id: string
+          method: string
+          owner_id: string
+          reply_to: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          cc?: string | null
+          created_at?: string
+          domain_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          gmail_email?: string | null
+          gmail_refresh_token_encrypted?: string | null
+          id?: string
+          method?: string
+          owner_id: string
+          reply_to?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          cc?: string | null
+          created_at?: string
+          domain_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          gmail_email?: string | null
+          gmail_refresh_token_encrypted?: string | null
+          id?: string
+          method?: string
+          owner_id?: string
+          reply_to?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_email_senders_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_email_domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_email_senders_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: true
+            referencedRelation: "property_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_email_senders_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1312,10 +1442,49 @@ export type Database = {
           },
         ]
       }
+      workspace_email_domains: {
+        Row: {
+          created_at: string
+          default_from_local_part: string | null
+          domain: string
+          id: string
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_from_local_part?: string | null
+          domain: string
+          id?: string
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          default_from_local_part?: string | null
+          domain?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_email_domains_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string
           created_by: string | null
+          default_owner_id: string | null
           id: string
           name: string
           updated_at: string
@@ -1323,6 +1492,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          default_owner_id?: string | null
           id?: string
           name: string
           updated_at?: string
@@ -1330,11 +1500,20 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          default_owner_id?: string | null
           id?: string
           name?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "property_owners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
