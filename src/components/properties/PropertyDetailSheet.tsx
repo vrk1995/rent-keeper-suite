@@ -536,32 +536,58 @@ export function PropertyDetailSheet({
                     No invoices for this property
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Invoice #</TableHead>
-                        <TableHead>Tenant</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Due Date</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <>
+                    <div className="hidden sm:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Invoice #</TableHead>
+                            <TableHead>Tenant</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {propertyInvoices.map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                              <TableCell>{invoice.tenant?.name || "Unknown"}</TableCell>
+                              <TableCell>{formatINR(invoice.amount)}</TableCell>
+                              <TableCell>{invoice.due_date}</TableCell>
+                              <TableCell>
+                                <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"}>
+                                  {invoice.status}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Mobile card list */}
+                    <div className="sm:hidden space-y-2">
                       {propertyInvoices.map((invoice) => (
-                        <TableRow key={invoice.id}>
-                          <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                          <TableCell>{invoice.tenant?.name || "Unknown"}</TableCell>
-                          <TableCell>{formatINR(invoice.amount)}</TableCell>
-                          <TableCell>{invoice.due_date}</TableCell>
-                          <TableCell>
-                            <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"}>
-                              {invoice.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
+                        <Card key={invoice.id}>
+                          <CardContent className="p-3 flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm">{invoice.invoice_number}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {invoice.tenant?.name || "Unknown"} • {invoice.due_date}
+                              </p>
+                            </div>
+                            <div className="text-right ml-2 shrink-0">
+                              <p className="font-semibold text-sm">{formatINR(invoice.amount)}</p>
+                              <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"} className="text-xs">
+                                {invoice.status}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  </>
                 )}
               </TabsContent>
 

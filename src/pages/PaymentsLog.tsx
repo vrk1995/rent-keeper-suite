@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Trash2, Receipt } from "lucide-react";
+import { Trash2, Receipt, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -48,17 +50,30 @@ export default function PaymentsLog() {
   const { propertyOptions } = useFilterOptions();
   const deleteExpense = useDeleteExpense();
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [deleteExpenseData, setDeleteExpenseData] = useState<{ id: string; propertyId: string; title: string } | null>(null);
 
   const filtered = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
     return expenses.filter((e) => {
       if (propertyFilter && e.property_id !== propertyFilter) return false;
       if (categoryFilter && e.category !== categoryFilter) return false;
+      if (dateFrom && e.expense_date < dateFrom) return false;
+      if (dateTo && e.expense_date > dateTo) return false;
+      if (query) {
+        const matchesSearch =
+          e.title.toLowerCase().includes(query) ||
+          e.vendor_name?.toLowerCase().includes(query) ||
+          e.property?.name?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
       return true;
     });
-  }, [expenses, propertyFilter, categoryFilter]);
+  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery]);
 
   const total = useMemo(
     () => filtered.reduce((sum, e) => sum + Number(e.amount || 0), 0),
@@ -93,7 +108,16 @@ export default function PaymentsLog() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by title, vendor, property..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
             <div className="sm:w-64">
               <SearchableSelect
                 options={propertyOptions}
@@ -114,6 +138,24 @@ export default function PaymentsLog() {
                 allLabel="All categories"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-from" className="text-xs text-muted-foreground shrink-0">From</Label>
+              <Input
+                id="date-from"
+                type="date"
+                className="w-full sm:w-40"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+              <Label htmlFor="date-to" className="text-xs text-muted-foreground shrink-0">To</Label>
+              <Input
+                id="date-to"
+                type="date"
+                className="w-full sm:w-40"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -128,65 +170,112 @@ export default function PaymentsLog() {
               description='Use "Record Ad-hoc Payment" above to log a tax, repair, or other expense.'
             />
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Paid By</TableHead>
-                    <TableHead>Method</TableHead>
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Property</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead>Paid By</TableHead>
+                      <TableHead>Method</TableHead>
 
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {format(new Date(e.expense_date), "dd MMM yyyy")}
-                      </TableCell>
-                      <TableCell className="font-medium">{e.title}</TableCell>
-                      <TableCell>{e.property?.name || "—"}</TableCell>
-                      <TableCell>
-                        {e.category ? (
-                          <Badge variant="secondary" className="capitalize">
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((e) => (
+                      <TableRow key={e.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(e.expense_date), "dd MMM yyyy")}
+                        </TableCell>
+                        <TableCell className="font-medium">{e.title}</TableCell>
+                        <TableCell>{e.property?.name || "—"}</TableCell>
+                        <TableCell>
+                          {e.category ? (
+                            <Badge variant="secondary" className="capitalize">
+                              {e.category}
+                            </Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>{e.vendor_name || "—"}</TableCell>
+                        <TableCell>{e.paid_by || "—"}</TableCell>
+                        <TableCell className="capitalize">
+                          {e.payment_method?.replace("_", " ") || "—"}
+                        </TableCell>
+
+                        <TableCell className="text-right font-semibold">
+                          {formatINR(Number(e.amount))}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label="Delete payment"
+                            onClick={() =>
+                              setDeleteExpenseData({ id: e.id, propertyId: e.property_id, title: e.title })
+                            }
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden space-y-3">
+                {filtered.map((e) => (
+                  <Card key={e.id} className="overflow-hidden">
+                    <CardContent className="p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{e.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{e.property?.name || "—"}</p>
+                        </div>
+                        {e.category && (
+                          <Badge variant="secondary" className="text-xs ml-2 shrink-0 capitalize">
                             {e.category}
                           </Badge>
-                        ) : (
-                          "—"
                         )}
-                      </TableCell>
-                      <TableCell>{e.vendor_name || "—"}</TableCell>
-                      <TableCell>{e.paid_by || "—"}</TableCell>
-                      <TableCell className="capitalize">
-                        {e.payment_method?.replace("_", " ") || "—"}
-                      </TableCell>
-
-                      <TableCell className="text-right font-semibold">
-                        {formatINR(Number(e.amount))}
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-lg font-bold">{formatINR(Number(e.amount))}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(e.expense_date), "dd MMM yyyy")}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                        <span>{e.vendor_name ? `Vendor: ${e.vendor_name}` : "—"}</span>
+                        <span className="capitalize">{e.payment_method?.replace("_", " ") || "—"}</span>
+                      </div>
+                      <div className="flex justify-end border-t border-white/5 pt-2">
                         <Button
-                          size="icon"
+                          size="sm"
                           variant="ghost"
+                          className="h-8 text-xs text-destructive hover:text-destructive"
                           aria-label="Delete payment"
                           onClick={() =>
                             setDeleteExpenseData({ id: e.id, propertyId: e.property_id, title: e.title })
                           }
                         >
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Delete
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle, Building2, Users } from "lucide-react";
+import { Plus, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle, Building2, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -47,6 +47,7 @@ const Invoices = () => {
   const { propertyOptions, tenantOptions, properties, tenants } = useFilterOptions();
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
+  const [searchQuery, setSearchQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -61,7 +62,14 @@ const Invoices = () => {
     const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
     const matchesTenant = tenantFilter === "all" || inv.tenant_id === tenantFilter;
     const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
-    return matchesProperty && matchesTenant && matchesStatus;
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !query ||
+      inv.invoice_number.toLowerCase().includes(query) ||
+      inv.tenant?.name?.toLowerCase().includes(query) ||
+      inv.property?.name?.toLowerCase().includes(query) ||
+      String(inv.amount).includes(query);
+    return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
   });
 
   const stats = {
@@ -194,6 +202,15 @@ const Invoices = () => {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by invoice #, tenant, property..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
         <SearchableSelect
           options={propertyOptions}
           value={propertyFilter}

@@ -4,6 +4,13 @@ import { Plus, Search, Building2, IndianRupee, TrendingUp, Clock } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useProperties, useDeleteProperty, Property } from "@/hooks/useProperties";
 import { useTenants } from "@/hooks/useTenants";
 import { usePropertiesWithUnits, useDeleteUnit, Unit } from "@/hooks/useUnits";
@@ -40,6 +47,8 @@ const Properties = () => {
   const deleteUnit = useDeleteUnit();
   
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
@@ -230,9 +239,19 @@ const Properties = () => {
           p.address.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      props = props.filter((p) => p.status === statusFilter);
+    }
+
+    // Filter by property type
+    if (typeFilter !== "all") {
+      props = props.filter((p) => p.property_type === typeFilter);
+    }
+
     return props;
-  }, [propertiesWithUnits, selectedOwnerId, searchQuery, ownerSharesByProperty]);
+  }, [propertiesWithUnits, selectedOwnerId, searchQuery, statusFilter, typeFilter, ownerSharesByProperty]);
 
   // Get owner share percentage for a property
   const getOwnerSharePercentage = useMemo(() => {
@@ -428,14 +447,42 @@ const Properties = () => {
         </Card>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search properties..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search properties..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="occupied">Occupied</SelectItem>
+            <SelectItem value="vacant">Vacant</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="maintenance">Maintenance</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="apartment">Apartment</SelectItem>
+            <SelectItem value="house">House</SelectItem>
+            <SelectItem value="commercial">Commercial</SelectItem>
+            <SelectItem value="land">Land</SelectItem>
+            <SelectItem value="floor">Floor</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
