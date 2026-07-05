@@ -243,7 +243,7 @@ export function PropertyDetailSheet({
                     <IndianRupee className="w-4 h-4 text-green-500" />
                     <span className="text-xs text-muted-foreground">Monthly Rent</span>
                   </div>
-                  <p className="text-lg font-semibold mt-1 text-green-600">
+                  <p className="text-lg font-semibold mt-1 text-success">
                     {formatINR(rentData?.withoutGST || 0)}
                   </p>
                   {rentData?.hasGST && (
@@ -268,27 +268,27 @@ export function PropertyDetailSheet({
             <TabsList className="w-full justify-start px-6 py-2 h-auto bg-transparent border-b rounded-none overflow-x-auto">
               <TabsTrigger value="tenants" className="gap-2">
                 <Users className="w-4 h-4" />
-                Tenants
+                <span className="hidden sm:inline">Tenants</span>
               </TabsTrigger>
               <TabsTrigger value="units" className="gap-2">
                 <Building2 className="w-4 h-4" />
-                Corp Nos.
+                <span className="hidden sm:inline">Corp Nos.</span>
               </TabsTrigger>
               <TabsTrigger value="expenses" className="gap-2">
                 <Wallet className="w-4 h-4" />
-                Expenses
+                <span className="hidden sm:inline">Expenses</span>
               </TabsTrigger>
               <TabsTrigger value="documents" className="gap-2">
                 <FileText className="w-4 h-4" />
-                Documents
+                <span className="hidden sm:inline">Documents</span>
               </TabsTrigger>
               <TabsTrigger value="invoices" className="gap-2">
                 <Receipt className="w-4 h-4" />
-                Invoices
+                <span className="hidden sm:inline">Invoices</span>
               </TabsTrigger>
               <TabsTrigger value="ledger" className="gap-2">
                 <Download className="w-4 h-4" />
-                Ledger
+                <span className="hidden sm:inline">Ledger</span>
               </TabsTrigger>
             </TabsList>
 
@@ -335,7 +335,7 @@ export function PropertyDetailSheet({
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-semibold text-green-600">
+                              <p className="text-lg font-semibold text-success">
                                 {formatINR(tenant.monthly_rent || 0)}
                               </p>
                               <p className="text-xs text-muted-foreground">Due: {tenant.rent_due_day}th</p>
@@ -350,17 +350,22 @@ export function PropertyDetailSheet({
 
               {/* Corp Nos. Tab */}
               <TabsContent value="units" className="p-6 m-0">
-                <div className="mb-4">
-                  <p className="text-sm text-muted-foreground">Total Corp Nos.</p>
-                  <p className="text-xl font-bold">{floorUnits?.length || 0}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Manage corp numbers by editing the property and expanding each floor.
-                  </p>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Corp Nos.</p>
+                    <p className="text-xl font-bold">{floorUnits?.length || 0}</p>
+                  </div>
+                  {isAdmin && !roleLoading && (
+                    <Button size="sm" variant="outline" onClick={() => setEditDialogOpen(true)}>
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit Corp Nos.
+                    </Button>
+                  )}
                 </div>
 
                 {(!floorUnits || floorUnits.length === 0) ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No corp numbers added yet. Edit the property to add them.
+                    No corp numbers added yet. Click "Edit Corp Nos." above to add them.
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -601,7 +606,7 @@ export function PropertyDetailSheet({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Total Collected</p>
-                        <p className="text-xl font-bold text-green-600">
+                        <p className="text-xl font-bold text-success">
                           {formatINR(
                             propertyPayments
                               .filter((p) => p.status === "paid")
@@ -611,7 +616,7 @@ export function PropertyDetailSheet({
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Total Pending</p>
-                        <p className="text-xl font-bold text-orange-600">
+                        <p className="text-xl font-bold text-warning">
                           {formatINR(
                             propertyPayments
                               .filter((p) => p.status === "pending" || p.status === "overdue")

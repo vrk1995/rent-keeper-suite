@@ -12,23 +12,31 @@ import {
   Users,
   Clock,
   AlertTriangle,
+  CheckCircle,
+  UserPlus,
 } from "lucide-react";
 import { useProperties } from "@/hooks/useProperties";
 import { useTenants } from "@/hooks/useTenants";
-import { usePayments } from "@/hooks/usePayments";
+import { usePayments, RentPayment } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
 import { paymentStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { format, differenceInDays, isToday, isTomorrow } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import AddPropertyDialog from "@/components/properties/AddPropertyDialog";
+import AddTenantDialog from "@/components/tenants/AddTenantDialog";
+import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 
 const DashboardOverview = () => {
   const navigate = useNavigate();
   const { data: properties = [], isLoading: propertiesLoading, isError: propertiesError, refetch: refetchProperties } = useProperties();
   const { data: tenants = [], isLoading: tenantsLoading, isError: tenantsError, refetch: refetchTenants } = useTenants();
   const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError, refetch: refetchPayments } = usePayments();
+  const [addPropertyOpen, setAddPropertyOpen] = useState(false);
+  const [addTenantOpen, setAddTenantOpen] = useState(false);
+  const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
 
   // Calculate payment stats
   const paymentStats = useMemo(() => {
@@ -126,10 +134,16 @@ const DashboardOverview = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Dashboard</h1>
           <p className="text-sm md:text-base text-muted-foreground">Welcome back! Here's your rental overview.</p>
         </div>
-        <Button variant="hero" size="sm" className="w-fit" onClick={() => navigate('/dashboard/properties')}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Property
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="w-fit" onClick={() => setAddTenantOpen(true)}>
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add Tenant
+          </Button>
+          <Button variant="hero" size="sm" className="w-fit" onClick={() => setAddPropertyOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Property
+          </Button>
+        </div>
       </div>
 
       {isError ? (
@@ -285,6 +299,17 @@ const DashboardOverview = () => {
                           {payment.status}
                         </Badge>
                       </div>
+                      {payment.status !== "paid" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 mt-1 px-2 text-xs"
+                          onClick={() => setMarkPaidPayment(payment)}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          {payment.status === "partial" ? "Record Another Payment" : "Record Payment"}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -335,6 +360,14 @@ const DashboardOverview = () => {
       </div>
       </>
       )}
+
+      <AddPropertyDialog open={addPropertyOpen} onOpenChange={setAddPropertyOpen} />
+      <AddTenantDialog open={addTenantOpen} onOpenChange={setAddTenantOpen} />
+      <MarkPaidDialog
+        open={!!markPaidPayment}
+        onOpenChange={(open) => !open && setMarkPaidPayment(null)}
+        payment={markPaidPayment}
+      />
     </div>
   );
 };

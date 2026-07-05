@@ -42,7 +42,7 @@ import { ErrorState } from "@/components/ui/error-state";
 const getMonthOptions = () => {
   const now = new Date();
   const options: { label: string; year: number; month: number }[] = [];
-  for (let offset = -1; offset <= 1; offset++) {
+  for (let offset = 1; offset >= -12; offset--) {
     const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
     options.push({
       label: d.toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
@@ -354,7 +354,7 @@ const Payments = () => {
                               onClick={() => handleMarkPaid(payment)}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              {payment.status === "partial" ? "Record More" : "Mark Received"}
+                              {payment.status === "partial" ? "Record Another Payment" : "Record Payment"}
                             </Button>
                           )}
                         </TableCell>
@@ -436,7 +436,7 @@ const Payments = () => {
                           onClick={() => handleMarkPaid(payment)}
                         >
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          {payment.status === "partial" ? "Record More" : "Mark Received"}
+                          {payment.status === "partial" ? "Record Another Payment" : "Record Payment"}
                         </Button>
                       )}
                     </div>
