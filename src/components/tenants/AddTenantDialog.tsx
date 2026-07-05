@@ -88,6 +88,13 @@ const tenantSchema = z.object({
 }, {
   message: "Please select a property or unit",
   path: ["property_id"],
+}).refine((data) => {
+  if (!data.owner_shares || data.owner_shares.length === 0) return true;
+  const total = data.owner_shares.reduce((sum, s) => sum + (Number(s.share_percentage) || 0), 0);
+  return Math.abs(total - 100) < 0.01;
+}, {
+  message: "Owner shares must add up to 100%",
+  path: ["owner_shares"],
 });
 
 type TenantFormValues = z.infer<typeof tenantSchema>;
@@ -772,16 +779,21 @@ const AddTenantDialog = ({
                 {ownerShareFields.length > 0 && (
                   <div className={cn(
                     "text-sm font-medium flex items-center gap-2 pt-2 border-t",
-                    totalOwnerPercentage === 100 ? "text-success" : 
+                    totalOwnerPercentage === 100 ? "text-success" :
                     totalOwnerPercentage > 100 ? "text-destructive" : "text-warning"
                   )}>
                     <span>Total: {totalOwnerPercentage.toFixed(2)}%</span>
                     {totalOwnerPercentage !== 100 && (
                       <span className="text-muted-foreground font-normal">
-                        (Should equal 100%)
+                        (Must equal 100%)
                       </span>
                     )}
                   </div>
+                )}
+                {form.formState.errors.owner_shares?.message && (
+                  <p className="text-sm font-medium text-destructive">
+                    {form.formState.errors.owner_shares.message}
+                  </p>
                 )}
               </div>
             )}

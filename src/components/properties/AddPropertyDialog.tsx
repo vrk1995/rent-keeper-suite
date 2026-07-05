@@ -10,6 +10,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -58,10 +68,16 @@ const propertySchema = z.object({
   property_type: z.string().min(1, "Property type is required"),
   invoice_prefix: z.string().max(20).optional(),
   new_owner_name: z.string().optional(),
-  floors_owned: z.coerce.number().min(1, "Must own at least 1 floor"),
   notes: z.string().max(500).optional(),
-  floors: z.array(floorSchema),
+  floors: z.array(floorSchema).min(1, "At least one floor is required"),
   owner_shares: z.array(ownerShareSchema),
+}).refine((data) => {
+  if (data.owner_shares.length === 0) return true;
+  const total = data.owner_shares.reduce((sum, s) => sum + (Number(s.share_percentage) || 0), 0);
+  return Math.abs(total - 100) < 0.01;
+}, {
+  message: "Owner shares must add up to 100%",
+  path: ["owner_shares"],
 });
 
 type PropertyFormValues = z.infer<typeof propertySchema>;
@@ -86,7 +102,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const updateFloorUnit = useUpdateFloorUnit();
   const deleteFloorUnit = useDeleteFloorUnit();
   const [showNewOwnerInput, setShowNewOwnerInput] = useState(false);
-  
+  const [removeFloorIndex, setRemoveFloorIndex] = useState<number | null>(null);
+
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
@@ -95,14 +112,13 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
       property_type: "apartment",
       invoice_prefix: "",
       new_owner_name: "",
-      floors_owned: 1,
       notes: "",
       floors: [{ floor_name: "G", floor_sqft: 0, units: [] }],
       owner_shares: [],
     },
   });
 
-  const { fields: floorFields, append: appendFloor, remove: removeFloor, replace: replaceFloors } = useFieldArray({
+  const { fields: floorFields, append: appendFloor, remove: removeFloor } = useFieldArray({
     control: form.control,
     name: "floors",
   });
@@ -112,31 +128,10 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
     name: "owner_shares",
   });
 
-  const floorsOwned = form.watch("floors_owned");
   const ownerShares = form.watch("owner_shares");
 
   // Calculate total percentage
   const totalPercentage = ownerShares.reduce((sum, s) => sum + (Number(s.share_percentage) || 0), 0);
-
-  // Auto-generate floor entries when floors_owned changes
-  useEffect(() => {
-    const currentFloors = form.getValues("floors");
-    const numFloors = floorsOwned || 1;
-    
-    if (currentFloors.length !== numFloors) {
-      const newFloors = [];
-      for (let i = 0; i < numFloors; i++) {
-        const existingFloor = currentFloors[i];
-        if (existingFloor) {
-          newFloors.push(existingFloor);
-        } else {
-          const floorName = i === 0 ? "G" : String(i);
-          newFloors.push({ floor_name: floorName, floor_sqft: 0, units: [] });
-        }
-      }
-      replaceFloors(newFloors);
-    }
-  }, [floorsOwned, form, replaceFloors]);
 
   // Reset form when dialog opens/closes or edit property changes
   useEffect(() => {
@@ -169,7 +164,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           property_type: editProperty.property_type,
           invoice_prefix: editProperty.invoice_prefix || "",
           new_owner_name: "",
-          floors_owned: editProperty.floors_owned || 1,
           notes: editProperty.notes || "",
           floors: floorEntries,
           owner_shares: shares,
@@ -181,7 +175,6 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
           property_type: "apartment",
           invoice_prefix: "",
           new_owner_name: "",
-          floors_owned: 1,
           notes: "",
           floors: [{ floor_name: "G", floor_sqft: 0, units: [] }],
           owner_shares: [],
@@ -251,7 +244,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   const onSubmit = async (values: PropertyFormValues) => {
     // Calculate total sqft from floors
     const totalSqft = values.floors.reduce((sum, f) => sum + (f.floor_sqft || 0), 0);
-    
+    const floorsOwned = values.floors.length;
+
     // Handle new owner creation if needed
     let newOwnerId: string | undefined;
     if (showNewOwnerInput && values.new_owner_name?.trim()) {
@@ -271,7 +265,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         property_type: values.property_type,
         invoice_prefix: values.invoice_prefix || null,
         property_owner_id: primaryOwnerId,
-        floors_owned: values.floors_owned,
+        floors_owned: floorsOwned,
         total_sqft: totalSqft,
         notes: values.notes,
       });
@@ -303,7 +297,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         property_type: values.property_type,
         invoice_prefix: values.invoice_prefix || undefined,
         property_owner_id: primaryOwnerId,
-        floors_owned: values.floors_owned,
+        floors_owned: floorsOwned,
         total_sqft: totalSqft,
         notes: values.notes,
       });
@@ -347,6 +341,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -439,6 +434,11 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               <p className="text-sm text-muted-foreground">
                 Add owners and specify their ownership share percentage. Total should equal 100%.
               </p>
+              {form.formState.errors.owner_shares?.message && (
+                <p className="text-sm font-medium text-destructive">
+                  {form.formState.errors.owner_shares.message}
+                </p>
+              )}
 
               {ownerFields.map((field, index) => (
                 <div key={field.id} className="flex gap-2 items-start">
@@ -571,31 +571,27 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               )}
             </div>
 
-            <FormField
-              control={form.control}
-              name="floors_owned"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Floors Owned</FormLabel>
-                  <FormControl>
-                    <Input type="number" min={1} max={50} placeholder="1" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             {/* Floor Details Section */}
             <Separator />
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-muted-foreground" />
-                <h4 className="font-medium">Floor Details</h4>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-muted-foreground" />
+                  <h4 className="font-medium">Floor Details</h4>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {floorFields.length} floor{floorFields.length === 1 ? "" : "s"}
+                </span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Enter the floor name (G for Ground, 1, 2, B1 for basement, etc.) and square footage for each floor.
               </p>
-              
+              {form.formState.errors.floors?.message && (
+                <p className="text-sm font-medium text-destructive">
+                  {form.formState.errors.floors.message}
+                </p>
+              )}
+
               <div className="space-y-4">
                 {floorFields.map((field, index) => (
                   <FloorRow
@@ -603,24 +599,18 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
                     index={index}
                     control={form.control}
                     canRemove={floorFields.length > 1}
-                    onRemove={() => {
-                      removeFloor(index);
-                      form.setValue("floors_owned", floorFields.length - 1);
-                    }}
+                    onRemove={() => setRemoveFloorIndex(index)}
                     getUnits={() => (form.getValues(`floors.${index}.units`) || []) as { id?: string; corp_number: string; area_sqft: number }[]}
                     setUnits={(units) => form.setValue(`floors.${index}.units`, units, { shouldDirty: true })}
                   />
                 ))}
               </div>
-              
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0, units: [] });
-                  form.setValue("floors_owned", floorFields.length + 1);
-                }}
+                onClick={() => appendFloor({ floor_name: String(floorFields.length), floor_sqft: 0, units: [] })}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Floor
@@ -659,6 +649,29 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         </Form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={removeFloorIndex !== null} onOpenChange={(o) => !o && setRemoveFloorIndex(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Floor</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this floor? Its corp numbers and square footage will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setRemoveFloorIndex(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (removeFloorIndex !== null) removeFloor(removeFloorIndex);
+              setRemoveFloorIndex(null);
+            }}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };
 
