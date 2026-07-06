@@ -709,6 +709,10 @@ const AddTenantDialog = ({
                                           ? [...current, u.id]
                                           : current.filter((id) => id !== u.id)
                                       );
+                                      // Auto-select the corp number's floor so the list narrows to it
+                                      if (isChecked && u.floor_id && form.getValues("floor_id") !== u.floor_id) {
+                                        form.setValue("floor_id", u.floor_id, { shouldDirty: true, shouldValidate: true });
+                                      }
                                     }}
                                   />
                                   <Label htmlFor={`floor-unit-${u.id}`} className="text-sm font-normal cursor-pointer flex-1">
