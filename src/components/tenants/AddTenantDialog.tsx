@@ -99,6 +99,14 @@ const tenantSchema = z.object({
 
 type TenantFormValues = z.infer<typeof tenantSchema>;
 
+const WIZARD_STEPS: { id: string; label: string; fields: (keyof TenantFormValues)[] }[] = [
+  { id: "where", label: "Where", fields: ["assignment_type", "property_id", "unit_id", "floor_id", "floor_unit_ids", "owner_shares"] },
+  { id: "who", label: "Who", fields: ["name", "email", "phone"] },
+  { id: "rent", label: "Rent Terms", fields: ["monthly_rent", "rent_due_day", "rent_due_month_offset", "requires_gst", "tds_applicable"] },
+  { id: "billing", label: "Billing", fields: ["bill_from_name", "bill_from_address", "bill_from_gstin", "bill_to_name", "bill_to_address", "bill_to_gstin"] },
+  { id: "dates", label: "Dates & Deposit", fields: ["move_in_date", "lease_start_date", "lease_end_date", "security_deposit", "rented_sqft"] },
+];
+
 interface AddTenantDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -109,10 +117,10 @@ interface AddTenantDialogProps {
   prefillFromTenant?: Tenant | null;
 }
 
-const AddTenantDialog = ({ 
-  open, 
-  onOpenChange, 
-  editTenant, 
+const AddTenantDialog = ({
+  open,
+  onOpenChange,
+  editTenant,
   defaultPropertyId,
   defaultUnitId,
   prefillFromTenant,
@@ -125,10 +133,11 @@ const AddTenantDialog = ({
   const { data: allTenants } = useTenants();
   const { data: billingAddresses } = useBillingAddresses();
   const createBillingAddress = useCreateBillingAddress();
-  
+
   const [saveAsNewAddress, setSaveAsNewAddress] = useState(false);
   const [selectedBillingAddressId, setSelectedBillingAddressId] = useState<string | null>(null);
-  
+  const [step, setStep] = useState(0);
+
   const getDefaultAssignmentType = () => {
     if (editTenant?.unit_id || defaultUnitId || prefillFromTenant?.unit_id) return "unit";
     return "property";
@@ -140,7 +149,7 @@ const AddTenantDialog = ({
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(
     editTenant?.floor_id || prefillFromTenant?.floor_id || null
   );
-  
+
   const { data: floors } = usePropertyFloors(selectedPropertyId);
   const { data: floorUnits } = useFloorUnitsByProperty(selectedPropertyId);
   const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
@@ -166,7 +175,7 @@ const AddTenantDialog = ({
       form.setValue("bill_from_gstin", "");
       return;
     }
-    
+
     const address = billingAddresses?.find(a => a.id === addressId);
     if (address) {
       setSelectedBillingAddressId(addressId);
@@ -184,8 +193,8 @@ const AddTenantDialog = ({
     if (!property) return null;
 
     // Get all tenants for this property (excluding current tenant if editing)
-    const propertyTenants = allTenants?.filter(t => 
-      t.property_id === selectedPropertyId && 
+    const propertyTenants = allTenants?.filter(t =>
+      t.property_id === selectedPropertyId &&
       t.id !== editTenant?.id
     ) || [];
 
@@ -196,7 +205,7 @@ const AddTenantDialog = ({
 
     // Calculate floor-wise breakdown if floors exist
     let floorBreakdown: { id: string; name: string; total: number; rented: number; available: number }[] = [];
-    
+
     if (floors && floors.length > 0) {
       floorBreakdown = floors.map(floor => {
         const floorTenants = propertyTenants.filter(t => t.floor_id === floor.id);
@@ -213,8 +222,8 @@ const AddTenantDialog = ({
     }
 
     // Get specific floor info if selected
-    const selectedFloor = selectedFloorId 
-      ? floorBreakdown.find(f => f.id === selectedFloorId) 
+    const selectedFloor = selectedFloorId
+      ? floorBreakdown.find(f => f.id === selectedFloorId)
       : null;
 
     return {
@@ -225,7 +234,7 @@ const AddTenantDialog = ({
       selectedFloor,
     };
   }, [selectedPropertyId, selectedFloorId, properties, floors, allTenants, editTenant?.id]);
-  
+
   const form = useForm<TenantFormValues>({
     resolver: zodResolver(tenantSchema),
     defaultValues: {
@@ -351,12 +360,13 @@ const AddTenantDialog = ({
       setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || pf?.property_id || null);
       setSelectedFloorId(editTenant?.floor_id || pf?.floor_id || null);
       setSaveAsNewAddress(false);
-      
+      setStep(0);
+
       // Pre-select billing address if editing or use default
       if (editTenant?.bill_from_name) {
         // Try to find matching saved address
         const matchingAddress = billingAddresses?.find(
-          a => a.name === editTenant.bill_from_name && 
+          a => a.name === editTenant.bill_from_name &&
                a.address === editTenant.bill_from_address &&
                a.gstin === editTenant.bill_from_gstin
         );
@@ -366,7 +376,7 @@ const AddTenantDialog = ({
       } else {
         setSelectedBillingAddressId(null);
       }
-      
+
       form.reset({
         assignment_type: getDefaultAssignmentType(),
         property_id: editTenant?.property_id || defaultPropertyId || pf?.property_id || "",
@@ -410,7 +420,7 @@ const AddTenantDialog = ({
       const existingAddress = billingAddresses?.find(
         a => a.name === values.bill_from_name
       );
-      
+
       if (!existingAddress) {
         try {
           await createBillingAddress.mutateAsync({
@@ -508,7 +518,7 @@ const AddTenantDialog = ({
   };
 
   // Flatten units for easy selection
-  const allUnits = propertiesWithUnits?.flatMap(property => 
+  const allUnits = propertiesWithUnits?.flatMap(property =>
     property.units?.map((unit: any) => ({
       ...unit,
       property_id: property.id,
@@ -516,494 +526,532 @@ const AddTenantDialog = ({
     })) || []
   ) || [];
 
+  const isLastStep = step === WIZARD_STEPS.length - 1;
+
+  const handleNext = async () => {
+    const valid = await form.trigger(WIZARD_STEPS[step].fields);
+    if (valid) setStep((s) => Math.min(s + 1, WIZARD_STEPS.length - 1));
+  };
+
+  const handleBack = () => setStep((s) => Math.max(s - 1, 0));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editTenant ? "Edit Tenant" : "Add New Tenant"}</DialogTitle>
         </DialogHeader>
+
+        <div className="space-y-2 pb-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">{WIZARD_STEPS[step].label}</span>
+            <span className="text-muted-foreground">Step {step + 1} of {WIZARD_STEPS.length}</span>
+          </div>
+          <div className="flex gap-1.5">
+            {WIZARD_STEPS.map((s, i) => (
+              <div
+                key={s.id}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full transition-colors",
+                  i <= step ? "bg-primary" : "bg-muted"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="assignment_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assign To</FormLabel>
-                  <Tabs value={field.value} onValueChange={field.onChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="property">Property</TabsTrigger>
-                      <TabsTrigger value="unit">Property Unit</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </FormItem>
-              )}
-            />
-
-            {assignmentType === "property" ? (
-              <FormField
-                control={form.control}
-                name="property_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select property" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {properties?.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : (
-              <FormField
-                control={form.control}
-                name="unit_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Unit</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {allUnits.map((unit: any) => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.displayName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {/* Floor Selection - only show if property has floors */}
-            {floors && floors.length > 0 && (
-              <FormField
-                control={form.control}
-                name="floor_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Floor</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select floor (optional)" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {floors.map((floor) => {
-                          const floorInfo = capacityInfo?.floorBreakdown.find(f => f.id === floor.id);
-                          return (
-                            <SelectItem key={floor.id} value={floor.id}>
-                              {floor.floor_name}
-                              {floorInfo && (
-                                <span className="text-muted-foreground ml-2 text-xs">
-                                  ({floorInfo.available.toLocaleString()} sq.ft available)
-                                </span>
-                              )}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            {/* Unit / Corp No. Selection - filtered by selected floor, multiple allowed */}
-            {floorUnits && floorUnits.length > 0 && (() => {
-              const watchedFloor = form.watch("floor_id");
-              const relevantUnits = watchedFloor
-                ? floorUnits.filter(u => u.floor_id === watchedFloor)
-                : floorUnits;
-              if (relevantUnits.length === 0) return null;
-              return (
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isLastStep) e.preventDefault();
+            }}
+            className="space-y-4"
+          >
+            {step === 0 && (
+              <>
                 <FormField
                   control={form.control}
-                  name="floor_unit_ids"
+                  name="assignment_type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Unit / Corp No. (select any that apply)</FormLabel>
-                      <div className="space-y-2 rounded-lg border p-3 max-h-48 overflow-y-auto">
-                        {relevantUnits.map((u) => {
-                          const occupants = allTenantFloorUnits?.filter(
-                            tfu => tfu.floor_unit_id === u.id &&
-                              tfu.tenants?.status === "active" &&
-                              tfu.tenant_id !== editTenant?.id
-                          ) || [];
-                          const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
-                          const checked = (field.value || []).includes(u.id);
-                          return (
-                            <div key={u.id} className="flex items-start gap-2">
-                              <Checkbox
-                                id={`floor-unit-${u.id}`}
-                                checked={checked}
-                                onCheckedChange={(isChecked) => {
-                                  const current = field.value || [];
-                                  field.onChange(
-                                    isChecked
-                                      ? [...current, u.id]
-                                      : current.filter((id) => id !== u.id)
-                                  );
-                                }}
-                              />
-                              <Label htmlFor={`floor-unit-${u.id}`} className="text-sm font-normal cursor-pointer flex-1">
-                                {u.corp_number}
-                                <span className="text-muted-foreground ml-2 text-xs">
-                                  {floorName ? `(F: ${floorName}, ` : "("}
-                                  {Number(u.area_sqft).toLocaleString()} sq.ft){" "}
-                                  {occupants.length > 0
-                                    ? `— Occupied by ${occupants.map(o => o.tenants?.name).join(", ")}`
-                                    : "— Vacant"}
-                                </span>
-                              </Label>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <FormMessage />
+                      <FormLabel>Assign To</FormLabel>
+                      <Tabs value={field.value} onValueChange={field.onChange} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="property">Property</TabsTrigger>
+                          <TabsTrigger value="unit">Property Unit</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
                     </FormItem>
                   )}
                 />
-              );
-            })()}
 
-            {/* Multi-Owner Assignment - only show if property has multiple owners */}
-            {hasMultipleOwners && (
-              <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2 text-sm font-medium">
-                    <Users className="w-4 h-4" />
-                    Owner Shares
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => appendOwnerShare({ owner_id: "", share_percentage: 0 })}
-                    disabled={ownerShareFields.length >= (ownerShares?.length || 0)}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Owner
-                  </Button>
-                </div>
-
-                {ownerShareFields.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No owners assigned. Click "Add Owner" to assign this tenant to specific owners with their share percentages.
-                  </p>
-                )}
-
-                {ownerShareFields.map((field, index) => (
-                  <div key={field.id} className="flex items-end gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`owner_shares.${index}.owner_id`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          {index === 0 && <FormLabel>Owner</FormLabel>}
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select owner" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {ownerShares
-                                ?.filter((share) => share.owner_id && share.owner_id.trim() !== "")
-                                .map((share) => (
-                                  <SelectItem key={share.owner_id} value={share.owner_id}>
-                                    {share.property_owners?.name} (Property: {share.share_percentage}%)
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`owner_shares.${index}.share_percentage`}
-                      render={({ field }) => (
-                        <FormItem className="w-28">
-                          {index === 0 && <FormLabel>Share %</FormLabel>}
+                {assignmentType === "property" ? (
+                  <FormField
+                    control={form.control}
+                    name="property_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Property</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <div className="relative">
-                              <Input
-                                type="number"
-                                min="0.01"
-                                max="100"
-                                step="0.01"
-                                {...field}
-                                className="pr-8"
-                              />
-                              <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            </div>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select property" />
+                            </SelectTrigger>
                           </FormControl>
+                          <SelectContent>
+                            {properties?.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="unit_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Property Unit</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {allUnits.map((unit: any) => (
+                              <SelectItem key={unit.id} value={unit.id}>
+                                {unit.displayName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Floor Selection - only show if property has floors */}
+                {floors && floors.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="floor_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Floor</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select floor (optional)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {floors.map((floor) => {
+                              const floorInfo = capacityInfo?.floorBreakdown.find(f => f.id === floor.id);
+                              return (
+                                <SelectItem key={floor.id} value={floor.id}>
+                                  {floor.floor_name}
+                                  {floorInfo && (
+                                    <span className="text-muted-foreground ml-2 text-xs">
+                                      ({floorInfo.available.toLocaleString()} sq.ft available)
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Unit / Corp No. Selection - filtered by selected floor, multiple allowed */}
+                {floorUnits && floorUnits.length > 0 && (() => {
+                  const watchedFloor = form.watch("floor_id");
+                  const relevantUnits = watchedFloor
+                    ? floorUnits.filter(u => u.floor_id === watchedFloor)
+                    : floorUnits;
+                  if (relevantUnits.length === 0) return null;
+                  return (
+                    <FormField
+                      control={form.control}
+                      name="floor_unit_ids"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unit / Corp No. (select any that apply)</FormLabel>
+                          <div className="space-y-2 rounded-lg border p-3 max-h-48 overflow-y-auto">
+                            {relevantUnits.map((u) => {
+                              const occupants = allTenantFloorUnits?.filter(
+                                tfu => tfu.floor_unit_id === u.id &&
+                                  tfu.tenants?.status === "active" &&
+                                  tfu.tenant_id !== editTenant?.id
+                              ) || [];
+                              const floorName = floors?.find(f => f.id === u.floor_id)?.floor_name;
+                              const checked = (field.value || []).includes(u.id);
+                              return (
+                                <div key={u.id} className="flex items-start gap-2">
+                                  <Checkbox
+                                    id={`floor-unit-${u.id}`}
+                                    checked={checked}
+                                    onCheckedChange={(isChecked) => {
+                                      const current = field.value || [];
+                                      field.onChange(
+                                        isChecked
+                                          ? [...current, u.id]
+                                          : current.filter((id) => id !== u.id)
+                                      );
+                                    }}
+                                  />
+                                  <Label htmlFor={`floor-unit-${u.id}`} className="text-sm font-normal cursor-pointer flex-1">
+                                    {u.corp_number}
+                                    <span className="text-muted-foreground ml-2 text-xs">
+                                      {floorName ? `(F: ${floorName}, ` : "("}
+                                      {Number(u.area_sqft).toLocaleString()} sq.ft){" "}
+                                      {occupants.length > 0
+                                        ? `— Occupied by ${occupants.map(o => o.tenants?.name).join(", ")}`
+                                        : "— Vacant"}
+                                    </span>
+                                  </Label>
+                                </div>
+                              );
+                            })}
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Remove owner"
-                      onClick={() => removeOwnerShare(index)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })()}
 
-                {ownerShareFields.length > 0 && (
-                  <div className={cn(
-                    "text-sm font-medium flex items-center gap-2 pt-2 border-t",
-                    totalOwnerPercentage === 100 ? "text-success" :
-                    totalOwnerPercentage > 100 ? "text-destructive" : "text-warning"
-                  )}>
-                    <span>Total: {totalOwnerPercentage.toFixed(2)}%</span>
-                    {totalOwnerPercentage !== 100 && (
-                      <span className="text-muted-foreground font-normal">
-                        (Must equal 100%)
-                      </span>
-                    )}
-                  </div>
-                )}
-                {form.formState.errors.owner_shares?.message && (
-                  <p className="text-sm font-medium text-destructive">
-                    {form.formState.errors.owner_shares.message}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Available Capacity Info */}
-            {capacityInfo && assignmentType === "property" && (
-              <Alert className="bg-muted/50 border-primary/20">
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-1">
-                    <div className="font-medium">
-                      Property: {capacityInfo.propertyAvailable.toLocaleString()} sq.ft available 
-                      <span className="text-muted-foreground font-normal">
-                        {" "}(of {capacityInfo.propertyTotal.toLocaleString()} total)
-                      </span>
+                {/* Multi-Owner Assignment - only show if property has multiple owners */}
+                {hasMultipleOwners && (
+                  <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <Users className="w-4 h-4" />
+                        Owner Shares
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => appendOwnerShare({ owner_id: "", share_percentage: 0 })}
+                        disabled={ownerShareFields.length >= (ownerShares?.length || 0)}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Owner
+                      </Button>
                     </div>
-                    {capacityInfo.floorBreakdown.length > 0 && (
-                      <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 mt-2">
-                        {capacityInfo.floorBreakdown.map(floor => (
-                          <div 
-                            key={floor.id} 
-                            className={cn(
-                              "flex justify-between",
-                              selectedFloorId === floor.id && "text-foreground font-medium"
-                            )}
-                          >
-                            <span>{floor.name}:</span>
-                            <span className={floor.available <= 0 ? "text-destructive" : ""}>
-                              {floor.available.toLocaleString()} sq.ft
-                            </span>
-                          </div>
-                        ))}
+
+                    {ownerShareFields.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No owners assigned. Click "Add Owner" to assign this tenant to specific owners with their share percentages.
+                      </p>
+                    )}
+
+                    {ownerShareFields.map((field, index) => (
+                      <div key={field.id} className="flex items-end gap-2">
+                        <FormField
+                          control={form.control}
+                          name={`owner_shares.${index}.owner_id`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              {index === 0 && <FormLabel>Owner</FormLabel>}
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select owner" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {ownerShares
+                                    ?.filter((share) => share.owner_id && share.owner_id.trim() !== "")
+                                    .map((share) => (
+                                      <SelectItem key={share.owner_id} value={share.owner_id}>
+                                        {share.property_owners?.name} (Property: {share.share_percentage}%)
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`owner_shares.${index}.share_percentage`}
+                          render={({ field }) => (
+                            <FormItem className="w-28">
+                              {index === 0 && <FormLabel>Share %</FormLabel>}
+                              <FormControl>
+                                <div className="relative">
+                                  <Input
+                                    type="number"
+                                    min="0.01"
+                                    max="100"
+                                    step="0.01"
+                                    {...field}
+                                    className="pr-8"
+                                  />
+                                  <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Remove owner"
+                          onClick={() => removeOwnerShare(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+
+                    {ownerShareFields.length > 0 && (
+                      <div className={cn(
+                        "text-sm font-medium flex items-center gap-2 pt-2 border-t",
+                        totalOwnerPercentage === 100 ? "text-success" :
+                        totalOwnerPercentage > 100 ? "text-destructive" : "text-warning"
+                      )}>
+                        <span>Total: {totalOwnerPercentage.toFixed(2)}%</span>
+                        {totalOwnerPercentage !== 100 && (
+                          <span className="text-muted-foreground font-normal">
+                            (Must equal 100%)
+                          </span>
+                        )}
                       </div>
                     )}
+                    {form.formState.errors.owner_shares?.message && (
+                      <p className="text-sm font-medium text-destructive">
+                        {form.formState.errors.owner_shares.message}
+                      </p>
+                    )}
                   </div>
-                </AlertDescription>
-              </Alert>
+                )}
+
+                {/* Available Capacity Info */}
+                {capacityInfo && assignmentType === "property" && (
+                  <Alert className="bg-muted/50 border-primary/20">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-1">
+                        <div className="font-medium">
+                          Property: {capacityInfo.propertyAvailable.toLocaleString()} sq.ft available
+                          <span className="text-muted-foreground font-normal">
+                            {" "}(of {capacityInfo.propertyTotal.toLocaleString()} total)
+                          </span>
+                        </div>
+                        {capacityInfo.floorBreakdown.length > 0 && (
+                          <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 mt-2">
+                            {capacityInfo.floorBreakdown.map(floor => (
+                              <div
+                                key={floor.id}
+                                className={cn(
+                                  "flex justify-between",
+                                  selectedFloorId === floor.id && "text-foreground font-medium"
+                                )}
+                              >
+                                <span>{floor.name}:</span>
+                                <span className={floor.available <= 0 ? "text-destructive" : ""}>
+                                  {floor.available.toLocaleString()} sq.ft
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
             )}
 
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tenant Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Full name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+91 98765 43210" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Rent Details Section */}
-            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
-              <h4 className="font-medium text-sm">Rent Details</h4>
-              <div className="grid grid-cols-2 gap-4">
+            {step === 1 && (
+              <>
                 <FormField
                   control={form.control}
-                  name="monthly_rent"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Monthly Rent (₹)</FormLabel>
+                      <FormLabel>Tenant Name</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="25000" {...field} />
+                        <Input placeholder="Full name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+91 98765 43210" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                <h4 className="font-medium text-sm">Rent Details</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="monthly_rent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Monthly Rent (₹)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="25000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="rent_due_day"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rent Due Day</FormLabel>
+                        <Select onValueChange={(v) => field.onChange(parseInt(v))} value={String(field.value)}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select day" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                              <SelectItem key={day} value={String(day)}>
+                                {day}{day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th"} of each month
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <FormField
                   control={form.control}
-                  name="rent_due_day"
+                  name="rent_due_month_offset"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Rent Due Day</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(parseInt(v))} value={String(field.value)}>
+                      <FormLabel>Due Month</FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(parseInt(v))}
+                        value={String(field.value ?? 0)}
+                      >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select day" />
+                            <SelectValue placeholder="Select due month" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                            <SelectItem key={day} value={String(day)}>
-                              {day}{day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th"} of each month
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="-1">In advance — previous month (e.g. April rent due in March)</SelectItem>
+                          <SelectItem value="0">Same month (e.g. April rent due in April)</SelectItem>
+                          <SelectItem value="1">In arrears — following month (e.g. April rent due in May)</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Controls which calendar month the due date falls in relative to the rent period.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-              <FormField
-                control={form.control}
-                name="rent_due_month_offset"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Due Month</FormLabel>
-                    <Select
-                      onValueChange={(v) => field.onChange(parseInt(v))}
-                      value={String(field.value ?? 0)}
-                    >
+                <FormField
+                  control={form.control}
+                  name="requires_gst"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>GST Invoice Required</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Enable if tenant requires GST invoice for rent
+                        </p>
+                      </div>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select due month" />
-                        </SelectTrigger>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="-1">In advance — previous month (e.g. April rent due in March)</SelectItem>
-                        <SelectItem value="0">Same month (e.g. April rent due in April)</SelectItem>
-                        <SelectItem value="1">In arrears — following month (e.g. April rent due in May)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Controls which calendar month the due date falls in relative to the rent period.
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="requires_gst"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>GST Invoice Required</FormLabel>
-                      <p className="text-xs text-muted-foreground">
-                        Enable if tenant requires GST invoice for rent
-                      </p>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="tds_applicable"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>TDS Applicable</FormLabel>
-                      <p className="text-xs text-muted-foreground">
-                        Default for this tenant when recording rent payments; 10% is deducted from rent due
-                      </p>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tds_applicable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel>TDS Applicable</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Default for this tenant when recording rent payments; 10% is deducted from rent due
+                        </p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
-            {/* Billing Details Section - Collapsible */}
-            <details className="border rounded-lg bg-muted/30 group" open={billingAddresses && billingAddresses.length > 0}>
-              <summary className="p-4 cursor-pointer font-medium text-sm flex items-center justify-between list-none">
-                <span>Billing Details (Optional)</span>
-                <span className="text-xs text-muted-foreground group-open:hidden">Click to expand</span>
-              </summary>
-              <div className="px-4 pb-4 space-y-4">
+            {step === 3 && (
+              <div className="space-y-4">
                 {/* Bill From Section */}
                 <div className="space-y-3">
                   <h5 className="text-sm font-medium text-muted-foreground">Bill From (Your details)</h5>
-                  
+
                   {/* Saved Billing Address Selector */}
                   {billingAddresses && billingAddresses.length > 0 && (
                     <div className="space-y-2">
                       <Label className="text-sm">Select Saved Address</Label>
-                      <Select 
-                        value={selectedBillingAddressId || "new"} 
+                      <Select
+                        value={selectedBillingAddressId || "new"}
                         onValueChange={handleSelectBillingAddress}
                       >
                         <SelectTrigger>
@@ -1051,9 +1099,9 @@ const AddTenantDialog = ({
                       <FormItem>
                         <FormLabel>Company / Person Name</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="ABC Properties Pvt. Ltd." 
-                            {...field} 
+                          <Input
+                            placeholder="ABC Properties Pvt. Ltd."
+                            {...field}
                             onChange={(e) => {
                               field.onChange(e);
                               // Clear selected address if user starts typing
@@ -1074,9 +1122,9 @@ const AddTenantDialog = ({
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="123 Main Street, City - 400001" 
-                            {...field} 
+                          <Input
+                            placeholder="123 Main Street, City - 400001"
+                            {...field}
                             onChange={(e) => {
                               field.onChange(e);
                               if (selectedBillingAddressId) {
@@ -1096,10 +1144,10 @@ const AddTenantDialog = ({
                       <FormItem>
                         <FormLabel>GSTIN (if applicable)</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="22AAAAA0000A1Z5" 
-                            maxLength={15} 
-                            {...field} 
+                          <Input
+                            placeholder="22AAAAA0000A1Z5"
+                            maxLength={15}
+                            {...field}
                             onChange={(e) => {
                               field.onChange(e);
                               if (selectedBillingAddressId) {
@@ -1121,8 +1169,8 @@ const AddTenantDialog = ({
                         checked={saveAsNewAddress}
                         onCheckedChange={(checked) => setSaveAsNewAddress(checked === true)}
                       />
-                      <Label 
-                        htmlFor="save-address" 
+                      <Label
+                        htmlFor="save-address"
                         className="text-sm cursor-pointer flex-1"
                       >
                         Save this address for future use
@@ -1175,178 +1223,198 @@ const AddTenantDialog = ({
                   />
                 </div>
               </div>
-            </details>
+            )}
 
-            <FormField
-              control={form.control}
-              name="move_in_date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Move-in Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="lease_start_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Lease Start</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? format(field.value, "PP") : <span>Pick date</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lease_end_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Lease End</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? format(field.value, "PP") : <span>Pick date</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="security_deposit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Security Deposit (₹)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="50000" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="rented_sqft"
-                render={({ field }) => {
-                  const maxAvailable = capacityInfo?.selectedFloor 
-                    ? capacityInfo.selectedFloor.available 
-                    : capacityInfo?.propertyAvailable;
-                  const isOverCapacity = maxAvailable !== undefined && (field.value || 0) > maxAvailable;
-                  
-                  return (
-                    <FormItem>
-                      <FormLabel>Rented Sq. Ft.</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min={0}
-                          max={maxAvailable}
-                          placeholder="1500" 
-                          className={isOverCapacity ? "border-destructive focus-visible:ring-destructive" : ""}
-                          {...field} 
-                        />
-                      </FormControl>
-                      {maxAvailable !== undefined && (
-                        <p className={cn(
-                          "text-xs",
-                          isOverCapacity ? "text-destructive" : "text-muted-foreground"
-                        )}>
-                          {isOverCapacity 
-                            ? `Exceeds available capacity by ${((field.value || 0) - maxAvailable).toLocaleString()} sq.ft` 
-                            : `Max available: ${maxAvailable.toLocaleString()} sq.ft`}
-                        </p>
-                      )}
+            {step === 4 && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="move_in_date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Move-in Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
-                  );
-                }}
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                variant="hero"
-                disabled={createTenant.isPending || updateTenant.isPending}
-              >
-                {editTenant ? "Update Tenant" : "Add Tenant"}
-              </Button>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="lease_start_date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Lease Start</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "PP") : <span>Pick date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lease_end_date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Lease End</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? format(field.value, "PP") : <span>Pick date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="security_deposit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Security Deposit (₹)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="50000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="rented_sqft"
+                    render={({ field }) => {
+                      const maxAvailable = capacityInfo?.selectedFloor
+                        ? capacityInfo.selectedFloor.available
+                        : capacityInfo?.propertyAvailable;
+                      const isOverCapacity = maxAvailable !== undefined && (field.value || 0) > maxAvailable;
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Rented Sq. Ft.</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={maxAvailable}
+                              placeholder="1500"
+                              className={isOverCapacity ? "border-destructive focus-visible:ring-destructive" : ""}
+                              {...field}
+                            />
+                          </FormControl>
+                          {maxAvailable !== undefined && (
+                            <p className={cn(
+                              "text-xs",
+                              isOverCapacity ? "text-destructive" : "text-muted-foreground"
+                            )}>
+                              {isOverCapacity
+                                ? `Exceeds available capacity by ${((field.value || 0) - maxAvailable).toLocaleString()} sq.ft`
+                                : `Max available: ${maxAvailable.toLocaleString()} sq.ft`}
+                            </p>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-between items-center gap-3 pt-4 border-t">
+              <div>
+                {step > 0 && (
+                  <Button type="button" variant="outline" onClick={handleBack}>
+                    Back
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                {isLastStep ? (
+                  <Button
+                    type="submit"
+                    variant="hero"
+                    disabled={createTenant.isPending || updateTenant.isPending}
+                  >
+                    {editTenant ? "Update Tenant" : "Add Tenant"}
+                  </Button>
+                ) : (
+                  <Button type="button" variant="hero" onClick={handleNext}>
+                    Next
+                  </Button>
+                )}
+              </div>
             </div>
           </form>
         </Form>
