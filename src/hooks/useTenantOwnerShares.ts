@@ -20,23 +20,19 @@ export function useTenantOwnerShares(tenantId?: string) {
   const { data: ownerShares, isLoading, error } = useQuery({
     queryKey: ["tenant-owner-shares", tenantId],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("tenant_owner_shares")
         .select(`
           *,
           property_owners (id, name)
-        `);
-      
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
-      }
-      
-      const { data, error } = await query.order("share_percentage", { ascending: false });
-      
+        `)
+        .eq("tenant_id", tenantId!)
+        .order("share_percentage", { ascending: false });
+
       if (error) throw error;
       return data as TenantOwnerShare[];
     },
-    enabled: !!tenantId || tenantId === undefined,
+    enabled: !!tenantId,
   });
 
   const upsertOwnerShares = useMutation({
