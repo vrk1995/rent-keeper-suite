@@ -68,7 +68,7 @@ const tenantSchema = z.object({
   lease_start_date: z.date({ required_error: "Lease start date is required" }),
   lease_end_date: z.date({ required_error: "Lease end date is required" }),
   security_deposit: z.coerce.number().min(0).optional(),
-  rented_sqft: z.coerce.number().min(0).optional(),
+  rented_sqft: z.coerce.number().min(0.01, "Rented sq. ft. is required"),
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
   rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
   rent_due_month_offset: z.coerce.number().min(-1).max(1),
@@ -1363,7 +1363,7 @@ const AddTenantDialog = ({
                           <FormControl>
                             <Input
                               type="number"
-                              min={0}
+                              min={0.01}
                               max={maxAvailable}
                               placeholder="1500"
                               className={isOverCapacity ? "border-destructive focus-visible:ring-destructive" : ""}
