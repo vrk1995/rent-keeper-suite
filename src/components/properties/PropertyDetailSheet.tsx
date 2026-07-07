@@ -56,7 +56,7 @@ import { useIsAdmin } from "@/hooks/useUserRole";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
-import { paymentStatusConfig, invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
+import { invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
 import AddPropertyDialog from "./AddPropertyDialog";
@@ -121,46 +121,69 @@ export function PropertyDetailSheet({
 
   const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
 
+  // Build a proper debit/credit cash ledger for the property: rent collected posts as a
+  // credit (cash in), expenses post as a debit (cash out). Running balance is net cash
+  // position, matching the Financial Summary's Net Income figure.
+  type LedgerEntry = {
+    date: string;
+    particulars: string;
+    invoiceNumber: string;
+    debit: number;
+    credit: number;
+  };
+  const ledgerRows: LedgerEntry[] = [];
+  propertyPayments.forEach((payment) => {
+    const paidAmount = payment.paid_amount || 0;
+    if (paidAmount > 0) {
+      ledgerRows.push({
+        date: payment.paid_date || payment.due_date,
+        particulars: `Rent received — ${payment.tenant?.name || "Tenant"}`,
+        invoiceNumber: getInvoiceNumber(payment),
+        debit: 0,
+        credit: paidAmount,
+      });
+    }
+  });
+  (expenses || []).forEach((expense) => {
+    ledgerRows.push({
+      date: expense.expense_date,
+      particulars: expense.vendor_name ? `${expense.title} — ${expense.vendor_name}` : expense.title,
+      invoiceNumber: "",
+      debit: expense.amount,
+      credit: 0,
+    });
+  });
+  ledgerRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  let runningBalance = 0;
+  const ledgerEntries = ledgerRows.map((entry) => {
+    runningBalance += entry.credit - entry.debit;
+    return { ...entry, balance: runningBalance };
+  });
+
   // Export ledger to Excel
   const handleExportLedger = () => {
-    const ledgerData = propertyPayments.map((payment) => ({
-      "Invoice #": getInvoiceNumber(payment) || "-",
-      "Due Date": payment.due_date,
-      Tenant: payment.tenant?.name || "Unknown",
-      Amount: payment.amount,
-      Status: payment.status,
-      "Paid Date": payment.paid_date || "-",
-      "Payment Method": payment.payment_method || "-",
-      Notes: payment.notes || "-",
-    }));
-
-    const expenseData = (expenses || []).map((expense) => ({
-      Date: expense.expense_date,
-      Title: expense.title,
-      Category: expense.category || "General",
-      Vendor: expense.vendor_name || "-",
-      Amount: -expense.amount, // Negative for expenses
-      "Payment Method": expense.payment_method || "-",
+    const ledgerData = ledgerEntries.map((entry) => ({
+      Date: entry.date,
+      Particulars: entry.particulars,
+      "Invoice #": entry.invoiceNumber || "-",
+      Debit: entry.debit || "",
+      Credit: entry.credit || "",
+      Balance: entry.balance,
     }));
 
     // Create workbook with multiple sheets
     const wb = XLSX.utils.book_new();
 
-    // Rent Collections sheet
-    const rentWs = XLSX.utils.json_to_sheet(ledgerData);
-    XLSX.utils.book_append_sheet(wb, rentWs, "Rent Collections");
-
-    // Expenses sheet
-    const expenseWs = XLSX.utils.json_to_sheet(expenseData);
-    XLSX.utils.book_append_sheet(wb, expenseWs, "Expenses");
+    // Ledger sheet
+    const ledgerWs = XLSX.utils.json_to_sheet(ledgerData);
+    XLSX.utils.book_append_sheet(wb, ledgerWs, "Ledger");
 
     // Summary sheet
-    const totalRentCollected = propertyPayments
-      .filter((p) => p.status === "paid")
-      .reduce((sum, p) => sum + p.amount, 0);
-    const totalRentPending = propertyPayments
-      .filter((p) => p.status === "pending" || p.status === "overdue")
-      .reduce((sum, p) => sum + p.amount, 0);
+    const totalRentCollected = propertyPayments.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+    const totalRentPending = propertyPayments.reduce(
+      (sum, p) => sum + Math.max(0, p.amount - (p.paid_amount || 0)),
+      0
+    );
 
     const summaryData = [
       { Metric: "Total Rent Collected", Value: totalRentCollected },
@@ -647,42 +670,71 @@ export function PropertyDetailSheet({
                   Download Ledger (Excel)
                 </Button>
 
-                {/* Recent Transactions */}
+                {/* Ledger */}
                 <div className="mt-6">
-                  <h4 className="font-medium mb-3">Recent Transactions</h4>
-                  <div className="space-y-2">
-                    {propertyPayments.slice(0, 10).map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
-                      >
-                        <div>
-                          <p className="font-medium">{payment.tenant?.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {getInvoiceNumber(payment) && (
-                              <span className="font-mono">{getInvoiceNumber(payment)} • </span>
-                            )}
-                            Due: {payment.due_date}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p
-                            className={`font-semibold ${
-                              payment.status === "paid" ? "text-success" : "text-warning"
-                            }`}
-                          >
-                            {formatINR(payment.amount)}
-                          </p>
-                          <Badge
-                            variant={paymentStatusConfig[payment.status]?.variant || "secondary"}
-                            className="text-xs"
-                          >
-                            {payment.status}
-                          </Badge>
-                        </div>
+                  <h4 className="font-medium mb-3">Ledger</h4>
+                  {ledgerEntries.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+                  ) : (
+                    <>
+                      {/* Desktop table */}
+                      <div className="hidden sm:block border rounded-lg overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Date</TableHead>
+                              <TableHead className="text-xs">Particulars</TableHead>
+                              <TableHead className="text-xs">Invoice #</TableHead>
+                              <TableHead className="text-xs text-right">Debit</TableHead>
+                              <TableHead className="text-xs text-right">Credit</TableHead>
+                              <TableHead className="text-xs text-right">Balance</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {ledgerEntries.map((entry, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="text-xs whitespace-nowrap">
+                                  {format(new Date(entry.date), "dd MMM yy")}
+                                </TableCell>
+                                <TableCell className="text-xs">{entry.particulars}</TableCell>
+                                <TableCell className="text-xs font-mono">{entry.invoiceNumber || "—"}</TableCell>
+                                <TableCell className="text-xs text-right text-destructive">
+                                  {entry.debit > 0 ? formatINR(entry.debit) : "—"}
+                                </TableCell>
+                                <TableCell className="text-xs text-right text-success">
+                                  {entry.credit > 0 ? formatINR(entry.credit) : "—"}
+                                </TableCell>
+                                <TableCell className="text-xs text-right font-medium">
+                                  {formatINR(entry.balance)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Mobile cards */}
+                      <div className="sm:hidden space-y-2">
+                        {ledgerEntries.map((entry, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                            <div>
+                              <p className="font-medium text-sm">{entry.particulars}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {entry.invoiceNumber && <span className="font-mono">{entry.invoiceNumber} • </span>}
+                                {format(new Date(entry.date), "dd MMM yy")}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className={`font-semibold ${entry.credit > 0 ? "text-success" : "text-destructive"}`}>
+                                {entry.credit > 0 ? formatINR(entry.credit) : `-${formatINR(entry.debit)}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Bal: {formatINR(entry.balance)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </TabsContent>
             </ScrollArea>

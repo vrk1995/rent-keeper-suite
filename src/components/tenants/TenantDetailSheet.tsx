@@ -121,26 +121,70 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const getInvoiceNumber = (p: RentPayment) =>
     invoiceNumberByPayment.get(`${p.property_id}|${p.due_date}|${Number(p.amount).toFixed(2)}`) || "";
 
-  const handleDownloadLedger = () => {
-    if (!payments || !tenant) return;
+  // Build a proper debit/credit ledger: each billing period raises a debit (rent due),
+  // and a credit is posted when a payment is recorded against it. Running balance is
+  // what the tenant still owes (positive) or has overpaid (negative).
+  type LedgerEntry = {
+    date: string;
+    particulars: string;
+    invoiceNumber: string;
+    debit: number;
+    credit: number;
+  };
+  const ledgerRows: LedgerEntry[] = [];
+  (payments || []).forEach((p) => {
+    const monthLabel = p.billing_month
+      ? new Date(
+          parseInt(p.billing_month.split("-")[0]),
+          parseInt(p.billing_month.split("-")[1]) - 1
+        ).toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
+      : format(new Date(p.due_date), "MMM yy");
+    const invoiceNumber = getInvoiceNumber(p);
+    ledgerRows.push({
+      date: p.due_date,
+      particulars: `Rent due — ${monthLabel}`,
+      invoiceNumber,
+      debit: p.amount,
+      credit: 0,
+    });
+    const paidAmount = p.paid_amount || 0;
+    if (paidAmount > 0) {
+      ledgerRows.push({
+        date: p.paid_date || p.due_date,
+        particulars:
+          p.tds_applicable && p.tds_amount
+            ? `Payment received (incl. ${formatINR(p.tds_amount)} TDS)`
+            : "Payment received",
+        invoiceNumber,
+        debit: 0,
+        credit: paidAmount,
+      });
+    }
+  });
+  ledgerRows.sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.credit - b.credit
+  );
+  let runningBalance = 0;
+  const ledgerEntries = ledgerRows.map((entry) => {
+    runningBalance += entry.debit - entry.credit;
+    return { ...entry, balance: runningBalance };
+  });
 
-    const headers = ["Invoice #", "Billing Month", "Due Date", "Amount", "Paid Amount", "Status", "Paid Date", "Payment Method", "Notes"];
-    const rows = payments.map((p) => [
-      getInvoiceNumber(p),
-      p.billing_month || "",
-      p.due_date,
-      p.amount,
-      (p as any).paid_amount || 0,
-      p.status,
-      p.paid_date || "",
-      p.payment_method || "",
-      p.notes || "",
+  const handleDownloadLedger = () => {
+    if (!ledgerEntries.length || !tenant) return;
+
+    const headers = ["Date", "Particulars", "Invoice #", "Debit", "Credit", "Balance"];
+    const rows = ledgerEntries.map((e) => [
+      e.date,
+      e.particulars,
+      e.invoiceNumber,
+      e.debit || "",
+      e.credit || "",
+      e.balance,
     ]);
 
-    const totalDue = payments.reduce((s, p) => s + p.amount, 0);
-    const totalPaid = payments.reduce((s, p) => s + ((p as any).paid_amount || 0), 0);
-    rows.push(["", "", "", "", "", "", "", "", ""]);
-    rows.push(["", "TOTAL", "", totalDue, totalPaid, "", "", "", ""]);
+    rows.push(["", "", "", "", "", ""]);
+    rows.push(["", "TOTAL", "", totalDue, totalPaid, totalPending]);
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.map(v => `"${v}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
@@ -156,7 +200,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   if (!tenant) return null;
 
   const totalDue = payments?.reduce((s, p) => s + p.amount, 0) || 0;
-  const totalPaid = payments?.reduce((s, p) => s + ((p as any).paid_amount || 0), 0) || 0;
+  const totalPaid = payments?.reduce((s, p) => s + (p.paid_amount || 0), 0) || 0;
   const totalPending = totalDue - totalPaid;
 
   return (
@@ -337,49 +381,52 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
               {/* Ledger Tab */}
               <TabsContent value="ledger" className="mt-4">
                 <div className="flex justify-end mb-3">
-                  <Button variant="outline" size="sm" onClick={handleDownloadLedger} disabled={!payments?.length}>
+                  <Button variant="outline" size="sm" onClick={handleDownloadLedger} disabled={!ledgerEntries.length}>
                     <Download className="w-4 h-4 mr-1" />
                     Download CSV
                   </Button>
                 </div>
-                {!payments?.length ? (
+                {!ledgerEntries.length ? (
                   <p className="text-center text-muted-foreground py-8">No records for ledger</p>
                 ) : (
                   <div className="border rounded-lg overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Month</TableHead>
+                          <TableHead className="text-xs">Date</TableHead>
+                          <TableHead className="text-xs">Particulars</TableHead>
                           <TableHead className="text-xs">Invoice #</TableHead>
-                          <TableHead className="text-xs">Due</TableHead>
-                          <TableHead className="text-xs">Paid</TableHead>
-                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs text-right">Debit</TableHead>
+                          <TableHead className="text-xs text-right">Credit</TableHead>
+                          <TableHead className="text-xs text-right">Balance</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {payments.map((p) => (
-                          <TableRow key={p.id}>
-                            <TableCell className="text-xs">
-                              {p.billing_month
-                                ? new Date(parseInt(p.billing_month.split("-")[0]), parseInt(p.billing_month.split("-")[1]) - 1).toLocaleDateString("en-IN", { month: "short", year: "2-digit" })
-                                : format(new Date(p.due_date), "MMM yy")}
+                        {ledgerEntries.map((entry, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {format(new Date(entry.date), "dd MMM yy")}
                             </TableCell>
-                            <TableCell className="text-xs font-mono">{getInvoiceNumber(p) || "—"}</TableCell>
-                            <TableCell className="text-xs font-medium">{formatINR(p.amount)}</TableCell>
-                            <TableCell className="text-xs">{formatINR((p as any).paid_amount || 0)}</TableCell>
-                            <TableCell>
-                              <Badge variant={paymentStatusConfig[p.status]?.variant || "secondary"} className="text-xs">
-                                {p.status}
-                              </Badge>
+                            <TableCell className="text-xs">{entry.particulars}</TableCell>
+                            <TableCell className="text-xs font-mono">{entry.invoiceNumber || "—"}</TableCell>
+                            <TableCell className="text-xs text-right">
+                              {entry.debit > 0 ? formatINR(entry.debit) : "—"}
+                            </TableCell>
+                            <TableCell className="text-xs text-right text-success">
+                              {entry.credit > 0 ? formatINR(entry.credit) : "—"}
+                            </TableCell>
+                            <TableCell className="text-xs text-right font-medium">
+                              {formatINR(entry.balance)}
                             </TableCell>
                           </TableRow>
                         ))}
                         <TableRow className="font-bold border-t-2">
-                          <TableCell className="text-xs">Total</TableCell>
-                          <TableCell></TableCell>
-                          <TableCell className="text-xs">{formatINR(totalDue)}</TableCell>
-                          <TableCell className="text-xs">{formatINR(totalPaid)}</TableCell>
-                          <TableCell></TableCell>
+                          <TableCell className="text-xs" colSpan={3}>
+                            Total {totalPending > 0 ? "(Balance Due)" : totalPending < 0 ? "(Overpaid)" : ""}
+                          </TableCell>
+                          <TableCell className="text-xs text-right">{formatINR(totalDue)}</TableCell>
+                          <TableCell className="text-xs text-right">{formatINR(totalPaid)}</TableCell>
+                          <TableCell className="text-xs text-right">{formatINR(totalPending)}</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
