@@ -73,6 +73,15 @@ const DashboardOverview = () => {
     };
   }, [payments]);
 
+  // "Recent Payments" should mean recently received, not whichever payment is due
+  // furthest in the future (which is what the raw due-date-ordered list gives you).
+  const recentPayments = useMemo(() => {
+    return payments
+      .filter((p) => p.paid_date)
+      .sort((a, b) => new Date(b.paid_date!).getTime() - new Date(a.paid_date!).getTime())
+      .slice(0, 4);
+  }, [payments]);
+
   const totalMonthlyRent = tenants
     .filter(t => t.status === 'active')
     .reduce((sum, t) => sum + (t.monthly_rent || 0), 0);
@@ -276,8 +285,10 @@ const DashboardOverview = () => {
                 </div>
               ) : payments.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No payments yet. Generate monthly payments to get started!</p>
+              ) : recentPayments.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No payments received yet.</p>
               ) : (
-                payments.slice(0, 4).map((payment) => (
+                recentPayments.map((payment) => (
                   <div
                     key={payment.id}
                     className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-white/5"
@@ -290,7 +301,7 @@ const DashboardOverview = () => {
                       <p className="font-semibold">{formatINR(payment.amount)}</p>
                       <div className="flex items-center gap-1 justify-end">
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(payment.due_date), "MMM d")}
+                          Paid {format(new Date(payment.paid_date!), "MMM d")}
                         </p>
                         <Badge
                           variant={paymentStatusConfig[payment.status]?.variant || "secondary"}
