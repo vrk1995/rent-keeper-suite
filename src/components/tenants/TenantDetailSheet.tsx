@@ -40,9 +40,10 @@ import { toast } from "sonner";
 import AddTenantDialog from "./AddTenantDialog";
 import VacateTenantDialog from "./VacateTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
+import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { RentPayment } from "@/hooks/usePayments";
 import { paymentStatusConfig, invoiceStatusConfig } from "@/lib/statusConfig";
-import { generateAndOpenInvoicePdf, generateAndOpenReceiptPdf } from "@/lib/pdfUtils";
+import { usePdfPreview } from "@/hooks/usePdfPreview";
 
 interface TenantDetailSheetProps {
   tenant: Tenant | null;
@@ -53,8 +54,7 @@ interface TenantDetailSheetProps {
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
-  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
-  const [generatingReceipt, setGeneratingReceipt] = useState<string | null>(null);
+  const { preview, loadingId, openInvoice, openReceipt, closePreview } = usePdfPreview();
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
   const [activeTab, setActiveTab] = useState("payments");
 
@@ -90,26 +90,16 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
     enabled: !!tenant,
   });
 
-  const handleGenerateInvoice = async (paymentId: string) => {
-    setGeneratingInvoice(paymentId);
-    try {
-      await generateAndOpenInvoicePdf(paymentId);
-    } catch (error: any) {
+  const handleGenerateInvoice = (paymentId: string) => {
+    openInvoice(paymentId).catch((error: any) => {
       toast.error("Failed to generate invoice: " + error.message);
-    } finally {
-      setGeneratingInvoice(null);
-    }
+    });
   };
 
-  const handleDownloadReceipt = async (paymentId: string) => {
-    setGeneratingReceipt(paymentId);
-    try {
-      await generateAndOpenReceiptPdf(paymentId);
-    } catch (error: any) {
+  const handleDownloadReceipt = (paymentId: string) => {
+    openReceipt(paymentId).catch((error: any) => {
       toast.error("Failed to generate receipt: " + error.message);
-    } finally {
-      setGeneratingReceipt(null);
-    }
+    });
   };
 
   // Invoices aren't directly linked to payments by FK, so match on the same natural
@@ -322,13 +312,13 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                               )}
                             </div>
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleGenerateInvoice(payment.id)} disabled={generatingInvoice === payment.id}>
-                                {generatingInvoice === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3 mr-1" />}
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleGenerateInvoice(payment.id)} disabled={loadingId === payment.id}>
+                                {loadingId === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3 mr-1" />}
                                 Invoice
                               </Button>
                               {(payment.status === "paid" || payment.status === "partial") && (
-                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownloadReceipt(payment.id)} disabled={generatingReceipt === payment.id}>
-                                  {generatingReceipt === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3 mr-1" />}
+                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownloadReceipt(payment.id)} disabled={loadingId === payment.id}>
+                                  {loadingId === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3 mr-1" />}
                                   Receipt
                                 </Button>
                               )}
@@ -517,6 +507,8 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         onOpenChange={(open) => !open && setMarkPaidPayment(null)}
         payment={markPaidPayment}
       />
+
+      <PdfPreviewDialog preview={preview} onClose={closePreview} />
 
       <VacateTenantDialog
         tenant={tenant}

@@ -34,8 +34,9 @@ import {
 import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
+import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { paymentStatusConfig } from "@/lib/statusConfig";
-import { generateAndOpenInvoicePdf, generateAndOpenReceiptPdf } from "@/lib/pdfUtils";
+import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/error-state";
 
@@ -73,8 +74,7 @@ const Payments = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
-  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
-  const [generatingReceipt, setGeneratingReceipt] = useState<string | null>(null);
+  const { preview, loadingId, openInvoice, openReceipt, closePreview } = usePdfPreview();
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -110,34 +110,24 @@ const Payments = () => {
     setMarkPaidDialogOpen(true);
   };
 
+  const handleGenerateInvoice = (paymentId: string) => {
+    openInvoice(paymentId).catch((error: any) => {
+      console.error("Error generating invoice:", error);
+      toast.error("Failed to generate invoice: " + error.message);
+    });
+  };
+
+  const handleDownloadReceipt = (paymentId: string) => {
+    openReceipt(paymentId).catch((error: any) => {
+      console.error("Error generating receipt:", error);
+      toast.error("Failed to generate receipt: " + error.message);
+    });
+  };
+
   const handleGeneratePayments = () => {
     const [year, month] = selectedMonth.split("-").map(Number);
     generatePayments.mutate({ year, month });
     setGenerateDialogOpen(false);
-  };
-
-  const handleGenerateInvoice = async (paymentId: string) => {
-    setGeneratingInvoice(paymentId);
-    try {
-      await generateAndOpenInvoicePdf(paymentId);
-    } catch (error: any) {
-      console.error("Error generating invoice:", error);
-      toast.error("Failed to generate invoice: " + error.message);
-    } finally {
-      setGeneratingInvoice(null);
-    }
-  };
-
-  const handleDownloadReceipt = async (paymentId: string) => {
-    setGeneratingReceipt(paymentId);
-    try {
-      await generateAndOpenReceiptPdf(paymentId);
-    } catch (error: any) {
-      console.error("Error generating receipt:", error);
-      toast.error("Failed to generate receipt: " + error.message);
-    } finally {
-      setGeneratingReceipt(null);
-    }
   };
 
   return (
@@ -323,9 +313,9 @@ const Payments = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleGenerateInvoice(payment.id)}
-                            disabled={generatingInvoice === payment.id}
+                            disabled={loadingId === payment.id}
                           >
-                            {generatingInvoice === payment.id ? (
+                            {loadingId === payment.id ? (
                               <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                             ) : (
                               <FileText className="w-4 h-4 mr-1" />
@@ -337,9 +327,9 @@ const Payments = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDownloadReceipt(payment.id)}
-                              disabled={generatingReceipt === payment.id}
+                              disabled={loadingId === payment.id}
                             >
-                              {generatingReceipt === payment.id ? (
+                              {loadingId === payment.id ? (
                                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                               ) : (
                                 <Receipt className="w-4 h-4 mr-1" />
@@ -403,9 +393,9 @@ const Payments = () => {
                         size="sm"
                         className="flex-1 h-8 text-xs"
                         onClick={() => handleGenerateInvoice(payment.id)}
-                        disabled={generatingInvoice === payment.id}
+                        disabled={loadingId === payment.id}
                       >
-                        {generatingInvoice === payment.id ? (
+                        {loadingId === payment.id ? (
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                         ) : (
                           <FileText className="w-3 h-3 mr-1" />
@@ -418,9 +408,9 @@ const Payments = () => {
                           size="sm"
                           className="flex-1 h-8 text-xs"
                           onClick={() => handleDownloadReceipt(payment.id)}
-                          disabled={generatingReceipt === payment.id}
+                          disabled={loadingId === payment.id}
                         >
-                          {generatingReceipt === payment.id ? (
+                          {loadingId === payment.id ? (
                             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                           ) : (
                             <Receipt className="w-3 h-3 mr-1" />
@@ -492,6 +482,8 @@ const Payments = () => {
         onOpenChange={setMarkPaidDialogOpen}
         payment={selectedPayment}
       />
+
+      <PdfPreviewDialog preview={preview} onClose={closePreview} />
     </div>
   );
 };

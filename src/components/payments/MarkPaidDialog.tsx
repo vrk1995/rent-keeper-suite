@@ -29,8 +29,8 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RentPayment, useMarkPaymentPaid } from "@/hooks/usePayments";
 import { formatINR } from "@/lib/currency";
-import { openPdfFromBase64 } from "@/lib/pdfUtils";
-import { supabase } from "@/integrations/supabase/client";
+import { usePdfPreview } from "@/hooks/usePdfPreview";
+import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
@@ -60,6 +60,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
   const markPaid = useMarkPaymentPaid();
+  const { preview, openReceipt, closePreview } = usePdfPreview();
 
   // Default the TDS toggle from the tenant's preference each time the dialog opens for a payment
   useEffect(() => {
@@ -101,13 +102,8 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
 
     // Generate receipt for the payment
     try {
-      const { data, error } = await supabase.functions.invoke("generate-receipt-pdf", {
-        body: { paymentId: payment.id },
-      });
-
-      if (error) throw error;
-      openPdfFromBase64(data.pdf);
-      toast.success("Payment recorded & receipt opened!");
+      await openReceipt(payment.id);
+      toast.success("Payment recorded!");
     } catch (err: any) {
       console.error("Receipt generation error:", err);
       toast.info("Payment recorded. Receipt could not be generated.");
@@ -126,9 +122,9 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     setTdsApplicable(false);
   };
 
-  if (!payment) return null;
-
   return (
+    <>
+    {payment && (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -310,5 +306,9 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    )}
+
+    <PdfPreviewDialog preview={preview} onClose={closePreview} />
+    </>
   );
 };

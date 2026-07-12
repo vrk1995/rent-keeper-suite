@@ -39,7 +39,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { invoiceStatusConfig } from "@/lib/statusConfig";
-import { openPdfFromBase64 } from "@/lib/pdfUtils";
+import { usePdfPreview } from "@/hooks/usePdfPreview";
+import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { ErrorState } from "@/components/ui/error-state";
 
 const Invoices = () => {
@@ -57,6 +58,7 @@ const Invoices = () => {
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const { preview, openInvoice, closePreview } = usePdfPreview();
 
   const filteredInvoices = invoices?.filter((inv) => {
     const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
@@ -132,13 +134,7 @@ const Invoices = () => {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("generate-invoice-pdf", {
-        body: { paymentId: payment.id },
-      });
-
-      if (error) throw error;
-      openPdfFromBase64(data.pdf);
-      toast.success("Invoice opened!");
+      await openInvoice(payment.id);
     } catch (error: any) {
       console.error("Error downloading invoice:", error);
       toast.error("Failed to download invoice: " + error.message);
