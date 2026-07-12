@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Plus, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle, Building2, Users, Search } from "lucide-react";
+import { Plus, FileText, Send, Download, Loader2, CheckCircle, Clock, AlertCircle, Building2, Users, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -41,6 +41,8 @@ import { toast } from "sonner";
 import { invoiceStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
+import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
+import { useIsAdmin } from "@/hooks/useUserRole";
 import { ErrorState } from "@/components/ui/error-state";
 
 const Invoices = () => {
@@ -59,6 +61,9 @@ const Invoices = () => {
   const [dueDate, setDueDate] = useState<Date>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const { preview, openInvoice, closePreview } = usePdfPreview();
+  const { isAdmin } = useIsAdmin();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPayment, setEditPayment] = useState<{ paymentId: string; invoiceId: string } | null>(null);
 
   const filteredInvoices = invoices?.filter((inv) => {
     const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
@@ -140,6 +145,36 @@ const Invoices = () => {
       toast.error("Failed to download invoice: " + error.message);
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  // Edit directly from the list, independent of PDF generation — this is the escape hatch
+  // for invoices whose amount/due_date drifted from their linked payment (e.g. from an
+  // earlier bad edit), since a drifted invoice fails to generate a PDF at all otherwise.
+  const handleEditInvoice = async (invoice: typeof invoices extends (infer T)[] | undefined ? T : never) => {
+    setEditingId(invoice.id);
+    try {
+      const { data: payment, error: paymentError } = await supabase
+        .from("rent_payments")
+        .select("id")
+        .eq("property_id", invoice.property_id)
+        .eq("tenant_id", invoice.tenant_id)
+        .eq("due_date", invoice.due_date)
+        .maybeSingle();
+
+      if (paymentError) throw paymentError;
+
+      if (!payment) {
+        toast.error("Couldn't find the linked payment for this invoice — nothing to edit.");
+        return;
+      }
+
+      setEditPayment({ paymentId: payment.id, invoiceId: invoice.id });
+    } catch (error: any) {
+      console.error("Error resolving payment for invoice:", error);
+      toast.error("Failed to open editor: " + error.message);
+    } finally {
+      setEditingId(null);
     }
   };
 
@@ -307,6 +342,11 @@ const Invoices = () => {
                             <Button variant="ghost" size="sm" onClick={() => handleDownloadInvoice(invoice)} disabled={downloadingId === invoice.id}>
                               {downloadingId === invoice.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                             </Button>
+                            {isAdmin && (
+                              <Button variant="ghost" size="sm" onClick={() => handleEditInvoice(invoice)} disabled={editingId === invoice.id}>
+                                {editingId === invoice.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -349,6 +389,12 @@ const Invoices = () => {
                         {downloadingId === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
                         Download
                       </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => handleEditInvoice(invoice)} disabled={editingId === invoice.id}>
+                          {editingId === invoice.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3 mr-1" />}
+                          Edit
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -444,6 +490,15 @@ const Invoices = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PdfPreviewDialog preview={preview} onClose={closePreview} />
+
+      <EditPaymentDialog
+        paymentId={editPayment?.paymentId ?? null}
+        invoiceId={editPayment?.invoiceId ?? null}
+        open={!!editPayment}
+        onOpenChange={(open) => !open && setEditPayment(null)}
+      />
     </div>
   );
 };
