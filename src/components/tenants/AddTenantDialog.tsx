@@ -1369,6 +1369,7 @@ const AddTenantDialog = ({
                               type="number"
                               min={0.01}
                               max={maxAvailable}
+                              step="any"
                               placeholder="1500"
                               className={isOverCapacity ? "border-destructive focus-visible:ring-destructive" : ""}
                               {...field}
