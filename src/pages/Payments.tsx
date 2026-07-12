@@ -74,7 +74,7 @@ const Payments = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
-  const { preview, loadingId, openInvoice, openReceipt, closePreview } = usePdfPreview();
+  const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -483,7 +483,7 @@ const Payments = () => {
         payment={selectedPayment}
       />
 
-      <PdfPreviewDialog preview={preview} onClose={closePreview} />
+      <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
     </div>
   );
 };

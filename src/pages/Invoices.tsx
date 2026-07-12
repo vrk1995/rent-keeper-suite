@@ -60,7 +60,7 @@ const Invoices = () => {
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const { preview, openInvoice, closePreview } = usePdfPreview();
+  const { preview, openInvoice, refreshPreview, closePreview } = usePdfPreview();
   const { isAdmin } = useIsAdmin();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState<{ paymentId: string; invoiceId: string } | null>(null);
@@ -491,7 +491,7 @@ const Invoices = () => {
         </DialogContent>
       </Dialog>
 
-      <PdfPreviewDialog preview={preview} onClose={closePreview} />
+      <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
 
       <EditPaymentDialog
         paymentId={editPayment?.paymentId ?? null}

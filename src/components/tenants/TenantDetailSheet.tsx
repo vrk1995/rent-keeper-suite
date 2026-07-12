@@ -54,7 +54,7 @@ interface TenantDetailSheetProps {
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
-  const { preview, loadingId, openInvoice, openReceipt, closePreview } = usePdfPreview();
+  const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
   const [activeTab, setActiveTab] = useState("payments");
 
@@ -508,7 +508,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         payment={markPaidPayment}
       />
 
-      <PdfPreviewDialog preview={preview} onClose={closePreview} />
+      <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
 
       <VacateTenantDialog
         tenant={tenant}

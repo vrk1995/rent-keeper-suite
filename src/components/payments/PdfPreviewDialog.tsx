@@ -9,9 +9,12 @@ import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 interface PdfPreviewDialogProps {
   preview: PdfPreviewState | null;
   onClose: () => void;
+  /** Re-generates the currently shown PDF — passed through to the Edit dialog so a saved
+   *  edit is immediately visible instead of leaving the stale pre-edit PDF on screen. */
+  onRefresh?: () => Promise<void>;
 }
 
-export function PdfPreviewDialog({ preview, onClose }: PdfPreviewDialogProps) {
+export function PdfPreviewDialog({ preview, onClose, onRefresh }: PdfPreviewDialogProps) {
   const { isAdmin } = useIsAdmin();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -60,6 +63,7 @@ export function PdfPreviewDialog({ preview, onClose }: PdfPreviewDialogProps) {
         invoiceId={preview?.invoiceId ?? null}
         open={editOpen}
         onOpenChange={setEditOpen}
+        onSaved={onRefresh}
       />
     </>
   );

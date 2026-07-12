@@ -34,6 +34,8 @@ interface EditPaymentDialogProps {
   invoiceId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called after a successful save, e.g. to regenerate a PDF preview showing the old data. */
+  onSaved?: () => Promise<void>;
 }
 
 interface FormState {
@@ -64,9 +66,10 @@ const paymentMethods = [
   { value: "other", label: "Other" },
 ];
 
-export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange }: EditPaymentDialogProps) {
+export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, onSaved }: EditPaymentDialogProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const updatePayment = useAdminUpdatePayment();
   const updateInvoice = useUpdateInvoice();
 
@@ -161,13 +164,25 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange }: 
       }
 
       toast.success(invoiceId ? "Payment and invoice updated!" : "Payment updated!");
+
+      if (onSaved) {
+        setRefreshing(true);
+        try {
+          await onSaved();
+        } catch (err: any) {
+          toast.error("Saved, but couldn't refresh the preview: " + err.message);
+        } finally {
+          setRefreshing(false);
+        }
+      }
+
       onOpenChange(false);
     } catch {
       // Individual mutations already surfaced their own error toast.
     }
   };
 
-  const isSaving = updatePayment.isPending || updateInvoice.isPending;
+  const isSaving = updatePayment.isPending || updateInvoice.isPending || refreshing;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

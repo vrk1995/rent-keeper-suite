@@ -30,12 +30,15 @@ export function usePdfPreview() {
         body: { paymentId },
       });
       if (error) throw error;
-      setPreview({
-        url: base64ToPdfBlobUrl(data.pdf),
-        title,
-        fileName: data.filename || fallbackFileName,
-        documentType,
-        paymentId,
+      setPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return {
+          url: base64ToPdfBlobUrl(data.pdf),
+          title,
+          fileName: data.filename || fallbackFileName,
+          documentType,
+          paymentId,
+        };
       });
 
       if (documentType === "invoice") {
@@ -72,10 +75,17 @@ export function usePdfPreview() {
   const openReceipt = (paymentId: string) =>
     generate("generate-receipt-pdf", paymentId, "Receipt", "Receipt.pdf", "receipt");
 
+  /** Re-runs whatever generated the current preview — used after an edit is saved, so the
+   *  visible PDF reflects the new data instead of the stale blob from before the edit. */
+  const refreshPreview = () => {
+    if (!preview) return Promise.resolve();
+    return preview.documentType === "invoice" ? openInvoice(preview.paymentId) : openReceipt(preview.paymentId);
+  };
+
   const closePreview = () => {
     if (preview) URL.revokeObjectURL(preview.url);
     setPreview(null);
   };
 
-  return { preview, loadingId, openInvoice, openReceipt, closePreview };
+  return { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview };
 }

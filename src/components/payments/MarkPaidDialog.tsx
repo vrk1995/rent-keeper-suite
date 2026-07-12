@@ -60,7 +60,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
   const markPaid = useMarkPaymentPaid();
-  const { preview, openReceipt, closePreview } = usePdfPreview();
+  const { preview, openReceipt, refreshPreview, closePreview } = usePdfPreview();
 
   // Default the TDS toggle from the tenant's preference each time the dialog opens for a payment
   useEffect(() => {
@@ -308,7 +308,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     </Dialog>
     )}
 
-    <PdfPreviewDialog preview={preview} onClose={closePreview} />
+    <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
     </>
   );
 };
