@@ -41,6 +41,7 @@ import AddTenantDialog from "./AddTenantDialog";
 import VacateTenantDialog from "./VacateTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
+import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
 import { RentPayment } from "@/hooks/usePayments";
 import { paymentStatusConfig, invoiceStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
@@ -322,6 +323,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                                   Receipt
                                 </Button>
                               )}
+                              <UndoPaymentButton payment={payment} className="h-7" />
                               {payment.status !== "paid" && (
                                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setMarkPaidPayment(payment)}>
                                   <CheckCircle className="w-3 h-3 mr-1" />

@@ -266,6 +266,12 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
                 </Popover>
               </div>
             </div>
+            {invoiceId && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Due date is also printed as the invoice date on the invoice PDF, unless a paid
+                date is set below — in which case the paid date is used instead.
+              </p>
+            )}
 
             <div className="space-y-2">
               <Label>Paid / Receipt Date</Label>
@@ -306,7 +312,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                This is the date shown as the receipt date on the generated receipt PDF.
+                Shown as the receipt date on the receipt PDF{invoiceId ? ", and takes over from the due date as the invoice date once set" : ""}.
               </p>
             </div>
 

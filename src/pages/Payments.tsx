@@ -35,6 +35,7 @@ import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/us
 import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
+import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
 import { paymentStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { toast } from "sonner";
@@ -337,6 +338,7 @@ const Payments = () => {
                               Receipt
                             </Button>
                           )}
+                          <UndoPaymentButton payment={payment} />
                           {payment.status !== "paid" && (
                             <Button
                               variant="ghost"
@@ -418,6 +420,7 @@ const Payments = () => {
                           Receipt
                         </Button>
                       )}
+                      <UndoPaymentButton payment={payment} className="h-8" />
                       {payment.status !== "paid" && (
                         <Button
                           variant="ghost"

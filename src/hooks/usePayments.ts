@@ -311,6 +311,50 @@ export const useAdminUpdatePayment = () => {
   });
 };
 
+/** Admin-only "undo": deletes the recorded receipt (paid date/amount/method/notes/TDS) and
+ *  puts the payment back to pending/overdue so it can be recorded again from scratch. */
+export const useRevertPaymentToUnpaid = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data: existing, error: fetchError } = await supabase
+        .from("rent_payments")
+        .select("due_date")
+        .eq("id", id)
+        .single();
+      if (fetchError) throw fetchError;
+
+      const status = new Date(existing.due_date) < new Date() ? "overdue" : "pending";
+
+      const { data, error } = await supabase
+        .from("rent_payments")
+        .update({
+          status,
+          paid_date: null,
+          paid_amount: 0,
+          payment_method: null,
+          notes: null,
+          tds_applicable: false,
+          tds_amount: 0,
+          marked_by: null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to revert payment: " + error.message);
+    },
+  });
+};
+
 export const useDeletePayment = () => {
   const queryClient = useQueryClient();
 
