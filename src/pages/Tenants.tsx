@@ -92,7 +92,10 @@ const Tenants = () => {
       );
     }
     
-    return filtered;
+    // Active tenants first, vacated ones at the bottom.
+    return [...filtered].sort(
+      (a, b) => (a.status === "vacated" ? 1 : 0) - (b.status === "vacated" ? 1 : 0)
+    );
   }, [tenants, selectedOwnerId, selectedPropertyId, searchQuery, ownerSharesByTenant]);
 
   const handleTenantClick = (tenant: Tenant) => {
