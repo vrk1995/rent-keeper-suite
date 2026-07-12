@@ -60,7 +60,8 @@ const MobileBottomNav = () => {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="absolute bottom-16 left-0 right-0 bg-card border-t border-white/10 rounded-t-2xl p-4 pb-2"
+              className="absolute left-0 right-0 bg-card border-t border-white/10 rounded-t-2xl p-4 pb-2"
+              style={{ bottom: "calc(4rem + env(safe-area-inset-bottom, 0px))" }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-3 px-1">
