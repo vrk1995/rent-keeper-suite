@@ -6,6 +6,9 @@ export interface PdfPreviewState {
   url: string;
   title: string;
   fileName: string;
+  documentType: "invoice" | "receipt";
+  /** Only set for invoice previews, once the underlying invoice row has been resolved. */
+  invoiceId?: string;
 }
 
 /** Generates invoice/receipt PDFs and shows them in an in-app preview instead of a new tab. */
@@ -17,7 +20,8 @@ export function usePdfPreview() {
     fn: "generate-invoice-pdf" | "generate-receipt-pdf",
     paymentId: string,
     title: string,
-    fallbackFileName: string
+    fallbackFileName: string,
+    documentType: "invoice" | "receipt"
   ) => {
     setLoadingId(paymentId);
     try {
@@ -29,17 +33,42 @@ export function usePdfPreview() {
         url: base64ToPdfBlobUrl(data.pdf),
         title,
         fileName: data.filename || fallbackFileName,
+        documentType,
       });
+
+      if (documentType === "invoice") {
+        // Invoices aren't linked to payments by FK, so resolve the row the same way the
+        // rest of the app matches them: property + tenant + due date + amount. This lets
+        // the preview offer an Edit action once the invoice is found.
+        const { data: payment } = await supabase
+          .from("rent_payments")
+          .select("property_id, tenant_id, due_date, amount")
+          .eq("id", paymentId)
+          .maybeSingle();
+        if (payment) {
+          const { data: invoice } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("property_id", payment.property_id)
+            .eq("tenant_id", payment.tenant_id)
+            .eq("due_date", payment.due_date)
+            .eq("amount", payment.amount)
+            .maybeSingle();
+          if (invoice) {
+            setPreview((prev) => (prev ? { ...prev, invoiceId: invoice.id } : prev));
+          }
+        }
+      }
     } finally {
       setLoadingId(null);
     }
   };
 
   const openInvoice = (paymentId: string) =>
-    generate("generate-invoice-pdf", paymentId, "Invoice", "Invoice.pdf");
+    generate("generate-invoice-pdf", paymentId, "Invoice", "Invoice.pdf", "invoice");
 
   const openReceipt = (paymentId: string) =>
-    generate("generate-receipt-pdf", paymentId, "Receipt", "Receipt.pdf");
+    generate("generate-receipt-pdf", paymentId, "Receipt", "Receipt.pdf", "receipt");
 
   const closePreview = () => {
     if (preview) URL.revokeObjectURL(preview.url);

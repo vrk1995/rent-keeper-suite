@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Pencil } from "lucide-react";
 import { PdfPreviewState } from "@/hooks/usePdfPreview";
+import { useIsAdmin } from "@/hooks/useUserRole";
+import { EditInvoiceDialog } from "@/components/payments/EditInvoiceDialog";
 
 interface PdfPreviewDialogProps {
   preview: PdfPreviewState | null;
@@ -9,6 +12,9 @@ interface PdfPreviewDialogProps {
 }
 
 export function PdfPreviewDialog({ preview, onClose }: PdfPreviewDialogProps) {
+  const { isAdmin } = useIsAdmin();
+  const [editOpen, setEditOpen] = useState(false);
+
   const handleDownload = () => {
     if (!preview) return;
     const a = document.createElement("a");
@@ -17,22 +23,40 @@ export function PdfPreviewDialog({ preview, onClose }: PdfPreviewDialogProps) {
     a.click();
   };
 
+  const canEdit = isAdmin && preview?.documentType === "invoice" && !!preview.invoiceId;
+
   return (
-    <Dialog open={!!preview} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="p-0 gap-0 sm:max-w-3xl w-[calc(100%-2rem)] h-[85vh] flex flex-col overflow-hidden">
-        <DialogHeader className="flex-row items-center justify-between gap-3 p-4 pr-12 border-b space-y-0">
-          <DialogTitle className="text-base truncate">{preview?.title}</DialogTitle>
-          <Button size="sm" onClick={handleDownload} className="shrink-0">
-            <Download className="h-4 w-4 mr-1" />
-            Download
-          </Button>
-        </DialogHeader>
-        <div className="flex-1 bg-muted/30 overflow-hidden">
-          {preview && (
-            <iframe src={preview.url} title={preview.title} className="w-full h-full border-0" />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={!!preview} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="p-0 gap-0 sm:max-w-3xl w-[calc(100%-2rem)] h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-row items-center justify-between gap-3 p-4 pr-12 border-b space-y-0">
+            <DialogTitle className="text-base truncate">{preview?.title}</DialogTitle>
+            <div className="flex items-center gap-2 shrink-0">
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+              )}
+              <Button size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 bg-muted/30 overflow-hidden">
+            {preview && (
+              <iframe src={preview.url} title={preview.title} className="w-full h-full border-0" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <EditInvoiceDialog
+        invoiceId={preview?.invoiceId ?? null}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+    </>
   );
 }

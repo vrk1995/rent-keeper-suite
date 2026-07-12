@@ -111,6 +111,40 @@ export const useCreateInvoice = () => {
   });
 };
 
+export interface UpdateInvoiceInput {
+  id: string;
+  invoice_number?: string;
+  amount?: number;
+  due_date?: string;
+  status?: string;
+  notes?: string | null;
+}
+
+export const useUpdateInvoice = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateInvoiceInput) => {
+      const { data, error } = await supabase
+        .from("invoices")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      toast.success("Invoice updated!");
+    },
+    onError: (error) => {
+      toast.error("Failed to update invoice: " + error.message);
+    },
+  });
+};
+
 export const useUpdateInvoiceStatus = () => {
   const queryClient = useQueryClient();
 
