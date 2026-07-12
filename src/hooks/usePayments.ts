@@ -280,6 +280,37 @@ export const useGenerateMonthlyPayments = () => {
   });
 };
 
+export interface AdminUpdatePaymentInput {
+  id: string;
+  amount?: number;
+  due_date?: string;
+  paid_date?: string | null;
+  payment_method?: string | null;
+  notes?: string | null;
+}
+
+/** Direct field correction for admins — no toast of its own, callers combine it with any linked invoice update. */
+export const useAdminUpdatePayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: AdminUpdatePaymentInput) => {
+      const { data, error } = await supabase
+        .from("rent_payments")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+  });
+};
+
 export const useDeletePayment = () => {
   const queryClient = useQueryClient();
 

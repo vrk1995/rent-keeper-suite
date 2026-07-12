@@ -137,7 +137,6 @@ export const useUpdateInvoice = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      toast.success("Invoice updated!");
     },
     onError: (error) => {
       toast.error("Failed to update invoice: " + error.message);

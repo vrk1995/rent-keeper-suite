@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Pencil } from "lucide-react";
 import { PdfPreviewState } from "@/hooks/usePdfPreview";
 import { useIsAdmin } from "@/hooks/useUserRole";
-import { EditInvoiceDialog } from "@/components/payments/EditInvoiceDialog";
+import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 
 interface PdfPreviewDialogProps {
   preview: PdfPreviewState | null;
@@ -23,7 +23,10 @@ export function PdfPreviewDialog({ preview, onClose }: PdfPreviewDialogProps) {
     a.click();
   };
 
-  const canEdit = isAdmin && preview?.documentType === "invoice" && !!preview.invoiceId;
+  const canEdit =
+    isAdmin &&
+    !!preview?.paymentId &&
+    (preview.documentType === "receipt" || !!preview.invoiceId);
 
   return (
     <>
@@ -52,7 +55,8 @@ export function PdfPreviewDialog({ preview, onClose }: PdfPreviewDialogProps) {
         </DialogContent>
       </Dialog>
 
-      <EditInvoiceDialog
+      <EditPaymentDialog
+        paymentId={preview?.paymentId ?? null}
         invoiceId={preview?.invoiceId ?? null}
         open={editOpen}
         onOpenChange={setEditOpen}

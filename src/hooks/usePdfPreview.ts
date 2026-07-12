@@ -7,6 +7,7 @@ export interface PdfPreviewState {
   title: string;
   fileName: string;
   documentType: "invoice" | "receipt";
+  paymentId: string;
   /** Only set for invoice previews, once the underlying invoice row has been resolved. */
   invoiceId?: string;
 }
@@ -34,6 +35,7 @@ export function usePdfPreview() {
         title,
         fileName: data.filename || fallbackFileName,
         documentType,
+        paymentId,
       });
 
       if (documentType === "invoice") {
