@@ -32,11 +32,13 @@ import {
   BillingAddress,
 } from "@/hooks/useBillingAddresses";
 import { ErrorState } from "@/components/ui/error-state";
+import { BankAccountsSection } from "@/components/billing/BankAccountsSection";
 
 interface BillingAddressFormData {
   name: string;
   address: string;
   gstin: string;
+  pan: string;
   is_default: boolean;
 }
 
@@ -53,6 +55,7 @@ const BillingAddresses = () => {
     name: "",
     address: "",
     gstin: "",
+    pan: "",
     is_default: false,
   });
 
@@ -63,11 +66,12 @@ const BillingAddresses = () => {
         name: address.name,
         address: address.address || "",
         gstin: address.gstin || "",
+        pan: address.pan || "",
         is_default: address.is_default,
       });
     } else {
       setEditAddress(null);
-      setFormData({ name: "", address: "", gstin: "", is_default: false });
+      setFormData({ name: "", address: "", gstin: "", pan: "", is_default: false });
     }
     setDialogOpen(true);
   };
@@ -75,7 +79,7 @@ const BillingAddresses = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditAddress(null);
-    setFormData({ name: "", address: "", gstin: "", is_default: false });
+    setFormData({ name: "", address: "", gstin: "", pan: "", is_default: false });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,6 +92,7 @@ const BillingAddresses = () => {
         name: formData.name,
         address: formData.address || null,
         gstin: formData.gstin || null,
+        pan: formData.pan || null,
         is_default: formData.is_default,
       });
     } else {
@@ -95,6 +100,7 @@ const BillingAddresses = () => {
         name: formData.name,
         address: formData.address || undefined,
         gstin: formData.gstin || undefined,
+        pan: formData.pan || undefined,
         is_default: formData.is_default,
       });
     }
@@ -192,6 +198,13 @@ const BillingAddresses = () => {
                     <span className="font-mono">{address.gstin}</span>
                   </p>
                 )}
+                {address.pan && (
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">PAN:</span>{" "}
+                    <span className="font-mono">{address.pan}</span>
+                  </p>
+                )}
+                <BankAccountsSection billingAddressId={address.id} />
               </CardContent>
             </Card>
           ))}
@@ -237,6 +250,17 @@ const BillingAddresses = () => {
                 value={formData.gstin}
                 onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
                 maxLength={15}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pan">PAN</Label>
+              <Input
+                id="pan"
+                placeholder="e.g., AAAAA0000A"
+                value={formData.pan}
+                onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
+                maxLength={10}
               />
             </div>
 

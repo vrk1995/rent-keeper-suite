@@ -28,6 +28,10 @@ export interface Tenant {
   bill_from_name: string | null;
   bill_from_address: string | null;
   bill_from_gstin: string | null;
+  bill_from_pan: string | null;
+  bill_from_bank_name: string | null;
+  bill_from_account_number: string | null;
+  bill_from_ifsc: string | null;
   bill_to_name: string | null;
   bill_to_address: string | null;
   bill_to_gstin: string | null;
@@ -76,6 +80,10 @@ export interface CreateTenantInput {
   bill_from_name?: string;
   bill_from_address?: string;
   bill_from_gstin?: string;
+  bill_from_pan?: string;
+  bill_from_bank_name?: string;
+  bill_from_account_number?: string;
+  bill_from_ifsc?: string;
   bill_to_name?: string;
   bill_to_address?: string;
   bill_to_gstin?: string;

@@ -43,6 +43,7 @@ import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { useTenantFloorUnits, useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { useBillingAddresses, useCreateBillingAddress } from "@/hooks/useBillingAddresses";
+import { useBankAccounts } from "@/hooks/useBillingAddressBankAccounts";
 import { usePropertyOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { useTenantOwnerShares } from "@/hooks/useTenantOwnerShares";
 import { usePropertyOwners } from "@/hooks/usePropertyOwners";
@@ -78,6 +79,10 @@ const tenantSchema = z.object({
   bill_from_name: z.string().max(100).optional(),
   bill_from_address: z.string().max(500).optional(),
   bill_from_gstin: z.string().max(15).optional(),
+  bill_from_pan: z.string().max(10).optional(),
+  bill_from_bank_name: z.string().max(100).optional(),
+  bill_from_account_number: z.string().max(30).optional(),
+  bill_from_ifsc: z.string().max(11).optional(),
   bill_to_name: z.string().max(100).optional(),
   bill_to_address: z.string().max(500).optional(),
   bill_to_gstin: z.string().max(15).optional(),
@@ -103,7 +108,7 @@ const WIZARD_STEPS: { id: string; label: string; fields: (keyof TenantFormValues
   { id: "where", label: "Where", fields: ["assignment_type", "property_id", "unit_id", "floor_id", "floor_unit_ids", "owner_shares"] },
   { id: "who", label: "Who", fields: ["name", "email", "phone"] },
   { id: "rent", label: "Rent Terms", fields: ["monthly_rent", "rent_due_day", "rent_due_month_offset", "requires_gst", "tds_applicable"] },
-  { id: "billing", label: "Billing", fields: ["bill_from_name", "bill_from_address", "bill_from_gstin", "bill_to_name", "bill_to_address", "bill_to_gstin"] },
+  { id: "billing", label: "Billing", fields: ["bill_from_name", "bill_from_address", "bill_from_gstin", "bill_from_pan", "bill_from_bank_name", "bill_from_account_number", "bill_from_ifsc", "bill_to_name", "bill_to_address", "bill_to_gstin"] },
   { id: "dates", label: "Dates & Deposit", fields: ["move_in_date", "lease_start_date", "lease_end_date", "security_deposit", "rented_sqft"] },
 ];
 
@@ -136,6 +141,7 @@ const AddTenantDialog = ({
 
   const [saveAsNewAddress, setSaveAsNewAddress] = useState(false);
   const [selectedBillingAddressId, setSelectedBillingAddressId] = useState<string | null>(null);
+  const { data: bankAccounts } = useBankAccounts(selectedBillingAddressId || undefined);
   const [step, setStep] = useState(0);
 
   const getDefaultAssignmentType = () => {
@@ -173,6 +179,10 @@ const AddTenantDialog = ({
       form.setValue("bill_from_name", "");
       form.setValue("bill_from_address", "");
       form.setValue("bill_from_gstin", "");
+      form.setValue("bill_from_pan", "");
+      form.setValue("bill_from_bank_name", "");
+      form.setValue("bill_from_account_number", "");
+      form.setValue("bill_from_ifsc", "");
       return;
     }
 
@@ -182,6 +192,7 @@ const AddTenantDialog = ({
       form.setValue("bill_from_name", address.name);
       form.setValue("bill_from_address", address.address || "");
       form.setValue("bill_from_gstin", address.gstin || "");
+      form.setValue("bill_from_pan", address.pan || "");
     }
   };
 
@@ -261,6 +272,10 @@ const AddTenantDialog = ({
       bill_from_name: editTenant?.bill_from_name || "",
       bill_from_address: editTenant?.bill_from_address || "",
       bill_from_gstin: editTenant?.bill_from_gstin || "",
+      bill_from_pan: editTenant?.bill_from_pan || "",
+      bill_from_bank_name: editTenant?.bill_from_bank_name || "",
+      bill_from_account_number: editTenant?.bill_from_account_number || "",
+      bill_from_ifsc: editTenant?.bill_from_ifsc || "",
       bill_to_name: editTenant?.bill_to_name || "",
       bill_to_address: editTenant?.bill_to_address || "",
       bill_to_gstin: editTenant?.bill_to_gstin || "",
@@ -294,6 +309,19 @@ const AddTenantDialog = ({
       if (owner.name) form.setValue("bill_from_name", owner.name);
     }
   }, [selectedPropertyOwnerId, allPropertyOwners]);
+
+  // Auto-select the default bank account once the chosen billing address's accounts load
+  useEffect(() => {
+    if (!selectedBillingAddressId || !bankAccounts) return;
+    const currentAccountNumber = form.getValues("bill_from_account_number");
+    if (currentAccountNumber) return;
+    const defaultAccount = bankAccounts.find(a => a.is_default) || bankAccounts[0];
+    if (defaultAccount) {
+      form.setValue("bill_from_bank_name", defaultAccount.bank_name);
+      form.setValue("bill_from_account_number", defaultAccount.account_number);
+      form.setValue("bill_from_ifsc", defaultAccount.ifsc);
+    }
+  }, [selectedBillingAddressId, bankAccounts]);
 
   // Sync move_in_date with lease_start_date when creating new tenant
   const watchedLeaseStartDate = form.watch("lease_start_date");
@@ -406,6 +434,10 @@ const AddTenantDialog = ({
         bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
         bill_from_address: editTenant?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
         bill_from_gstin: editTenant?.bill_from_gstin || pf?.bill_from_gstin || defaultBillingAddress?.gstin || "",
+        bill_from_pan: editTenant?.bill_from_pan || pf?.bill_from_pan || defaultBillingAddress?.pan || "",
+        bill_from_bank_name: editTenant?.bill_from_bank_name || pf?.bill_from_bank_name || "",
+        bill_from_account_number: editTenant?.bill_from_account_number || pf?.bill_from_account_number || "",
+        bill_from_ifsc: editTenant?.bill_from_ifsc || pf?.bill_from_ifsc || "",
         bill_to_name: editTenant?.bill_to_name || "",
         bill_to_address: editTenant?.bill_to_address || "",
         bill_to_gstin: editTenant?.bill_to_gstin || "",
@@ -427,6 +459,7 @@ const AddTenantDialog = ({
             name: values.bill_from_name,
             address: values.bill_from_address || undefined,
             gstin: values.bill_from_gstin || undefined,
+            pan: values.bill_from_pan || undefined,
           });
         } catch (error) {
           // Continue even if saving billing address fails
@@ -463,6 +496,10 @@ const AddTenantDialog = ({
       bill_from_name: values.bill_from_name || undefined,
       bill_from_address: values.bill_from_address || undefined,
       bill_from_gstin: values.bill_from_gstin || undefined,
+      bill_from_pan: values.bill_from_pan || undefined,
+      bill_from_bank_name: values.bill_from_bank_name || undefined,
+      bill_from_account_number: values.bill_from_account_number || undefined,
+      bill_from_ifsc: values.bill_from_ifsc || undefined,
       bill_to_name: values.bill_to_name || undefined,
       bill_to_address: values.bill_to_address || undefined,
       bill_to_gstin: values.bill_to_gstin || undefined,
@@ -1159,6 +1196,111 @@ const AddTenantDialog = ({
                               }
                             }}
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bill_from_pan"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PAN (if applicable)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="AAAAA0000A"
+                            maxLength={10}
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e.target.value.toUpperCase());
+                              if (selectedBillingAddressId) {
+                                setSelectedBillingAddressId(null);
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Bank account picker — offers the saved billing address's accounts,
+                      but the fields below stay directly editable per tenant. */}
+                  {selectedBillingAddressId && bankAccounts && bankAccounts.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm">Bank Account</Label>
+                      <Select
+                        value={
+                          bankAccounts.find(
+                            (a) =>
+                              a.account_number === form.watch("bill_from_account_number") &&
+                              a.ifsc === form.watch("bill_from_ifsc")
+                          )?.id || ""
+                        }
+                        onValueChange={(accountId) => {
+                          const account = bankAccounts.find((a) => a.id === accountId);
+                          if (account) {
+                            form.setValue("bill_from_bank_name", account.bank_name);
+                            form.setValue("bill_from_account_number", account.account_number);
+                            form.setValue("bill_from_ifsc", account.ifsc);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a saved bank account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bankAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.bank_name} •••• {account.account_number.slice(-4)}
+                              {account.is_default ? " (Default)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="bill_from_bank_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bank Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., HDFC Bank" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="bill_from_ifsc"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IFSC Code</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="HDFC0000123"
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="bill_from_account_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bank account number" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

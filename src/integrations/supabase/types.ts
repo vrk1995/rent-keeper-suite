@@ -22,6 +22,7 @@ export type Database = {
           id: string
           is_default: boolean | null
           name: string
+          pan: string | null
           updated_at: string
           user_id: string
         }
@@ -32,6 +33,7 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name: string
+          pan?: string | null
           updated_at?: string
           user_id: string
         }
@@ -42,10 +44,55 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           name?: string
+          pan?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      billing_address_bank_accounts: {
+        Row: {
+          account_number: string
+          bank_name: string
+          billing_address_id: string
+          created_at: string
+          id: string
+          ifsc: string
+          is_default: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number: string
+          bank_name: string
+          billing_address_id: string
+          created_at?: string
+          id?: string
+          ifsc: string
+          is_default?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_number?: string
+          bank_name?: string
+          billing_address_id?: string
+          created_at?: string
+          id?: string
+          ifsc?: string
+          is_default?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_address_bank_accounts_billing_address_id_fkey"
+            columns: ["billing_address_id"]
+            isOneToOne: false
+            referencedRelation: "billing_addresses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       buildings: {
         Row: {
@@ -1200,9 +1247,13 @@ export type Database = {
       }
       tenants: {
         Row: {
+          bill_from_account_number: string | null
           bill_from_address: string | null
+          bill_from_bank_name: string | null
           bill_from_gstin: string | null
+          bill_from_ifsc: string | null
           bill_from_name: string | null
+          bill_from_pan: string | null
           bill_to_address: string | null
           bill_to_gstin: string | null
           bill_to_name: string | null
@@ -1231,9 +1282,13 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          bill_from_account_number?: string | null
           bill_from_address?: string | null
+          bill_from_bank_name?: string | null
           bill_from_gstin?: string | null
+          bill_from_ifsc?: string | null
           bill_from_name?: string | null
+          bill_from_pan?: string | null
           bill_to_address?: string | null
           bill_to_gstin?: string | null
           bill_to_name?: string | null
@@ -1262,9 +1317,13 @@ export type Database = {
           workspace_id?: string
         }
         Update: {
+          bill_from_account_number?: string | null
           bill_from_address?: string | null
+          bill_from_bank_name?: string | null
           bill_from_gstin?: string | null
+          bill_from_ifsc?: string | null
           bill_from_name?: string | null
+          bill_from_pan?: string | null
           bill_to_address?: string | null
           bill_to_gstin?: string | null
           bill_to_name?: string | null

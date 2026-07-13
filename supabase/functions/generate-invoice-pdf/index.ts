@@ -47,6 +47,10 @@ serve(async (req: Request): Promise<Response> => {
           bill_from_name,
           bill_from_address,
           bill_from_gstin,
+          bill_from_pan,
+          bill_from_bank_name,
+          bill_from_account_number,
+          bill_from_ifsc,
           bill_to_name,
           bill_to_address,
           bill_to_gstin
@@ -68,6 +72,16 @@ serve(async (req: Request): Promise<Response> => {
 
     const tenant = payment.tenant;
     const property = payment.property;
+
+    // Fetch corp/unit numbers assigned to this tenant, if any
+    const { data: tenantUnits } = await supabase
+      .from("tenant_floor_units")
+      .select("floor_units(corp_number)")
+      .eq("tenant_id", payment.tenant_id);
+    const corpNumbers = (tenantUnits || [])
+      .map((u: any) => u.floor_units?.corp_number)
+      .filter(Boolean);
+    const corpNumberText = corpNumbers.join(", ");
 
     // Check if an invoice already exists for this payment
     const { data: existingInvoice } = await supabase
@@ -294,6 +308,12 @@ serve(async (req: Request): Promise<Response> => {
       yPos -= 12;
     }
 
+    const billFromPan = tenant?.bill_from_pan || "";
+    if (billFromPan) {
+      drawText(`PAN: ${billFromPan}`, leftMargin, yPos, fontRegular, 10, grayColor);
+      yPos -= 12;
+    }
+
     // BILL TO section (on the right) - calculate starting Y position
     // Start Bill To at the same level as Bill From started
     let billToYPos = height - 50 - 50 - 30 - 18;
@@ -329,12 +349,18 @@ serve(async (req: Request): Promise<Response> => {
     drawText(`Property: ${property?.name || "N/A"}`, leftMargin, yPos, fontRegular, 10);
     yPos -= 12;
     drawText(`Address: ${property?.address || "N/A"}`, leftMargin, yPos, fontRegular, 10, grayColor);
-    yPos -= 25;
+    yPos -= 12;
+    if (corpNumberText) {
+      drawText(`Corp No: ${corpNumberText}`, leftMargin, yPos, fontRegular, 10, grayColor);
+      yPos -= 12;
+    }
+    yPos -= 13;
 
     // Invoice Items Table
     const tableTop = yPos;
-    const tableHeaders = ["Description", "Amount (INR)"];
-    const colWidths = [350, 145];
+    const tableHeaders = ["Description", "HSN/SAC", "Amount (INR)"];
+    const colWidths = [270, 80, 145];
+    const HSN_SAC_CODE = "997212"; // Renting of Immovable Property
     
     // Draw table header background
     page.drawRectangle({
@@ -373,19 +399,27 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     // Draw items - split by owner if multiple owners exist
+    const serviceCategoryLine = `Service Category: "Renting of Immovable Property"`;
     if (ownerShares.length > 1) {
       // Multiple owners - show individual line items for each owner
       for (const share of ownerShares) {
         const ownerAmount = baseAmount * (share.share_percentage / 100);
-        drawText(`Rent for ${periodMonth} - ${share.owner_name} (${share.share_percentage}%)`, leftMargin + 10, yPos, fontRegular, 10);
-        drawText(formatCurrency(ownerAmount), leftMargin + 360, yPos, fontRegular, 10);
-        yPos -= 20;
+        drawText(serviceCategoryLine, leftMargin + 10, yPos, fontRegular, 9);
+        drawText(
+          `For the month of ${periodMonth} - ${share.owner_name} (${share.share_percentage}%)`,
+          leftMargin + 10, yPos - 12, fontRegular, 9, grayColor
+        );
+        drawText(HSN_SAC_CODE, leftMargin + 280, yPos - 6, fontRegular, 10);
+        drawText(formatCurrency(ownerAmount), leftMargin + 360, yPos - 6, fontRegular, 10);
+        yPos -= 32;
       }
     } else {
       // Single owner or no owner shares - show single line item
-      drawText(`Rent for ${periodMonth}`, leftMargin + 10, yPos, fontRegular, 10);
-      drawText(formatCurrency(baseAmount), leftMargin + 360, yPos, fontRegular, 10);
-      yPos -= 20;
+      drawText(serviceCategoryLine, leftMargin + 10, yPos, fontRegular, 9);
+      drawText(`For the month of ${periodMonth}`, leftMargin + 10, yPos - 12, fontRegular, 9, grayColor);
+      drawText(HSN_SAC_CODE, leftMargin + 280, yPos - 6, fontRegular, 10);
+      drawText(formatCurrency(baseAmount), leftMargin + 360, yPos - 6, fontRegular, 10);
+      yPos -= 32;
     }
 
     if (requiresGst) {
@@ -411,6 +445,28 @@ serve(async (req: Request): Promise<Response> => {
     const amountInWords = numberToWords(Math.round(totalAmount));
     drawText(`Amount in words: ${amountInWords} Rupees Only`, leftMargin, yPos, fontRegular, 9, grayColor);
     yPos -= 40;
+
+    // Bank Details for Payment
+    const bankName = tenant?.bill_from_bank_name || "";
+    const bankAccountNumber = tenant?.bill_from_account_number || "";
+    const bankIfsc = tenant?.bill_from_ifsc || "";
+    if (bankName || bankAccountNumber || bankIfsc) {
+      drawText("BANK DETAILS FOR PAYMENT", leftMargin, yPos, fontBold, 10, primaryColor);
+      yPos -= 14;
+      if (bankName) {
+        drawText(`Bank Name: ${bankName}`, leftMargin, yPos, fontRegular, 9, grayColor);
+        yPos -= 12;
+      }
+      if (bankAccountNumber) {
+        drawText(`Account Number: ${bankAccountNumber}`, leftMargin, yPos, fontRegular, 9, grayColor);
+        yPos -= 12;
+      }
+      if (bankIfsc) {
+        drawText(`IFSC Code: ${bankIfsc}`, leftMargin, yPos, fontRegular, 9, grayColor);
+        yPos -= 12;
+      }
+      yPos -= 10;
+    }
 
     // Payment Status
     if (payment.status === "paid") {
@@ -442,7 +498,9 @@ serve(async (req: Request): Promise<Response> => {
     drawLine(leftMargin, yPos, rightMargin, yPos);
     yPos -= 20;
     drawText("Thank you for your business!", leftMargin, yPos, fontRegular, 10, grayColor);
-    drawText("This is a computer-generated invoice.", width / 2 - 80, yPos - 15, fontRegular, 8, grayColor);
+    const signatureText = "This is a computer-generated invoice and does not require a signature.";
+    const signatureTextWidth = fontRegular.widthOfTextAtSize(signatureText, 9);
+    drawText(signatureText, (width - signatureTextWidth) / 2, yPos - 18, fontRegular, 9, grayColor);
 
     // Generate PDF bytes
     const pdfBytes = await pdfDoc.save();

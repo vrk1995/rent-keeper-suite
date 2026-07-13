@@ -8,6 +8,7 @@ export interface BillingAddress {
   name: string;
   address: string | null;
   gstin: string | null;
+  pan: string | null;
   is_default: boolean;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,7 @@ export interface CreateBillingAddressInput {
   name: string;
   address?: string;
   gstin?: string;
+  pan?: string;
   is_default?: boolean;
 }
 
