@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users, Search } from "lucide-react";
+import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -36,8 +36,11 @@ import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
+import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 import { paymentStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
+import { useIsAdmin } from "@/hooks/useTeam";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/ui/error-state";
 
@@ -76,6 +79,9 @@ const Payments = () => {
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
+  const { isAdmin } = useIsAdmin();
+  const [editPayment, setEditPayment] = useState<{ paymentId: string; invoiceId: string | null } | null>(null);
+  const [resolvingEditId, setResolvingEditId] = useState<string | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -116,6 +122,30 @@ const Payments = () => {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice: " + error.message);
     });
+  };
+
+  // Resolve the invoice (if any) currently matching this payment's due_date/amount so the
+  // two stay in sync — invoices are matched to payments by these fields, not a foreign key.
+  const handleEditPayment = async (payment: RentPayment) => {
+    setResolvingEditId(payment.id);
+    try {
+      const { data: invoice, error } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("property_id", payment.property_id)
+        .eq("tenant_id", payment.tenant_id)
+        .eq("due_date", payment.due_date)
+        .eq("amount", payment.amount)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setEditPayment({ paymentId: payment.id, invoiceId: invoice?.id ?? null });
+    } catch (error: any) {
+      toast.error("Failed to open editor: " + error.message);
+    } finally {
+      setResolvingEditId(null);
+    }
   };
 
   const handleDownloadReceipt = (paymentId: string) => {
@@ -299,7 +329,27 @@ const Payments = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
-                        <TableCell>{format(new Date(payment.due_date), "MMM d, yyyy")}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {format(new Date(payment.due_date), "MMM d, yyyy")}
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                aria-label="Edit due date"
+                                onClick={() => handleEditPayment(payment)}
+                                disabled={resolvingEditId === payment.id}
+                              >
+                                {resolvingEditId === payment.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Pencil className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={paymentStatusConfig[payment.status]?.variant || "secondary"}>
                             <StatusIcon className="w-3 h-3 mr-1" />
@@ -386,7 +436,25 @@ const Payments = () => {
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                      <span>Due: {format(new Date(payment.due_date), "MMM d, yyyy")}</span>
+                      <span className="flex items-center gap-1">
+                        Due: {format(new Date(payment.due_date), "MMM d, yyyy")}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            aria-label="Edit due date"
+                            onClick={() => handleEditPayment(payment)}
+                            disabled={resolvingEditId === payment.id}
+                          >
+                            {resolvingEditId === payment.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Pencil className="h-3 w-3" />
+                            )}
+                          </Button>
+                        )}
+                      </span>
                       {payment.paid_date && <span>Paid: {format(new Date(payment.paid_date), "MMM d")}</span>}
                     </div>
                     <div className="flex gap-2 border-t border-white/5 pt-2">
@@ -487,6 +555,13 @@ const Payments = () => {
       />
 
       <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
+
+      <EditPaymentDialog
+        paymentId={editPayment?.paymentId ?? null}
+        invoiceId={editPayment?.invoiceId ?? undefined}
+        open={!!editPayment}
+        onOpenChange={(open) => !open && setEditPayment(null)}
+      />
     </div>
   );
 };
