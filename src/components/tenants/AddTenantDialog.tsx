@@ -587,9 +587,26 @@ const AddTenantDialog = ({
 
   const isLastStep = step === WIZARD_STEPS.length - 1;
 
+  // Guards against a mobile double-tap/ghost-click landing on the submit button the
+  // instant it appears in the same spot the "Next" button just occupied — briefly
+  // disabling it right after arriving at the last step closes that window.
+  const [justArrivedAtLastStep, setJustArrivedAtLastStep] = useState(false);
+  const arrivalGuardTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    return () => clearTimeout(arrivalGuardTimeoutRef.current);
+  }, []);
+
   const handleNext = async () => {
     const valid = await form.trigger(WIZARD_STEPS[step].fields);
-    if (valid) setStep((s) => Math.min(s + 1, WIZARD_STEPS.length - 1));
+    if (!valid) return;
+    const nextStep = Math.min(step + 1, WIZARD_STEPS.length - 1);
+    setStep(nextStep);
+    if (nextStep === WIZARD_STEPS.length - 1) {
+      setJustArrivedAtLastStep(true);
+      clearTimeout(arrivalGuardTimeoutRef.current);
+      arrivalGuardTimeoutRef.current = setTimeout(() => setJustArrivedAtLastStep(false), 500);
+    }
   };
 
   const handleBack = () => setStep((s) => Math.max(s - 1, 0));
@@ -1585,7 +1602,7 @@ const AddTenantDialog = ({
                   <Button
                     type="submit"
                     variant="hero"
-                    disabled={createTenant.isPending || updateTenant.isPending}
+                    disabled={createTenant.isPending || updateTenant.isPending || justArrivedAtLastStep}
                   >
                     {editTenant ? "Update Tenant" : "Add Tenant"}
                   </Button>
