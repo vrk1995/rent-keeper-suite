@@ -64,7 +64,7 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
   };
 
   const handleAdd = () => {
-    if (!incrementValue || !nextDate) return;
+    if (!incrementValue || !nextDate || !intervalMonths || parseInt(intervalMonths) < 1) return;
     createIncrement.mutate(
       {
         tenant_id: tenantId,
@@ -217,16 +217,18 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
                     </div>
                   </div>
                   <div>
-                    <Label>Interval</Label>
-                    <Select value={intervalMonths} onValueChange={setIntervalMonths}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="6">Every 6 months</SelectItem>
-                        <SelectItem value="12">Every 12 months</SelectItem>
-                        <SelectItem value="24">Every 24 months</SelectItem>
-                        <SelectItem value="36">Every 36 months</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Interval (months)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      placeholder="e.g. 11"
+                      value={intervalMonths}
+                      onChange={(e) => setIntervalMonths(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      How many months between increments — e.g. 11, 12, 24
+                    </p>
                   </div>
                   <div>
                     <Label>Next Increment Date</Label>
