@@ -26,6 +26,7 @@ import { formatINR } from "@/lib/currency";
 import { Tenant } from "@/hooks/useTenants";
 import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
 import { PropertyOwnerShare } from "@/hooks/usePropertyOwnerShares";
+import { useIsAdmin } from "@/hooks/useTeam";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +46,7 @@ const Properties = () => {
   const { selectedOwnerId } = useOwnerFilter();
   const deleteProperty = useDeleteProperty();
   const deleteUnit = useDeleteUnit();
+  const { isAdmin } = useIsAdmin();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -398,10 +400,12 @@ const Properties = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Properties</h1>
           <p className="text-sm md:text-base text-muted-foreground">Manage your rental properties and units</p>
         </div>
-        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Property
-        </Button>
+        {isAdmin && (
+          <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Property
+          </Button>
+        )}
       </div>
 
       {/* Rent Summary Cards */}
@@ -506,10 +510,12 @@ const Properties = () => {
           <p className="text-muted-foreground mb-4">
             Add your first property to start tracking rents
           </p>
-          <Button variant="hero" onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Property
-          </Button>
+          {isAdmin && (
+            <Button variant="hero" onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Property
+            </Button>
+          )}
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 gap-4">

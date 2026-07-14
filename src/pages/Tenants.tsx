@@ -125,10 +125,12 @@ const Tenants = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Tenants</h1>
           <p className="text-sm md:text-base text-muted-foreground">Manage your tenants and leases</p>
         </div>
-        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Tenant
-        </Button>
+        {isAdmin && (
+          <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Tenant
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -178,10 +180,12 @@ const Tenants = () => {
           <p className="text-muted-foreground mb-4">
             Add your first tenant to start tracking leases
           </p>
-          <Button variant="hero" onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Tenant
-          </Button>
+          {isAdmin && (
+            <Button variant="hero" onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Tenant
+            </Button>
+          )}
         </motion.div>
       ) : (
         <motion.div
@@ -217,7 +221,8 @@ const Tenants = () => {
                       <Badge variant={leaseStatus.variant}>
                         {leaseStatus.label}
                       </Badge>
-                      <Button
+                      {isAdmin && (
+                        <Button
                           variant="ghost"
                           size="icon"
                           aria-label="Rent increments"
@@ -230,6 +235,7 @@ const Tenants = () => {
                         >
                           <TrendingUp className="h-4 w-4" />
                         </Button>
+                      )}
                       {isAdmin && (
                         <Button
                           variant="ghost"

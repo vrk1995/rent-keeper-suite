@@ -38,6 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useReminders, useCreateReminder, useCompleteReminder, useDeleteReminder } from "@/hooks/useReminders";
 import { useProperties } from "@/hooks/useProperties";
 import { ErrorState } from "@/components/ui/error-state";
+import { useIsAdmin } from "@/hooks/useTeam";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Trash2 } from "lucide-react";
 
@@ -61,6 +62,7 @@ const Reminders = () => {
   const createReminder = useCreateReminder();
   const completeReminder = useCompleteReminder();
   const deleteReminder = useDeleteReminder();
+  const { isAdmin } = useIsAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -117,10 +119,12 @@ const Reminders = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Reminders</h1>
           <p className="text-sm md:text-base text-muted-foreground">Stay on top of important dates</p>
         </div>
-        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Reminder
-        </Button>
+        {isAdmin && (
+          <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Reminder
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -164,10 +168,12 @@ const Reminders = () => {
           <p className="text-muted-foreground mb-4">
             Set up reminders for rent due dates, lease renewals, and more
           </p>
-          <Button variant="hero" onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Reminder
-          </Button>
+          {isAdmin && (
+            <Button variant="hero" onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Reminder
+            </Button>
+          )}
         </motion.div>
       ) : (
         <div className="space-y-6">
@@ -189,6 +195,7 @@ const Reminders = () => {
                       <Checkbox
                         checked={reminder.is_completed}
                         onCheckedChange={() => handleComplete(reminder.id)}
+                        disabled={!isAdmin}
                         className="shrink-0"
                       />
                       <div className="flex-1">
@@ -211,14 +218,16 @@ const Reminders = () => {
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Delete reminder"
-                        onClick={() => setDeleteReminderId(reminder.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Delete reminder"
+                          onClick={() => setDeleteReminderId(reminder.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>

@@ -34,6 +34,7 @@ import {
 import { useDocuments, useUploadDocument, useDeleteDocument, Document } from "@/hooks/useDocuments";
 import { useProperties } from "@/hooks/useProperties";
 import { ErrorState } from "@/components/ui/error-state";
+import { useIsAdmin } from "@/hooks/useTeam";
 
 const documentTypeLabels: Record<string, string> = {
   lease: "Lease Agreement",
@@ -49,6 +50,7 @@ const Documents = () => {
   const { data: properties } = useProperties();
   const uploadDocument = useUploadDocument();
   const deleteDocument = useDeleteDocument();
+  const { isAdmin } = useIsAdmin();
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
@@ -105,10 +107,12 @@ const Documents = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Documents</h1>
           <p className="text-sm md:text-base text-muted-foreground">Store and manage property documents</p>
         </div>
-        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
-          <Upload className="w-4 h-4 mr-2" />
-          Upload Document
-        </Button>
+        {isAdmin && (
+          <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-md">
@@ -142,10 +146,12 @@ const Documents = () => {
           <p className="text-muted-foreground mb-4">
             Upload lease agreements, ID proofs, and more
           </p>
-          <Button variant="hero" onClick={() => setDialogOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" />
-            Upload Document
-          </Button>
+          {isAdmin && (
+            <Button variant="hero" onClick={() => setDialogOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Document
+            </Button>
+          )}
         </motion.div>
       ) : (
         <motion.div
@@ -184,9 +190,11 @@ const Documents = () => {
                           <Download className="w-4 h-4" />
                         </a>
                       </Button>
-                      <Button variant="ghost" size="icon" aria-label="Delete document" onClick={() => setDeleteDocumentData(doc)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" aria-label="Delete document" onClick={() => setDeleteDocumentData(doc)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

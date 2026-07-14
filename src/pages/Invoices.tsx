@@ -185,10 +185,12 @@ const Invoices = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Invoices</h1>
           <p className="text-sm md:text-base text-muted-foreground">Create and manage rent invoices</p>
         </div>
-        <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Ad-hoc Invoice
-        </Button>
+        {isAdmin && (
+          <Button variant="hero" size="sm" className="w-fit" onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Ad-hoc Invoice
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -333,7 +335,7 @@ const Invoices = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {invoice.status === "draft" && (
+                            {invoice.status === "draft" && isAdmin && (
                               <Button variant="ghost" size="sm" onClick={() => handleSendInvoice(invoice.id)}>
                                 <Send className="w-4 h-4 mr-1" />
                                 Send
@@ -379,7 +381,7 @@ const Invoices = () => {
                       <span className="text-xs text-muted-foreground">Due: {format(new Date(invoice.due_date), "MMM d, yyyy")}</span>
                     </div>
                     <div className="flex gap-2 border-t border-white/5 pt-2">
-                      {invoice.status === "draft" && (
+                      {invoice.status === "draft" && isAdmin && (
                         <Button variant="ghost" size="sm" className="flex-1 h-8 text-xs" onClick={() => handleSendInvoice(invoice.id)}>
                           <Send className="w-3 h-3 mr-1" />
                           Send

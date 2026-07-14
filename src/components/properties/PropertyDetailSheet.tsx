@@ -323,10 +323,12 @@ export function PropertyDetailSheet({
                     <p className="text-sm text-muted-foreground">Total Tenants</p>
                     <p className="text-xl font-bold">{tenants.length}</p>
                   </div>
-                  <Button size="sm" onClick={() => setTenantDialogOpen(true)}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Tenant
-                  </Button>
+                  {isAdmin && !roleLoading && (
+                    <Button size="sm" onClick={() => setTenantDialogOpen(true)}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Tenant
+                    </Button>
+                  )}
                 </div>
 
                 {tenants.length === 0 ? (
@@ -497,7 +499,9 @@ export function PropertyDetailSheet({
                     <p className="text-sm text-muted-foreground">Total Documents</p>
                     <p className="text-xl font-bold">{documents?.length || 0}</p>
                   </div>
-                  <UploadDocumentDialog propertyId={property.id} tenants={tenants} />
+                  {isAdmin && !roleLoading && (
+                    <UploadDocumentDialog propertyId={property.id} tenants={tenants} />
+                  )}
                 </div>
 
                 {(!documents || documents.length === 0) ? (
@@ -539,14 +543,16 @@ export function PropertyDetailSheet({
                                     View
                                   </a>
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label="Delete document"
-                                  onClick={() => setDeleteDocumentData({ id: doc.id, file_url: doc.file_url, name: doc.name })}
-                                >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
+                                {isAdmin && !roleLoading && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Delete document"
+                                    onClick={() => setDeleteDocumentData({ id: doc.id, file_url: doc.file_url, name: doc.name })}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </CardContent>

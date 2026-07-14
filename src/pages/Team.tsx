@@ -61,7 +61,7 @@ const roleConfig: Record<AppRole, { label: string; icon: React.ElementType; colo
     label: "Member",
     icon: UserCog,
     color: "text-blue-500",
-    description: "Can manage properties, tenants, and payments"
+    description: "Can record payments and view/download invoices; cannot add or edit properties, tenants, or other setup data"
   },
   viewer: {
     label: "Viewer",

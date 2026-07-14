@@ -45,6 +45,7 @@ import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
 import { RentPayment } from "@/hooks/usePayments";
 import { paymentStatusConfig, invoiceStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
+import { useIsAdmin } from "@/hooks/useTeam";
 
 interface TenantDetailSheetProps {
   tenant: Tenant | null;
@@ -53,6 +54,7 @@ interface TenantDetailSheetProps {
 }
 
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
+  const { isAdmin } = useIsAdmin();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
@@ -218,18 +220,20 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                   )}
                 </p>
               </div>
-              <div className="flex gap-2">
-                {tenant.status !== "vacated" && (
-                  <Button variant="outline" size="sm" onClick={() => setVacateDialogOpen(true)}>
-                    <LogOut className="w-4 h-4 mr-1" />
-                    Vacate
+              {isAdmin && (
+                <div className="flex gap-2">
+                  {tenant.status !== "vacated" && (
+                    <Button variant="outline" size="sm" onClick={() => setVacateDialogOpen(true)}>
+                      <LogOut className="w-4 h-4 mr-1" />
+                      Vacate
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+                    <Settings className="w-4 h-4 mr-1" />
+                    Edit
                   </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
-                  <Settings className="w-4 h-4 mr-1" />
-                  Edit
-                </Button>
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Summary cards */}

@@ -6,6 +6,7 @@ import { PropertyFloor } from "@/hooks/usePropertyFloors";
 import { PropertyOwnerShare } from "@/hooks/usePropertyOwnerShares";
 import { MapPin, Edit, Trash2, Layers, Square, ChevronDown, ChevronRight, IndianRupee, Users } from "lucide-react";
 import { useState } from "react";
+import { useIsAdmin } from "@/hooks/useTeam";
 import {
   Collapsible,
   CollapsibleContent,
@@ -58,6 +59,7 @@ const PropertyCard = ({
   onDelete, 
   onViewTenants,
 }: PropertyCardProps) => {
+  const { isAdmin } = useIsAdmin();
   const [floorExpanded, setFloorExpanded] = useState(floors.length > 0);
   const totalSqft = property.total_sqft || 0;
   const utilizationPercent = totalSqft > 0 ? Math.min(100, (rentedSqft / totalSqft) * 100) : 0;
@@ -150,30 +152,32 @@ const PropertyCard = ({
               )}
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Edit property"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(property);
-              }}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Delete property"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(property.id);
-              }}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Edit property"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(property);
+                }}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Delete property"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(property.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       

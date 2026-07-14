@@ -28,12 +28,14 @@ import { useMemo, useState } from "react";
 import AddPropertyDialog from "@/components/properties/AddPropertyDialog";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
+import { useIsAdmin } from "@/hooks/useTeam";
 
 const DashboardOverview = () => {
   const navigate = useNavigate();
   const { data: properties = [], isLoading: propertiesLoading, isError: propertiesError, refetch: refetchProperties } = useProperties();
   const { data: tenants = [], isLoading: tenantsLoading, isError: tenantsError, refetch: refetchTenants } = useTenants();
   const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError, refetch: refetchPayments } = usePayments();
+  const { isAdmin } = useIsAdmin();
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [addTenantOpen, setAddTenantOpen] = useState(false);
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
@@ -143,16 +145,18 @@ const DashboardOverview = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Dashboard</h1>
           <p className="text-sm md:text-base text-muted-foreground">Welcome back! Here's your rental overview.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="w-fit" onClick={() => setAddTenantOpen(true)}>
-            <UserPlus className="w-4 h-4 mr-2" />
-            Add Tenant
-          </Button>
-          <Button variant="hero" size="sm" className="w-fit" onClick={() => setAddPropertyOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Property
-          </Button>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="w-fit" onClick={() => setAddTenantOpen(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Tenant
+            </Button>
+            <Button variant="hero" size="sm" className="w-fit" onClick={() => setAddPropertyOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Property
+            </Button>
+          </div>
+        )}
       </div>
 
       {isError ? (
