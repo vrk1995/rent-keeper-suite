@@ -1600,9 +1600,10 @@ const AddTenantDialog = ({
                 </Button>
                 {isLastStep ? (
                   <Button
-                    type="submit"
+                    type="button"
                     variant="hero"
                     disabled={createTenant.isPending || updateTenant.isPending || justArrivedAtLastStep}
+                    onClick={form.handleSubmit(onSubmit)}
                   >
                     {editTenant ? "Update Tenant" : "Add Tenant"}
                   </Button>
