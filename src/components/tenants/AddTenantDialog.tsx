@@ -576,7 +576,7 @@ const AddTenantDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editTenant ? "Edit Tenant" : "Add New Tenant"}</DialogTitle>
+          <DialogTitle>{editTenant ? `Edit Tenant - ${editTenant.name}` : "Add New Tenant"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2 pb-2">
