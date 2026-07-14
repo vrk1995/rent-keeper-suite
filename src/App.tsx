@@ -12,6 +12,7 @@ import SetPassword from "./pages/SetPassword";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import { getCanonicalCallbackUrl, getCanonicalHashRouteUrl, isCanonicalAppHost } from "@/lib/authRedirect";
+import { useEdgeSwipeToClose } from "@/hooks/useEdgeSwipeToClose";
 
 const queryClient = new QueryClient();
 
@@ -118,15 +119,19 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Sonner />
-      <ErrorBoundary>
-        <AppRoutes />
-      </ErrorBoundary>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEdgeSwipeToClose();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Sonner />
+        <ErrorBoundary>
+          <AppRoutes />
+        </ErrorBoundary>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
