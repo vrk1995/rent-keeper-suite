@@ -200,7 +200,10 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-[700px] w-full overflow-y-auto p-0">
-          <SheetHeader className="p-6 pb-4 border-b border-border">
+          <SheetHeader
+            className="p-6 pb-4 border-b border-border safe-area-top"
+            style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))" }}
+          >
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">

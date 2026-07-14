@@ -209,7 +209,10 @@ export function PropertyDetailSheet({
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-2xl w-full p-0">
-          <SheetHeader className="p-6 pb-4 border-b">
+          <SheetHeader
+            className="p-6 pb-4 border-b safe-area-top"
+            style={{ paddingTop: "max(1.5rem, calc(env(safe-area-inset-top, 0px) + 0.5rem))" }}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
