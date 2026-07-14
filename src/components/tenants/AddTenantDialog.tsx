@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -382,8 +382,30 @@ const AddTenantDialog = ({
     setSelectedFloorId(watchedFloorId || null);
   }, [watchedFloorId]);
 
+  // Guards the reset effect below so it only (re-)initializes the form once per dialog-open
+  // session, instead of every time one of its query-backed dependencies gets a new array
+  // reference (e.g. a background refetch on window focus) — otherwise every such refetch
+  // would silently blow away in-progress edits and snap the wizard back to step 0.
+  const initializedForRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (open) {
+    if (!open) {
+      initializedForRef.current = null;
+      return;
+    }
+
+    const sessionKey = editTenant?.id ?? "new";
+    if (initializedForRef.current === sessionKey) return;
+
+    // Wait for the tenant's own owner-share/floor-unit data to load before initializing,
+    // so they aren't prefilled empty and then never corrected once the query resolves.
+    if (editTenant && (existingTenantOwnerShares === undefined || existingTenantFloorUnits === undefined)) {
+      return;
+    }
+
+    initializedForRef.current = sessionKey;
+
+    {
       const pf = !editTenant ? prefillFromTenant : null;
       setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || pf?.property_id || null);
       setSelectedFloorId(editTenant?.floor_id || pf?.floor_id || null);
@@ -601,7 +623,15 @@ const AddTenantDialog = ({
           <form
             onSubmit={form.handleSubmit(onSubmit)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !isLastStep) e.preventDefault();
+              // Never let Enter inside a field implicitly submit — including on the last
+              // step, where a real submit button exists and would otherwise fire early
+              // while the user is still typing (e.g. in Security Deposit/Rented Sq. Ft.).
+              // Buttons (Next/Back/date-picker triggers/the submit button itself) are
+              // excluded so they still activate normally on Enter/Space.
+              const target = e.target as HTMLElement;
+              if (e.key === "Enter" && target.tagName !== "TEXTAREA" && target.tagName !== "BUTTON") {
+                e.preventDefault();
+              }
             }}
             className="space-y-4"
           >
