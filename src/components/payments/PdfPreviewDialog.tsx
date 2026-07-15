@@ -18,8 +18,25 @@ export function PdfPreviewDialog({ preview, onClose, onRefresh }: PdfPreviewDial
   const { isAdmin } = useIsAdmin();
   const [editOpen, setEditOpen] = useState(false);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!preview) return;
+
+    // iOS Safari (and the installed home-screen app) doesn't honor the `download` attribute
+    // for blob: URLs — clicking the anchor silently does nothing. Use the native share sheet
+    // (which supports "Save to Files") there instead, falling back to the anchor everywhere
+    // the Web Share API either isn't available or can't share files.
+    try {
+      const blob = await (await fetch(preview.url)).blob();
+      const file = new File([blob], preview.fileName, { type: "application/pdf" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: preview.title });
+        return;
+      }
+    } catch (err) {
+      // AbortError fires when the user just dismisses the share sheet — not a real failure.
+      if ((err as Error)?.name === "AbortError") return;
+    }
+
     const a = document.createElement("a");
     a.href = preview.url;
     a.download = preview.fileName;
