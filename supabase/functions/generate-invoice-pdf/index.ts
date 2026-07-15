@@ -73,20 +73,66 @@ serve(async (req: Request): Promise<Response> => {
     const tenant = payment.tenant;
     const property = payment.property;
 
-    // Fetch corp/unit numbers assigned to this tenant, if any
-    const { data: tenantUnits } = await supabase
-      .from("tenant_floor_units")
-      .select("floor_units(corp_number)")
-      .eq("tenant_id", payment.tenant_id);
-    const corpNumbers = (tenantUnits || [])
-      .map((u: any) => u.floor_units?.corp_number)
-      .filter(Boolean);
-    const corpNumberText = corpNumbers.join(", ");
+    // Billing details (bank/PAN/GSTIN/corp numbers/owner split) as they stand RIGHT NOW —
+    // used only to create a NEW invoice's snapshot, or to backfill an old invoice that
+    // predates the snapshot columns. Never used to redraw an invoice that already has one,
+    // since that would let editing a tenant retroactively change an already-issued invoice.
+    const computeLiveSnapshot = async () => {
+      const { data: tenantUnits } = await supabase
+        .from("tenant_floor_units")
+        .select("floor_units(corp_number)")
+        .eq("tenant_id", payment.tenant_id);
+      const corpNumbers = (tenantUnits || [])
+        .map((u: any) => u.floor_units?.corp_number)
+        .filter(Boolean);
+
+      let ownerShares: { owner_id: string; share_percentage: number; owner_name: string }[] = [];
+      if (tenant?.id) {
+        const { data: shares, error: sharesError } = await supabase
+          .from("tenant_owner_shares")
+          .select(`
+            owner_id,
+            share_percentage,
+            property_owners(name)
+          `)
+          .eq("tenant_id", tenant.id);
+
+        if (!sharesError && shares && shares.length > 0) {
+          ownerShares = shares.map((share: any) => ({
+            owner_id: share.owner_id,
+            share_percentage: share.share_percentage,
+            owner_name: share.property_owners?.name || "Owner",
+          }));
+        }
+      }
+
+      return {
+        bill_from_name: tenant?.bill_from_name || "Property Owner",
+        bill_from_address: tenant?.bill_from_address || property?.address || "",
+        bill_from_gstin: tenant?.bill_from_gstin || "",
+        bill_from_pan: tenant?.bill_from_pan || "",
+        bill_from_bank_name: tenant?.bill_from_bank_name || "",
+        bill_from_account_number: tenant?.bill_from_account_number || "",
+        bill_from_ifsc: tenant?.bill_from_ifsc || "",
+        bill_to_name: tenant?.bill_to_name || tenant?.name || "Tenant",
+        bill_to_address: tenant?.bill_to_address || "",
+        bill_to_gstin: tenant?.bill_to_gstin || "",
+        requires_gst: tenant?.requires_gst || false,
+        corp_number_text: corpNumbers.join(", "),
+        owner_shares: ownerShares,
+      };
+    };
 
     // Check if an invoice already exists for this payment
     const { data: existingInvoice } = await supabase
       .from("invoices")
-      .select("id, invoice_number")
+      .select(`
+        id, invoice_number,
+        bill_from_name, bill_from_address, bill_from_gstin, bill_from_pan,
+        bill_from_bank_name, bill_from_account_number, bill_from_ifsc,
+        bill_to_name, bill_to_address, bill_to_gstin,
+        requires_gst, corp_number_text, owner_shares_snapshot
+      `)
       .eq("property_id", payment.property_id)
       .eq("tenant_id", payment.tenant_id)
       .eq("due_date", payment.due_date)
@@ -95,13 +141,71 @@ serve(async (req: Request): Promise<Response> => {
 
     let invoiceNumber: string;
     let invoiceId: string;
+    let snapshot: {
+      bill_from_name: string;
+      bill_from_address: string;
+      bill_from_gstin: string;
+      bill_from_pan: string;
+      bill_from_bank_name: string;
+      bill_from_account_number: string;
+      bill_from_ifsc: string;
+      bill_to_name: string;
+      bill_to_address: string;
+      bill_to_gstin: string;
+      requires_gst: boolean;
+      corp_number_text: string;
+      owner_shares: { owner_id: string; share_percentage: number; owner_name: string }[];
+    };
 
     if (existingInvoice) {
       // Use existing invoice
       invoiceNumber = existingInvoice.invoice_number;
       invoiceId = existingInvoice.id;
       console.log("Using existing invoice:", invoiceNumber);
+
+      if (existingInvoice.bill_from_name != null) {
+        // Frozen snapshot already captured when this invoice was created — use it as-is,
+        // regardless of what the tenant's details say today.
+        snapshot = {
+          bill_from_name: existingInvoice.bill_from_name || "",
+          bill_from_address: existingInvoice.bill_from_address || "",
+          bill_from_gstin: existingInvoice.bill_from_gstin || "",
+          bill_from_pan: existingInvoice.bill_from_pan || "",
+          bill_from_bank_name: existingInvoice.bill_from_bank_name || "",
+          bill_from_account_number: existingInvoice.bill_from_account_number || "",
+          bill_from_ifsc: existingInvoice.bill_from_ifsc || "",
+          bill_to_name: existingInvoice.bill_to_name || "",
+          bill_to_address: existingInvoice.bill_to_address || "",
+          bill_to_gstin: existingInvoice.bill_to_gstin || "",
+          requires_gst: existingInvoice.requires_gst ?? false,
+          corp_number_text: existingInvoice.corp_number_text || "",
+          owner_shares: (existingInvoice.owner_shares_snapshot as any[]) || [],
+        };
+      } else {
+        // Pre-existing invoice from before the snapshot columns existed — compute once from
+        // current data and persist it, so it's frozen from this point on.
+        snapshot = await computeLiveSnapshot();
+        await supabase
+          .from("invoices")
+          .update({
+            bill_from_name: snapshot.bill_from_name,
+            bill_from_address: snapshot.bill_from_address,
+            bill_from_gstin: snapshot.bill_from_gstin,
+            bill_from_pan: snapshot.bill_from_pan,
+            bill_from_bank_name: snapshot.bill_from_bank_name,
+            bill_from_account_number: snapshot.bill_from_account_number,
+            bill_from_ifsc: snapshot.bill_from_ifsc,
+            bill_to_name: snapshot.bill_to_name,
+            bill_to_address: snapshot.bill_to_address,
+            bill_to_gstin: snapshot.bill_to_gstin,
+            requires_gst: snapshot.requires_gst,
+            corp_number_text: snapshot.corp_number_text,
+            owner_shares_snapshot: snapshot.owner_shares,
+          })
+          .eq("id", invoiceId);
+      }
     } else {
+      snapshot = await computeLiveSnapshot();
       // Generate new invoice number with property prefix
       const dueDate = new Date(payment.due_date);
       const year = dueDate.getFullYear();
@@ -180,6 +284,19 @@ serve(async (req: Request): Promise<Response> => {
           status: payment.status === "paid" ? "paid" : "sent",
           created_by: createdBy,
           items: JSON.stringify([{ description: `Rent for ${rentPeriod}`, amount: payment.amount }]),
+          bill_from_name: snapshot.bill_from_name,
+          bill_from_address: snapshot.bill_from_address,
+          bill_from_gstin: snapshot.bill_from_gstin,
+          bill_from_pan: snapshot.bill_from_pan,
+          bill_from_bank_name: snapshot.bill_from_bank_name,
+          bill_from_account_number: snapshot.bill_from_account_number,
+          bill_from_ifsc: snapshot.bill_from_ifsc,
+          bill_to_name: snapshot.bill_to_name,
+          bill_to_address: snapshot.bill_to_address,
+          bill_to_gstin: snapshot.bill_to_gstin,
+          requires_gst: snapshot.requires_gst,
+          corp_number_text: snapshot.corp_number_text,
+          owner_shares_snapshot: snapshot.owner_shares,
         })
         .select()
         .single();
@@ -193,27 +310,7 @@ serve(async (req: Request): Promise<Response> => {
       console.log("Created new invoice:", invoiceNumber);
     }
 
-    // Fetch tenant owner shares if tenant has multiple owners
-    let ownerShares: { owner_id: string; share_percentage: number; owner_name: string }[] = [];
-    if (tenant?.id) {
-      const { data: shares, error: sharesError } = await supabase
-        .from("tenant_owner_shares")
-        .select(`
-          owner_id,
-          share_percentage,
-          property_owners(name)
-        `)
-        .eq("tenant_id", tenant.id);
-
-      if (!sharesError && shares && shares.length > 0) {
-        ownerShares = shares.map((share: any) => ({
-          owner_id: share.owner_id,
-          share_percentage: share.share_percentage,
-          owner_name: share.property_owners?.name || "Owner",
-        }));
-        console.log("Tenant owner shares:", JSON.stringify(ownerShares, null, 2));
-      }
-    }
+    const ownerShares = snapshot.owner_shares;
 
     // Create PDF document
     const pdfDoc = await PDFDocument.create();
@@ -267,7 +364,7 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     // HEADER - INVOICE title (TAX INVOICE if GST applicable, otherwise just INVOICE)
-    const invoiceTitle = tenant?.requires_gst ? "TAX INVOICE" : "INVOICE";
+    const invoiceTitle = snapshot.requires_gst ? "TAX INVOICE" : "INVOICE";
     drawText(invoiceTitle, leftMargin, yPos, fontBold, 24, primaryColor);
     
     // Invoice number and date on the right (invoiceNumber was already set above)
@@ -288,9 +385,9 @@ serve(async (req: Request): Promise<Response> => {
     drawText("BILL FROM", leftMargin, yPos, fontBold, 11, primaryColor);
     yPos -= 18;
 
-    const billFromName = tenant?.bill_from_name || "Property Owner";
-    const billFromAddress = tenant?.bill_from_address || property?.address || "";
-    const billFromGstin = tenant?.bill_from_gstin || "";
+    const billFromName = snapshot.bill_from_name;
+    const billFromAddress = snapshot.bill_from_address;
+    const billFromGstin = snapshot.bill_from_gstin;
     const maxWidthLeft = 220;
     const maxWidthRight = 200;
 
@@ -308,7 +405,7 @@ serve(async (req: Request): Promise<Response> => {
       yPos -= 12;
     }
 
-    const billFromPan = tenant?.bill_from_pan || "";
+    const billFromPan = snapshot.bill_from_pan;
     if (billFromPan) {
       drawText(`PAN: ${billFromPan}`, leftMargin, yPos, fontRegular, 10, grayColor);
       yPos -= 12;
@@ -321,9 +418,9 @@ serve(async (req: Request): Promise<Response> => {
     drawText("BILL TO", rightMargin - 200, billToYPos, fontBold, 11, primaryColor);
     billToYPos -= 18;
 
-    const billToName = tenant?.bill_to_name || tenant?.name || "Tenant";
-    const billToAddress = tenant?.bill_to_address || "";
-    const billToGstin = tenant?.bill_to_gstin || "";
+    const billToName = snapshot.bill_to_name;
+    const billToAddress = snapshot.bill_to_address;
+    const billToGstin = snapshot.bill_to_gstin;
 
     // Draw Bill To Name with wrapping
     billToYPos = drawWrappedText(billToName, rightMargin - 200, billToYPos, maxWidthRight, fontBold, 11, blackColor, 14);
@@ -350,8 +447,8 @@ serve(async (req: Request): Promise<Response> => {
     yPos -= 12;
     drawText(`Address: ${property?.address || "N/A"}`, leftMargin, yPos, fontRegular, 10, grayColor);
     yPos -= 12;
-    if (corpNumberText) {
-      drawText(`Corp No: ${corpNumberText}`, leftMargin, yPos, fontRegular, 10, grayColor);
+    if (snapshot.corp_number_text) {
+      drawText(`Corp No: ${snapshot.corp_number_text}`, leftMargin, yPos, fontRegular, 10, grayColor);
       yPos -= 12;
     }
     yPos -= 13;
@@ -382,7 +479,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Calculate amounts
     const baseAmount = payment.amount;
-    const requiresGst = tenant?.requires_gst || false;
+    const requiresGst = snapshot.requires_gst;
     const gstRate = 0.18; // 18% GST
     const gstAmount = requiresGst ? baseAmount * gstRate : 0;
     const totalAmount = baseAmount + gstAmount;
@@ -447,9 +544,9 @@ serve(async (req: Request): Promise<Response> => {
     yPos -= 40;
 
     // Bank Details for Payment
-    const bankName = tenant?.bill_from_bank_name || "";
-    const bankAccountNumber = tenant?.bill_from_account_number || "";
-    const bankIfsc = tenant?.bill_from_ifsc || "";
+    const bankName = snapshot.bill_from_bank_name;
+    const bankAccountNumber = snapshot.bill_from_account_number;
+    const bankIfsc = snapshot.bill_from_ifsc;
     if (bankName || bankAccountNumber || bankIfsc) {
       drawText("BANK DETAILS FOR PAYMENT", leftMargin, yPos, fontBold, 10, primaryColor);
       yPos -= 14;

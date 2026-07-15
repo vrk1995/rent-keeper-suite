@@ -362,6 +362,17 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          bill_from_account_number: string | null
+          bill_from_address: string | null
+          bill_from_bank_name: string | null
+          bill_from_gstin: string | null
+          bill_from_ifsc: string | null
+          bill_from_name: string | null
+          bill_from_pan: string | null
+          bill_to_address: string | null
+          bill_to_gstin: string | null
+          bill_to_name: string | null
+          corp_number_text: string | null
           created_at: string
           created_by: string
           due_date: string
@@ -369,7 +380,9 @@ export type Database = {
           invoice_number: string
           items: Json | null
           notes: string | null
+          owner_shares_snapshot: Json | null
           property_id: string
+          requires_gst: boolean | null
           status: string | null
           tenant_id: string
           updated_at: string
@@ -377,6 +390,17 @@ export type Database = {
         }
         Insert: {
           amount: number
+          bill_from_account_number?: string | null
+          bill_from_address?: string | null
+          bill_from_bank_name?: string | null
+          bill_from_gstin?: string | null
+          bill_from_ifsc?: string | null
+          bill_from_name?: string | null
+          bill_from_pan?: string | null
+          bill_to_address?: string | null
+          bill_to_gstin?: string | null
+          bill_to_name?: string | null
+          corp_number_text?: string | null
           created_at?: string
           created_by: string
           due_date: string
@@ -384,7 +408,9 @@ export type Database = {
           invoice_number: string
           items?: Json | null
           notes?: string | null
+          owner_shares_snapshot?: Json | null
           property_id: string
+          requires_gst?: boolean | null
           status?: string | null
           tenant_id: string
           updated_at?: string
@@ -392,6 +418,17 @@ export type Database = {
         }
         Update: {
           amount?: number
+          bill_from_account_number?: string | null
+          bill_from_address?: string | null
+          bill_from_bank_name?: string | null
+          bill_from_gstin?: string | null
+          bill_from_ifsc?: string | null
+          bill_from_name?: string | null
+          bill_from_pan?: string | null
+          bill_to_address?: string | null
+          bill_to_gstin?: string | null
+          bill_to_name?: string | null
+          corp_number_text?: string | null
           created_at?: string
           created_by?: string
           due_date?: string
@@ -399,7 +436,9 @@ export type Database = {
           invoice_number?: string
           items?: Json | null
           notes?: string | null
+          owner_shares_snapshot?: Json | null
           property_id?: string
+          requires_gst?: boolean | null
           status?: string | null
           tenant_id?: string
           updated_at?: string
