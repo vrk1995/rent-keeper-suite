@@ -121,6 +121,9 @@ interface AddTenantDialogProps {
   defaultUnitId?: string;
   /** Prefill building/location + rent structure from a vacating tenant. Personal fields stay blank. */
   prefillFromTenant?: Tenant | null;
+  /** Duplicate every field (including personal details, dates, owner shares) from an existing
+   *  tenant into a brand-new record, for the user to edit whatever's different before saving. */
+  cloneFromTenant?: Tenant | null;
 }
 
 const AddTenantDialog = ({
@@ -130,6 +133,7 @@ const AddTenantDialog = ({
   defaultPropertyId,
   defaultUnitId,
   prefillFromTenant,
+  cloneFromTenant,
 }: AddTenantDialogProps) => {
   const queryClient = useQueryClient();
   const createTenant = useCreateTenant();
@@ -146,24 +150,26 @@ const AddTenantDialog = ({
   const [step, setStep] = useState(0);
 
   const getDefaultAssignmentType = () => {
-    if (editTenant?.unit_id || defaultUnitId || prefillFromTenant?.unit_id) return "unit";
+    if (editTenant?.unit_id || defaultUnitId || prefillFromTenant?.unit_id || cloneFromTenant?.unit_id) return "unit";
     return "property";
   };
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
-    editTenant?.property_id || defaultPropertyId || prefillFromTenant?.property_id || null
+    editTenant?.property_id || defaultPropertyId || prefillFromTenant?.property_id || cloneFromTenant?.property_id || null
   );
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(
-    editTenant?.floor_id || prefillFromTenant?.floor_id || null
+    editTenant?.floor_id || prefillFromTenant?.floor_id || cloneFromTenant?.floor_id || null
   );
 
   const { data: floors } = usePropertyFloors(selectedPropertyId);
   const { data: floorUnits } = useFloorUnitsByProperty(selectedPropertyId);
   const { data: ownerShares } = usePropertyOwnerShares(selectedPropertyId || undefined);
   const { ownerShares: existingTenantOwnerShares, upsertOwnerShares: upsertTenantOwnerShares } = useTenantOwnerShares(editTenant?.id);
+  const { ownerShares: cloneTenantOwnerShares } = useTenantOwnerShares(!editTenant ? cloneFromTenant?.id : undefined);
   const { data: allPropertyOwners } = usePropertyOwners();
   const { tenantFloorUnits: existingTenantFloorUnits, upsertFloorUnits: upsertTenantFloorUnits } = useTenantFloorUnits(editTenant?.id);
   const { tenantFloorUnits: prefillTenantFloorUnits } = useTenantFloorUnits(!editTenant ? prefillFromTenant?.id : undefined);
+  const { tenantFloorUnits: cloneTenantFloorUnits } = useTenantFloorUnits(!editTenant ? cloneFromTenant?.id : undefined);
   const { allTenantFloorUnits } = useAllTenantFloorUnits();
 
   // Check if property has multiple owners
@@ -269,7 +275,7 @@ const AddTenantDialog = ({
       rented_sqft: editTenant?.rented_sqft || 0,
       monthly_rent: editTenant?.monthly_rent || 0,
       rent_due_day: editTenant?.rent_due_day || 1,
-      rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? 0,
+      rent_due_month_offset: editTenant?.rent_due_month_offset ?? 0,
       due_days_after_invoice: editTenant?.due_days_after_invoice ?? 0,
       requires_gst: editTenant?.requires_gst || false,
       tds_applicable: editTenant?.tds_applicable || false,
@@ -406,23 +412,29 @@ const AddTenantDialog = ({
     if (editTenant && (existingTenantOwnerShares === undefined || existingTenantFloorUnits === undefined)) {
       return;
     }
+    if (cloneFromTenant && !editTenant && (cloneTenantOwnerShares === undefined || cloneTenantFloorUnits === undefined)) {
+      return;
+    }
 
     initializedForRef.current = sessionKey;
 
     {
       const pf = !editTenant ? prefillFromTenant : null;
-      setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || pf?.property_id || null);
-      setSelectedFloorId(editTenant?.floor_id || pf?.floor_id || null);
+      const cf = !editTenant ? cloneFromTenant : null;
+      setSelectedPropertyId(editTenant?.property_id || defaultPropertyId || cf?.property_id || pf?.property_id || null);
+      setSelectedFloorId(editTenant?.floor_id || cf?.floor_id || pf?.floor_id || null);
       setSaveAsNewAddress(false);
       setStep(0);
 
-      // Pre-select billing address if editing or use default
-      if (editTenant?.bill_from_name) {
+      // Pre-select billing address if editing/cloning, or use default
+      const billingSourceName = editTenant?.bill_from_name || cf?.bill_from_name;
+      if (billingSourceName) {
+        const billingSource = editTenant || cf;
         // Try to find matching saved address
         const matchingAddress = billingAddresses?.find(
-          a => a.name === editTenant.bill_from_name &&
-               a.address === editTenant.bill_from_address &&
-               a.gstin === editTenant.bill_from_gstin
+          a => a.name === billingSourceName &&
+               a.address === billingSource?.bill_from_address &&
+               a.gstin === billingSource?.bill_from_gstin
         );
         setSelectedBillingAddressId(matchingAddress?.id || null);
       } else if (defaultBillingAddress) {
@@ -433,44 +445,45 @@ const AddTenantDialog = ({
 
       form.reset({
         assignment_type: getDefaultAssignmentType(),
-        property_id: editTenant?.property_id || defaultPropertyId || pf?.property_id || "",
-        unit_id: editTenant?.unit_id || defaultUnitId || pf?.unit_id || "",
-        floor_id: editTenant?.floor_id || pf?.floor_id || "",
+        property_id: editTenant?.property_id || defaultPropertyId || cf?.property_id || pf?.property_id || "",
+        unit_id: editTenant?.unit_id || defaultUnitId || cf?.unit_id || pf?.unit_id || "",
+        floor_id: editTenant?.floor_id || cf?.floor_id || pf?.floor_id || "",
         floor_unit_ids: existingTenantFloorUnits?.map(x => x.floor_unit_id)
+          || cloneTenantFloorUnits?.map(x => x.floor_unit_id)
           || prefillTenantFloorUnits?.map(x => x.floor_unit_id)
           || [],
-        property_owner_id: editTenant?.property_owner_id || pf?.property_owner_id || "",
-        owner_shares: existingTenantOwnerShares?.map(share => ({
+        property_owner_id: editTenant?.property_owner_id || cf?.property_owner_id || pf?.property_owner_id || "",
+        owner_shares: (existingTenantOwnerShares || cloneTenantOwnerShares)?.map(share => ({
           owner_id: share.owner_id,
           share_percentage: share.share_percentage,
         })) || [],
-        name: editTenant?.name || "",
-        email: editTenant?.email || "",
-        phone: editTenant?.phone || "",
-        move_in_date: editTenant?.move_in_date ? new Date(editTenant.move_in_date) : undefined,
-        lease_start_date: editTenant?.lease_start_date ? new Date(editTenant.lease_start_date) : undefined,
-        lease_end_date: editTenant?.lease_end_date ? new Date(editTenant.lease_end_date) : undefined,
-        security_deposit: editTenant?.security_deposit || 0,
-        rented_sqft: editTenant?.rented_sqft ?? pf?.rented_sqft ?? 0,
-        monthly_rent: editTenant?.monthly_rent ?? pf?.monthly_rent ?? 0,
-        rent_due_day: editTenant?.rent_due_day || pf?.rent_due_day || 1,
-        rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? (pf as any)?.rent_due_month_offset ?? 0,
-        due_days_after_invoice: editTenant?.due_days_after_invoice ?? pf?.due_days_after_invoice ?? 0,
-        requires_gst: editTenant?.requires_gst ?? pf?.requires_gst ?? false,
-        tds_applicable: editTenant?.tds_applicable ?? pf?.tds_applicable ?? false,
-        bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
-        bill_from_address: editTenant?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
-        bill_from_gstin: editTenant?.bill_from_gstin || pf?.bill_from_gstin || defaultBillingAddress?.gstin || "",
-        bill_from_pan: editTenant?.bill_from_pan || pf?.bill_from_pan || defaultBillingAddress?.pan || "",
-        bill_from_bank_name: editTenant?.bill_from_bank_name || pf?.bill_from_bank_name || "",
-        bill_from_account_number: editTenant?.bill_from_account_number || pf?.bill_from_account_number || "",
-        bill_from_ifsc: editTenant?.bill_from_ifsc || pf?.bill_from_ifsc || "",
-        bill_to_name: editTenant?.bill_to_name || "",
-        bill_to_address: editTenant?.bill_to_address || "",
-        bill_to_gstin: editTenant?.bill_to_gstin || "",
+        name: editTenant?.name || cf?.name || "",
+        email: editTenant?.email || cf?.email || "",
+        phone: editTenant?.phone || cf?.phone || "",
+        move_in_date: (editTenant?.move_in_date || cf?.move_in_date) ? new Date((editTenant?.move_in_date || cf?.move_in_date)!) : undefined,
+        lease_start_date: (editTenant?.lease_start_date || cf?.lease_start_date) ? new Date((editTenant?.lease_start_date || cf?.lease_start_date)!) : undefined,
+        lease_end_date: (editTenant?.lease_end_date || cf?.lease_end_date) ? new Date((editTenant?.lease_end_date || cf?.lease_end_date)!) : undefined,
+        security_deposit: editTenant?.security_deposit || cf?.security_deposit || 0,
+        rented_sqft: editTenant?.rented_sqft ?? cf?.rented_sqft ?? pf?.rented_sqft ?? 0,
+        monthly_rent: editTenant?.monthly_rent ?? cf?.monthly_rent ?? pf?.monthly_rent ?? 0,
+        rent_due_day: editTenant?.rent_due_day || cf?.rent_due_day || pf?.rent_due_day || 1,
+        rent_due_month_offset: editTenant?.rent_due_month_offset ?? cf?.rent_due_month_offset ?? pf?.rent_due_month_offset ?? 0,
+        due_days_after_invoice: editTenant?.due_days_after_invoice ?? cf?.due_days_after_invoice ?? pf?.due_days_after_invoice ?? 0,
+        requires_gst: editTenant?.requires_gst ?? cf?.requires_gst ?? pf?.requires_gst ?? false,
+        tds_applicable: editTenant?.tds_applicable ?? cf?.tds_applicable ?? pf?.tds_applicable ?? false,
+        bill_from_name: editTenant?.bill_from_name || cf?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
+        bill_from_address: editTenant?.bill_from_address || cf?.bill_from_address || pf?.bill_from_address || defaultBillingAddress?.address || "",
+        bill_from_gstin: editTenant?.bill_from_gstin || cf?.bill_from_gstin || pf?.bill_from_gstin || defaultBillingAddress?.gstin || "",
+        bill_from_pan: editTenant?.bill_from_pan || cf?.bill_from_pan || pf?.bill_from_pan || defaultBillingAddress?.pan || "",
+        bill_from_bank_name: editTenant?.bill_from_bank_name || cf?.bill_from_bank_name || pf?.bill_from_bank_name || "",
+        bill_from_account_number: editTenant?.bill_from_account_number || cf?.bill_from_account_number || pf?.bill_from_account_number || "",
+        bill_from_ifsc: editTenant?.bill_from_ifsc || cf?.bill_from_ifsc || pf?.bill_from_ifsc || "",
+        bill_to_name: editTenant?.bill_to_name || cf?.bill_to_name || "",
+        bill_to_address: editTenant?.bill_to_address || cf?.bill_to_address || "",
+        bill_to_gstin: editTenant?.bill_to_gstin || cf?.bill_to_gstin || "",
       });
     }
-  }, [open, editTenant, defaultPropertyId, defaultUnitId, prefillFromTenant, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares, existingTenantFloorUnits, prefillTenantFloorUnits]);
+  }, [open, editTenant, defaultPropertyId, defaultUnitId, prefillFromTenant, cloneFromTenant, form, billingAddresses, defaultBillingAddress, existingTenantOwnerShares, existingTenantFloorUnits, prefillTenantFloorUnits, cloneTenantOwnerShares, cloneTenantFloorUnits]);
 
   const onSubmit = async (values: TenantFormValues) => {
     // Auto-save billing address if checkbox is checked and address has a name
@@ -621,7 +634,13 @@ const AddTenantDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editTenant ? `Edit Tenant - ${editTenant.name}` : "Add New Tenant"}</DialogTitle>
+          <DialogTitle>
+            {editTenant
+              ? `Edit Tenant - ${editTenant.name}`
+              : cloneFromTenant
+                ? `Clone Tenant - ${cloneFromTenant.name}`
+                : "Add New Tenant"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2 pb-2">

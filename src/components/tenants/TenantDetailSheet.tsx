@@ -32,6 +32,7 @@ import {
   IndianRupee,
   LogOut,
   History,
+  Copy,
 } from "lucide-react";
 import { Tenant } from "@/hooks/useTenants";
 import { useQuery } from "@tanstack/react-query";
@@ -59,6 +60,7 @@ interface TenantDetailSheetProps {
 const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProps) => {
   const { isAdmin } = useIsAdmin();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
@@ -239,6 +241,10 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                   <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
                     <Settings className="w-4 h-4 mr-1" />
                     Edit
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setCloneDialogOpen(true)}>
+                    <Copy className="w-4 h-4 mr-1" />
+                    Clone
                   </Button>
                 </div>
               )}
@@ -553,6 +559,14 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
           editTenant={tenant}
+        />
+      )}
+
+      {cloneDialogOpen && (
+        <AddTenantDialog
+          open={cloneDialogOpen}
+          onOpenChange={setCloneDialogOpen}
+          cloneFromTenant={tenant}
         />
       )}
 
