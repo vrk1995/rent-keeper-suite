@@ -10,6 +10,7 @@ export interface RentPayment {
   tenant_id: string;
   amount: number;
   due_date: string;
+  invoice_date: string | null;
   billing_month: string | null;
   paid_date: string | null;
   status: string;
@@ -239,7 +240,7 @@ export const useGenerateMonthlyPayments = () => {
       // Get active tenants
       const { data: tenants, error: tenantsError } = await supabase
         .from("tenants")
-        .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, name")
+        .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice, name")
         .eq("status", "active");
 
       if (tenantsError) throw tenantsError;
@@ -260,12 +261,16 @@ export const useGenerateMonthlyPayments = () => {
       const paymentsToCreate = tenants
         ?.filter(tenant => !existingSet.has(tenant.id) && (tenant.monthly_rent || 0) > 0)
         .map(tenant => {
-          const dueDay = Math.min(tenant.rent_due_day || 1, 28);
+          const invoiceDay = Math.min(tenant.rent_due_day || 1, 28);
           const offset = (tenant as any).rent_due_month_offset ?? 0;
-          // Due date is in the billing month shifted by the tenant's offset
-          const dueDate = new Date(year, month - 1 + offset, dueDay)
-            .toISOString()
-            .split('T')[0];
+          // Invoice date is in the billing month shifted by the tenant's offset; the due
+          // date follows it by the tenant's configured grace period (0 = same day).
+          const invoiceDateObj = new Date(year, month - 1 + offset, invoiceDay);
+          const invoiceDate = invoiceDateObj.toISOString().split('T')[0];
+          const dueDaysAfterInvoice = (tenant as any).due_days_after_invoice ?? 0;
+          const dueDateObj = new Date(invoiceDateObj);
+          dueDateObj.setDate(dueDateObj.getDate() + dueDaysAfterInvoice);
+          const dueDate = dueDateObj.toISOString().split('T')[0];
 
           return {
             tenant_id: tenant.id,
@@ -273,6 +278,7 @@ export const useGenerateMonthlyPayments = () => {
             unit_id: tenant.unit_id,
             amount: tenant.monthly_rent || 0,
             due_date: dueDate,
+            invoice_date: invoiceDate,
             billing_month: billingMonth,
             status: new Date(dueDate) < now ? 'overdue' : 'pending',
           };

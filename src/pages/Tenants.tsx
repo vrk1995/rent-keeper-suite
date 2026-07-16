@@ -260,7 +260,7 @@ const Tenants = () => {
                         <span className="font-semibold">{formatINR(tenant.monthly_rent || 0)}/mo</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        Due: {tenant.rent_due_day || 1}{tenant.rent_due_day === 1 ? "st" : tenant.rent_due_day === 2 ? "nd" : tenant.rent_due_day === 3 ? "rd" : "th"}
+                        Invoiced: {tenant.rent_due_day || 1}{tenant.rent_due_day === 1 ? "st" : tenant.rent_due_day === 2 ? "nd" : tenant.rent_due_day === 3 ? "rd" : "th"}
                         {tenant.requires_gst && (
                           <Badge variant="outline" className="text-xs ml-1">
                             <Receipt className="w-3 h-3 mr-1" />

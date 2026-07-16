@@ -376,6 +376,7 @@ export type Database = {
           created_at: string
           created_by: string
           due_date: string
+          invoice_date: string | null
           id: string
           invoice_number: string
           items: Json | null
@@ -404,6 +405,7 @@ export type Database = {
           created_at?: string
           created_by: string
           due_date: string
+          invoice_date?: string | null
           id?: string
           invoice_number: string
           items?: Json | null
@@ -432,6 +434,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           due_date?: string
+          invoice_date?: string | null
           id?: string
           invoice_number?: string
           items?: Json | null
@@ -1101,6 +1104,7 @@ export type Database = {
           billing_month: string | null
           created_at: string
           due_date: string
+          invoice_date: string | null
           id: string
           marked_by: string | null
           notes: string | null
@@ -1122,6 +1126,7 @@ export type Database = {
           billing_month?: string | null
           created_at?: string
           due_date: string
+          invoice_date?: string | null
           id?: string
           marked_by?: string | null
           notes?: string | null
@@ -1143,6 +1148,7 @@ export type Database = {
           billing_month?: string | null
           created_at?: string
           due_date?: string
+          invoice_date?: string | null
           id?: string
           marked_by?: string | null
           notes?: string | null
@@ -1368,6 +1374,7 @@ export type Database = {
           property_owner_id: string | null
           rent_due_day: number | null
           rent_due_month_offset: number
+          due_days_after_invoice: number
           rented_sqft: number | null
           requires_gst: boolean | null
           security_deposit: number | null
@@ -1403,6 +1410,7 @@ export type Database = {
           property_owner_id?: string | null
           rent_due_day?: number | null
           rent_due_month_offset?: number
+          due_days_after_invoice?: number
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
@@ -1438,6 +1446,7 @@ export type Database = {
           property_owner_id?: string | null
           rent_due_day?: number | null
           rent_due_month_offset?: number
+          due_days_after_invoice?: number
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null

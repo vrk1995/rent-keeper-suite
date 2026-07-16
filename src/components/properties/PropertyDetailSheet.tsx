@@ -366,7 +366,7 @@ export function PropertyDetailSheet({
                               <p className="text-lg font-semibold text-success">
                                 {formatINR(tenant.monthly_rent || 0)}
                               </p>
-                              <p className="text-xs text-muted-foreground">Due: {tenant.rent_due_day}th</p>
+                              <p className="text-xs text-muted-foreground">Invoiced: {tenant.rent_due_day}th</p>
                             </div>
                           </div>
                         </CardContent>

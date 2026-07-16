@@ -71,8 +71,9 @@ const tenantSchema = z.object({
   security_deposit: z.coerce.number().min(0).optional(),
   rented_sqft: z.coerce.number().min(0.01, "Rented sq. ft. is required"),
   monthly_rent: z.coerce.number().min(0, "Rent must be positive"),
-  rent_due_day: z.coerce.number().min(1).max(28, "Due day must be between 1-28"),
+  rent_due_day: z.coerce.number().min(1).max(28, "Invoice date day must be between 1-28"),
   rent_due_month_offset: z.coerce.number().min(-1).max(1),
+  due_days_after_invoice: z.coerce.number().min(0).max(90),
   requires_gst: z.boolean(),
   tds_applicable: z.boolean(),
   // Billing details
@@ -107,7 +108,7 @@ type TenantFormValues = z.infer<typeof tenantSchema>;
 const WIZARD_STEPS: { id: string; label: string; fields: (keyof TenantFormValues)[] }[] = [
   { id: "where", label: "Where", fields: ["assignment_type", "property_id", "unit_id", "floor_id", "floor_unit_ids", "owner_shares"] },
   { id: "who", label: "Who", fields: ["name", "email", "phone"] },
-  { id: "rent", label: "Rent Terms", fields: ["monthly_rent", "rent_due_day", "rent_due_month_offset", "requires_gst", "tds_applicable"] },
+  { id: "rent", label: "Rent Terms", fields: ["monthly_rent", "rent_due_day", "rent_due_month_offset", "due_days_after_invoice", "requires_gst", "tds_applicable"] },
   { id: "billing", label: "Billing", fields: ["bill_from_name", "bill_from_address", "bill_from_gstin", "bill_from_pan", "bill_from_bank_name", "bill_from_account_number", "bill_from_ifsc", "bill_to_name", "bill_to_address", "bill_to_gstin"] },
   { id: "dates", label: "Dates & Deposit", fields: ["move_in_date", "lease_start_date", "lease_end_date", "security_deposit", "rented_sqft"] },
 ];
@@ -269,6 +270,7 @@ const AddTenantDialog = ({
       monthly_rent: editTenant?.monthly_rent || 0,
       rent_due_day: editTenant?.rent_due_day || 1,
       rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? 0,
+      due_days_after_invoice: editTenant?.due_days_after_invoice ?? 0,
       requires_gst: editTenant?.requires_gst || false,
       tds_applicable: editTenant?.tds_applicable || false,
       bill_from_name: editTenant?.bill_from_name || "",
@@ -453,6 +455,7 @@ const AddTenantDialog = ({
         monthly_rent: editTenant?.monthly_rent ?? pf?.monthly_rent ?? 0,
         rent_due_day: editTenant?.rent_due_day || pf?.rent_due_day || 1,
         rent_due_month_offset: (editTenant as any)?.rent_due_month_offset ?? (pf as any)?.rent_due_month_offset ?? 0,
+        due_days_after_invoice: editTenant?.due_days_after_invoice ?? pf?.due_days_after_invoice ?? 0,
         requires_gst: editTenant?.requires_gst ?? pf?.requires_gst ?? false,
         tds_applicable: editTenant?.tds_applicable ?? pf?.tds_applicable ?? false,
         bill_from_name: editTenant?.bill_from_name || pf?.bill_from_name || defaultBillingAddress?.name || "",
@@ -515,6 +518,7 @@ const AddTenantDialog = ({
       monthly_rent: values.monthly_rent,
       rent_due_day: values.rent_due_day,
       rent_due_month_offset: values.rent_due_month_offset,
+      due_days_after_invoice: values.due_days_after_invoice,
       requires_gst: values.requires_gst,
       tds_applicable: values.tds_applicable,
       bill_from_name: values.bill_from_name || undefined,
@@ -1039,7 +1043,7 @@ const AddTenantDialog = ({
                     name="rent_due_day"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Rent Due Day</FormLabel>
+                        <FormLabel>Invoice Date Day</FormLabel>
                         <Select onValueChange={(v) => field.onChange(parseInt(v))} value={String(field.value)}>
                           <FormControl>
                             <SelectTrigger>
@@ -1064,24 +1068,40 @@ const AddTenantDialog = ({
                   name="rent_due_month_offset"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Due Month</FormLabel>
+                      <FormLabel>Invoice Date Month</FormLabel>
                       <Select
                         onValueChange={(v) => field.onChange(parseInt(v))}
                         value={String(field.value ?? 0)}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select due month" />
+                            <SelectValue placeholder="Select invoice month" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="-1">In advance — previous month (e.g. April rent due in March)</SelectItem>
-                          <SelectItem value="0">Same month (e.g. April rent due in April)</SelectItem>
-                          <SelectItem value="1">In arrears — following month (e.g. April rent due in May)</SelectItem>
+                          <SelectItem value="-1">In advance — previous month (e.g. April rent invoiced in March)</SelectItem>
+                          <SelectItem value="0">Same month (e.g. April rent invoiced in April)</SelectItem>
+                          <SelectItem value="1">In arrears — following month (e.g. April rent invoiced in May)</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        Controls which calendar month the due date falls in relative to the rent period.
+                        Controls which calendar month the invoice is dated in relative to the rent period.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="due_days_after_invoice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Due (days after Invoice Date)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={0} max={90} placeholder="0" {...field} />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        How many days after the invoice date payment is due. Leave at 0 for payment due on the invoice date itself.
                       </p>
                       <FormMessage />
                     </FormItem>

@@ -130,7 +130,7 @@ serve(async (req: Request): Promise<Response> => {
       .from("invoices")
       .select(
         `
-        id, invoice_number,
+        id, invoice_number, invoice_date,
         bill_from_name, bill_from_address, bill_from_gstin, bill_from_pan,
         bill_from_bank_name, bill_from_account_number, bill_from_ifsc,
         bill_to_name, bill_to_address, bill_to_gstin,
@@ -145,6 +145,11 @@ serve(async (req: Request): Promise<Response> => {
 
     let invoiceNumber: string;
     let invoiceId: string;
+    // The date printed as "ISSUED" on the invoice — frozen independently of the billing
+    // snapshot, same self-healing rule: use the invoice's own stored value once it has one,
+    // else compute once from the payment's invoice_date (falling back to due_date for
+    // payments generated before invoice_date existed) and persist it.
+    let invoiceDateFinal: string;
     let snapshot: {
       bill_from_name: string;
       bill_from_address: string;
@@ -208,8 +213,16 @@ serve(async (req: Request): Promise<Response> => {
           })
           .eq("id", invoiceId);
       }
+
+      if (existingInvoice.invoice_date != null) {
+        invoiceDateFinal = existingInvoice.invoice_date;
+      } else {
+        invoiceDateFinal = payment.invoice_date || payment.due_date;
+        await supabase.from("invoices").update({ invoice_date: invoiceDateFinal }).eq("id", invoiceId);
+      }
     } else {
       snapshot = await computeLiveSnapshot();
+      invoiceDateFinal = payment.invoice_date || payment.due_date;
       // Generate new invoice number with property prefix
       const dueDate = new Date(payment.due_date);
       const year = dueDate.getFullYear();
@@ -285,6 +298,7 @@ serve(async (req: Request): Promise<Response> => {
           tenant_id: payment.tenant_id,
           amount: payment.amount,
           due_date: payment.due_date,
+          invoice_date: invoiceDateFinal,
           status: payment.status === "paid" ? "paid" : "sent",
           created_by: createdBy,
           workspace_id: payment.workspace_id || property?.workspace_id,
@@ -394,7 +408,7 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     // ---- Compute values upfront ----
-    const invoiceDate = new Date(payment.paid_date || payment.due_date).toLocaleDateString("en-IN", {
+    const invoiceDate = new Date(invoiceDateFinal).toLocaleDateString("en-IN", {
       day: "2-digit", month: "short", year: "numeric",
     });
     const dueDateStr = new Date(payment.due_date).toLocaleDateString("en-IN", {
