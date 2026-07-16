@@ -44,6 +44,8 @@ import { usePropertyOwners, useCreatePropertyOwner } from "@/hooks/usePropertyOw
 import { usePropertyOwnerShares, useBulkUpsertOwnerShares } from "@/hooks/usePropertyOwnerShares";
 import { useFloorUnitsByProperty, useCreateFloorUnit, useUpdateFloorUnit, useDeleteFloorUnit } from "@/hooks/useFloorUnits";
 import { supabase } from "@/integrations/supabase/client";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const floorUnitSchema = z.object({
   id: z.string().optional(),
@@ -340,9 +342,12 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
     return propertyOwners?.filter(o => !selectedOwnerIds.includes(o.id)) || [];
   };
 
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(form.formState.isDirty, onOpenChange);
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editProperty ? "Edit Property" : "Add New Property"}</DialogTitle>
@@ -634,7 +639,7 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
               )}
             />
             <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>
                 Cancel
               </Button>
               <Button 
@@ -671,6 +676,8 @@ const AddPropertyDialog = ({ open, onOpenChange, editProperty }: AddPropertyDial
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
     </>
   );
 };

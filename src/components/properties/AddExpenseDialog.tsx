@@ -39,6 +39,8 @@ import { cn } from "@/lib/utils";
 import { useCreateExpense } from "@/hooks/useExpenses";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const expenseSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -116,8 +118,12 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
     setOpen(false);
   };
 
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(form.formState.isDirty, setOpen);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="w-4 h-4 mr-1" />
@@ -328,7 +334,7 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
             />
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createExpense.isPending}>
@@ -339,5 +345,7 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
         </Form>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 }

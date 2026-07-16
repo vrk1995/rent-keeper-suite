@@ -31,6 +31,8 @@ import { formatINR } from "@/lib/currency";
 import { useTenants } from "@/hooks/useTenants";
 import { useOutstandingPaymentsForTenant, RentPayment } from "@/hooks/usePayments";
 import { useReconcilePayment } from "@/hooks/useReconcilePayment";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const paymentMethods = [
   { value: "cash", label: "Cash" },
@@ -160,8 +162,21 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
     }
   };
 
+  const isDirty =
+    (!tenantId && !!selectedTenantId) ||
+    notes.trim() !== "" ||
+    paymentMethod !== "bank_transfer" ||
+    mode !== "fifo" ||
+    amountReceived !== "" ||
+    Object.keys(customAmounts).length > 0 ||
+    tdsApplicable !== (allTenants?.find((t) => t.id === selectedTenantId)?.tds_applicable || false) ||
+    format(paidDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(isDirty, onOpenChange);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Receive Payment</DialogTitle>
@@ -370,12 +385,14 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit || reconcile.isPending}>
             {reconcile.isPending ? "Reconciling..." : `Reconcile ${grossTotal > 0 ? formatINR(netTotal) : "Payment"}`}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 };

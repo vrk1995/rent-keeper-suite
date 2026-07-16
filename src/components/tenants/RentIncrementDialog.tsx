@@ -30,6 +30,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 interface RentIncrementDialogProps {
   open: boolean;
@@ -107,9 +109,13 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
       : currentRent + value;
   };
 
+  const isDirty = showAddForm && (incrementValue !== "" || nextDate !== undefined || intervalMonths !== "12");
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(isDirty, onOpenChange);
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={guardedOnOpenChange}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -343,6 +349,8 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
     </>
   );
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -27,6 +27,8 @@ import { CalendarIcon, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminUpdatePayment } from "@/hooks/usePayments";
 import { useUpdateInvoice } from "@/hooks/useInvoices";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 import { toast } from "sonner";
 
 interface EditPaymentDialogProps {
@@ -72,6 +74,8 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
   const [refreshing, setRefreshing] = useState(false);
   const updatePayment = useAdminUpdatePayment();
   const updateInvoice = useUpdateInvoice();
+  // Snapshot of what was loaded from the DB, to detect real edits vs. a no-op open/close.
+  const loadedFormRef = useRef<FormState>(EMPTY_FORM);
 
   useEffect(() => {
     if (!open || !paymentId) return;
@@ -104,7 +108,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
         }
 
         if (payment) {
-          setForm({
+          const loaded: FormState = {
             amount: String(payment.amount),
             due_date: new Date(payment.due_date),
             paid_date: payment.paid_date ? new Date(payment.paid_date) : undefined,
@@ -112,7 +116,9 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
             notes: payment.notes || "",
             invoice_number: invoiceFields.invoice_number || "",
             invoice_status: invoiceFields.invoice_status || "draft",
-          });
+          };
+          setForm(loaded);
+          loadedFormRef.current = loaded;
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -183,9 +189,13 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
   };
 
   const isSaving = updatePayment.isPending || updateInvoice.isPending || refreshing;
+  const isDirty = !loading && JSON.stringify(form) !== JSON.stringify(loadedFormRef.current);
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(isDirty, onOpenChange);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Payment{invoiceId ? " & Invoice" : ""}</DialogTitle>
@@ -347,7 +357,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={loading || isSaving}>
@@ -356,5 +366,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 }

@@ -37,6 +37,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { usePropertyOwners } from "@/hooks/usePropertyOwners";
 import { useTeamMembers } from "@/hooks/useTeam";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const schema = z
   .object({
@@ -147,8 +149,12 @@ export function AddAdhocPaymentDialog() {
   };
 
 
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(form.formState.isDirty, setOpen);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="w-4 h-4 mr-1" />
@@ -429,7 +435,7 @@ export function AddAdhocPaymentDialog() {
             />
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createExpense.isPending}>
@@ -440,5 +446,7 @@ export function AddAdhocPaymentDialog() {
         </Form>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 }

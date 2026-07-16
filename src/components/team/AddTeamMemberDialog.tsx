@@ -23,6 +23,8 @@ import {
 import { UserPlus } from "lucide-react";
 import { useInviteTeamMember, AppRole } from "@/hooks/useTeam";
 import { useProperties } from "@/hooks/useProperties";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 import { toast } from "sonner";
 
 export const AddTeamMemberDialog = () => {
@@ -62,11 +64,23 @@ export const AddTeamMemberDialog = () => {
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) setInviteLink("");
+  };
+
+  const isDirty =
+    email.trim() !== "" ||
+    fullName.trim() !== "" ||
+    role !== "member" ||
+    accessScope !== "all" ||
+    selectedPropertyIds.length > 0;
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(isDirty, handleOpenChange);
+
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      setOpen(nextOpen);
-      if (!nextOpen) setInviteLink("");
-    }}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="h-4 w-4 mr-2" />
@@ -175,7 +189,7 @@ export const AddTeamMemberDialog = () => {
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" onClick={() => guardedOnOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={invite.isPending}>
@@ -185,5 +199,7 @@ export const AddTeamMemberDialog = () => {
         </form>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 };

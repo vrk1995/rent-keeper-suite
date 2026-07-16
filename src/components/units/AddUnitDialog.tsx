@@ -29,6 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useCreateUnit, useUpdateUnit, Unit } from "@/hooks/useUnits";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const unitSchema = z.object({
   name: z.string().min(1, "Unit name is required").max(100),
@@ -135,8 +137,12 @@ export const AddUnitDialog = ({
     }
   };
 
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(form.formState.isDirty, onOpenChange);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editUnit ? "Edit Unit" : "Add Unit"}</DialogTitle>
@@ -278,7 +284,7 @@ export const AddUnitDialog = ({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => guardedOnOpenChange(false)}
               >
                 Cancel
               </Button>
@@ -297,5 +303,7 @@ export const AddUnitDialog = ({
         </Form>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 };

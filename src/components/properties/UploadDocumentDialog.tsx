@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/select";
 import { useUploadDocument } from "@/hooks/useDocuments";
 import { Tenant } from "@/hooks/useTenants";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const documentSchema = z.object({
   name: z.string().min(1, "Document name is required"),
@@ -109,8 +111,12 @@ export function UploadDocumentDialog({ propertyId, tenants = [], defaultTenantId
     }
   };
 
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(form.formState.isDirty || !!selectedFile, handleOpenChange);
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="w-4 h-4 mr-1" />
@@ -254,7 +260,7 @@ export function UploadDocumentDialog({ propertyId, tenants = [], defaultTenantId
             )}
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={!selectedFile || uploadDocument.isPending}>
@@ -265,5 +271,7 @@ export function UploadDocumentDialog({ propertyId, tenants = [], defaultTenantId
         </Form>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 }

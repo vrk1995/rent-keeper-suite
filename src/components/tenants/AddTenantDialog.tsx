@@ -37,6 +37,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useCreateTenant, useUpdateTenant, Tenant, useTenants } from "@/hooks/useTenants";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 import { useProperties } from "@/hooks/useProperties";
 import { usePropertiesWithUnits } from "@/hooks/useUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
@@ -630,8 +632,12 @@ const AddTenantDialog = ({
 
   const handleBack = () => setStep((s) => Math.max(s - 1, 0));
 
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(form.formState.isDirty, onOpenChange);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -1636,7 +1642,7 @@ const AddTenantDialog = ({
                 )}
               </div>
               <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>
                   Cancel
                 </Button>
                 {isLastStep ? (
@@ -1659,6 +1665,8 @@ const AddTenantDialog = ({
         </Form>
       </DialogContent>
     </Dialog>
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
+    </>
   );
 };
 

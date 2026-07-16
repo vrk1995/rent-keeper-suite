@@ -35,6 +35,8 @@ import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const TDS_RATE = 0.1;
 
@@ -144,10 +146,20 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     setTdsApplicable(false);
   };
 
+  const isDirty =
+    notes.trim() !== "" ||
+    partialAmount !== "" ||
+    paymentMethod !== "bank_transfer" ||
+    paymentType !== "full" ||
+    tdsApplicable !== (payment?.tenant?.tds_applicable || false) ||
+    format(paidDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(isDirty, onOpenChange);
+
   return (
     <>
     {payment && (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={guardedOnOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
@@ -316,7 +328,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>
             Cancel
           </Button>
           <Button
@@ -331,6 +343,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     )}
 
     <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
+    <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
     </>
   );
 };

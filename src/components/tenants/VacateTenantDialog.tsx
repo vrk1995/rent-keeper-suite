@@ -10,6 +10,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { Tenant, useUpdateTenant } from "@/hooks/useTenants";
 import AddTenantDialog from "./AddTenantDialog";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 interface VacateTenantDialogProps {
   tenant: Tenant | null;
@@ -40,9 +42,14 @@ const VacateTenantDialog = ({ tenant, open, onOpenChange, onVacated }: VacateTen
     }
   };
 
+  const isDirty =
+    hasReplacement !== "no" || format(vacateDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
+  const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
+    useUnsavedChangesGuard(isDirty, onOpenChange);
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={guardedOnOpenChange}>
         <DialogContent className="sm:max-w-[440px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -86,7 +93,7 @@ const VacateTenantDialog = ({ tenant, open, onOpenChange, onVacated }: VacateTen
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => guardedOnOpenChange(false)}>Cancel</Button>
             <Button onClick={handleConfirm} disabled={updateTenant.isPending}>
               {updateTenant.isPending ? "Saving..." : "Confirm Vacate"}
             </Button>
@@ -104,6 +111,8 @@ const VacateTenantDialog = ({ tenant, open, onOpenChange, onVacated }: VacateTen
           prefillFromTenant={prefillTenant}
         />
       )}
+
+      <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
     </>
   );
 };
