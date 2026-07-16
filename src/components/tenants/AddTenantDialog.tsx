@@ -203,10 +203,12 @@ const AddTenantDialog = ({
     const property = properties.find(p => p.id === selectedPropertyId);
     if (!property) return null;
 
-    // Get all tenants for this property (excluding current tenant if editing)
+    // Get all active tenants for this property (excluding current tenant if editing) —
+    // vacated tenants must not keep occupying their old space in this calculation.
     const propertyTenants = allTenants?.filter(t =>
       t.property_id === selectedPropertyId &&
-      t.id !== editTenant?.id
+      t.id !== editTenant?.id &&
+      t.status === "active"
     ) || [];
 
     // Calculate total rented sqft at property level
