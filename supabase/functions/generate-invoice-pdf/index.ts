@@ -317,323 +317,296 @@ serve(async (req: Request): Promise<Response> => {
 
     const ownerShares = snapshot.owner_shares;
 
-    // Create PDF document
+    // ===== PREMIUM INVOICE LAYOUT =====
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]); // A4 size
+    const page = pdfDoc.addPage([595.28, 841.89]); // A4
     const { width, height } = page.getSize();
 
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const sans = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const sansBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const serif = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const serifBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+    const serifItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
 
-    const primaryColor = rgb(0.2, 0.4, 0.8);
-    const blackColor = rgb(0, 0, 0);
-    const grayColor = rgb(0.4, 0.4, 0.4);
-    const lightGrayColor = rgb(0.9, 0.9, 0.9);
+    // Editorial palette — ink + warm gold + cream
+    const ink = rgb(0.09, 0.11, 0.16);
+    const muted = rgb(0.44, 0.46, 0.52);
+    const rule = rgb(0.82, 0.82, 0.85);
+    const accent = rgb(0.66, 0.52, 0.18);
+    const cream = rgb(0.976, 0.966, 0.945);
+    const paidBg = rgb(0.93, 0.97, 0.93);
+    const paidBorder = rgb(0.35, 0.65, 0.35);
+    const paidInk = rgb(0.16, 0.45, 0.22);
 
-    let yPos = height - 50;
-    const leftMargin = 50;
-    const rightMargin = width - 50;
+    const L = 55;
+    const R = width - 55;
+    const CENTER = width / 2;
 
-    // Helper function to draw text
-    const drawText = (text: string, x: number, y: number, font = fontRegular, size = 10, color = blackColor) => {
-      page.drawText(text, { x, y, font, size, color });
+    // ---- Primitives ----
+    const drawText = (t: string, x: number, y: number, f = sans, s = 10, c = ink) => {
+      if (t) page.drawText(t, { x, y, font: f, size: s, color: c });
     };
-
-    // Helper function to draw a line
-    const drawLine = (x1: number, y1: number, x2: number, y2: number, thickness = 1) => {
-      page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness, color: grayColor });
+    const textWidth = (t: string, f = sans, s = 10) => f.widthOfTextAtSize(t || "", s);
+    const rightText = (t: string, xRight: number, y: number, f = sans, s = 10, c = ink) => {
+      drawText(t, xRight - textWidth(t, f, s), y, f, s, c);
     };
-
-    // Helper function to draw wrapped text and return the new Y position
-    const drawWrappedText = (
-      text: string,
-      x: number,
-      y: number,
-      maxWidth: number,
-      font = fontRegular,
-      size = 10,
-      color = blackColor,
-      lineHeight = 14,
+    const trackedWidth = (t: string, f = sansBold, s = 8, tr = 1.6) => {
+      if (!t) return 0;
+      let w = 0;
+      for (const ch of t) w += f.widthOfTextAtSize(ch, s) + tr;
+      return w - tr;
+    };
+    const tracked = (t: string, x: number, y: number, f = sansBold, s = 8, c = muted, tr = 1.6) => {
+      let cx = x;
+      const T = t.toUpperCase();
+      for (const ch of T) {
+        page.drawText(ch, { x: cx, y, font: f, size: s, color: c });
+        cx += f.widthOfTextAtSize(ch, s) + tr;
+      }
+    };
+    const trackedRight = (
+      t: string, xRight: number, y: number, f = sansBold, s = 8, c = muted, tr = 1.6,
+    ) => tracked(t, xRight - trackedWidth(t, f, s, tr), y, f, s, c, tr);
+    const hLine = (x1: number, x2: number, y: number, color = rule, thickness = 0.5) =>
+      page.drawLine({ start: { x: x1, y }, end: { x: x2, y }, thickness, color });
+    const drawWrapped = (
+      t: string, x: number, y: number, maxW: number,
+      f = sans, s = 10, c = ink, lh = 13,
     ): number => {
-      if (!text) return y;
-      const words = text.split(" ");
+      if (!t) return y;
+      const words = t.split(/\s+/);
       let line = "";
-      let currentY = y;
-
-      for (const word of words) {
-        const testLine = line + (line ? " " : "") + word;
-        if (font.widthOfTextAtSize(testLine, size) > maxWidth && line) {
-          drawText(line, x, currentY, font, size, color);
-          currentY -= lineHeight;
-          line = word;
-        } else {
-          line = testLine;
-        }
+      let cy = y;
+      for (const w of words) {
+        const test = line ? line + " " + w : w;
+        if (textWidth(test, f, s) > maxW && line) {
+          drawText(line, x, cy, f, s, c);
+          cy -= lh;
+          line = w;
+        } else line = test;
       }
-      if (line) {
-        drawText(line, x, currentY, font, size, color);
-        currentY -= lineHeight;
-      }
-      return currentY;
+      if (line) { drawText(line, x, cy, f, s, c); cy -= lh; }
+      return cy;
+    };
+    const labelValue = (label: string, val: string, x: number, y: number) => {
+      tracked(label, x, y + 12, sansBold, 7, muted, 1.4);
+      drawText(val, x, y, sans, 10, ink);
     };
 
-    // HEADER - INVOICE title (TAX INVOICE if GST applicable, otherwise just INVOICE)
-    const invoiceTitle = snapshot.requires_gst ? "TAX INVOICE" : "INVOICE";
-    drawText(invoiceTitle, leftMargin, yPos, fontBold, 24, primaryColor);
-
-    // Invoice number and date on the right (invoiceNumber was already set above)
+    // ---- Compute values upfront ----
     const invoiceDate = new Date(payment.paid_date || payment.due_date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+      day: "2-digit", month: "short", year: "numeric",
     });
-
-    drawText(`Invoice No: ${invoiceNumber}`, rightMargin - 150, yPos, fontBold, 10);
-    drawText(`Date: ${invoiceDate}`, rightMargin - 150, yPos - 15, fontRegular, 10, grayColor);
-
-    yPos -= 50;
-    drawLine(leftMargin, yPos, rightMargin, yPos);
-    yPos -= 30;
-
-    // BILL FROM section
-    drawText("BILL FROM", leftMargin, yPos, fontBold, 11, primaryColor);
-    yPos -= 18;
-
-    const billFromName = snapshot.bill_from_name;
-    const billFromAddress = snapshot.bill_from_address;
-    const billFromGstin = snapshot.bill_from_gstin;
-    const maxWidthLeft = 220;
-    const maxWidthRight = 200;
-
-    // Draw Bill From Name with wrapping
-    yPos = drawWrappedText(billFromName, leftMargin, yPos, maxWidthLeft, fontBold, 11, blackColor, 14);
-    yPos -= 3;
-
-    // Draw Bill From Address with wrapping
-    if (billFromAddress) {
-      yPos = drawWrappedText(billFromAddress, leftMargin, yPos, maxWidthLeft, fontRegular, 10, grayColor, 12);
+    const dueDateStr = new Date(payment.due_date).toLocaleDateString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric",
+    });
+    let periodMonth: string;
+    if (payment.billing_month) {
+      const [bY, bM] = payment.billing_month.split("-");
+      periodMonth = new Date(parseInt(bY), parseInt(bM) - 1, 1)
+        .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    } else {
+      periodMonth = new Date(payment.due_date)
+        .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     }
+    const baseAmount = payment.amount;
+    const requiresGst = snapshot.requires_gst;
+    const gstAmount = requiresGst ? baseAmount * 0.18 : 0;
+    const totalAmount = baseAmount + gstAmount;
+    const HSN_SAC_CODE = "997212";
 
-    if (billFromGstin) {
-      drawText(`GSTIN: ${billFromGstin}`, leftMargin, yPos, fontRegular, 10, grayColor);
-      yPos -= 12;
+    // =====================================================================
+    // TOP BANNER — invoice number left, dates right, hairline + gold accent
+    // =====================================================================
+    let y = height - 62;
+    tracked(requiresGst ? "TAX INVOICE" : "INVOICE", L, y, sansBold, 9, muted, 2.8);
+    drawText(invoiceNumber, L, y - 30, serifBold, 22, ink);
+
+    trackedRight("ISSUED", R, y, sansBold, 8, muted, 2);
+    rightText(invoiceDate, R, y - 14, sans, 11, ink);
+    trackedRight("DUE", R, y - 32, sansBold, 8, muted, 2);
+    rightText(dueDateStr, R, y - 46, sans, 11, ink);
+
+    y = height - 130;
+    page.drawRectangle({ x: L, y: y, width: 32, height: 1.8, color: accent });
+    hLine(L + 42, R, y + 0.9, rule, 0.5);
+
+    // =====================================================================
+    // FROM / BILL TO — two evenly-baselined columns
+    // =====================================================================
+    y -= 26;
+    const colW = 230;
+    const rightColX = R - colW;
+    tracked("From", L, y, sansBold, 8, muted, 2);
+    tracked("Bill To", rightColX, y, sansBold, 8, muted, 2);
+    y -= 18;
+
+    let yl = drawWrapped(snapshot.bill_from_name || "—", L, y, colW, serifBold, 13, ink, 15);
+    let yr = drawWrapped(snapshot.bill_to_name || "—", rightColX, y, colW, serifBold, 13, ink, 15);
+    yl -= 2;
+    yr -= 2;
+    if (snapshot.bill_from_address) {
+      yl = drawWrapped(snapshot.bill_from_address, L, yl, colW, sans, 9.5, muted, 12);
     }
-
-    const billFromPan = snapshot.bill_from_pan;
-    if (billFromPan) {
-      drawText(`PAN: ${billFromPan}`, leftMargin, yPos, fontRegular, 10, grayColor);
-      yPos -= 12;
+    if (snapshot.bill_to_address) {
+      yr = drawWrapped(snapshot.bill_to_address, rightColX, yr, colW, sans, 9.5, muted, 12);
     }
+    const kv = (label: string, val: string, x: number, yy: number) => {
+      const lw = textWidth(label + "  ", sansBold, 8.5);
+      drawText(label, x, yy, sansBold, 8.5, muted);
+      drawText(val, x + lw, yy, sans, 9.5, ink);
+    };
+    if (snapshot.bill_from_gstin) { kv("GSTIN", snapshot.bill_from_gstin, L, yl - 2); yl -= 13; }
+    if (snapshot.bill_from_pan) { kv("PAN", snapshot.bill_from_pan, L, yl - 2); yl -= 13; }
+    if (snapshot.bill_to_gstin) { kv("GSTIN", snapshot.bill_to_gstin, rightColX, yr - 2); yr -= 13; }
 
-    // BILL TO section (on the right) - calculate starting Y position
-    // Start Bill To at the same level as Bill From started
-    let billToYPos = height - 50 - 50 - 30 - 18;
+    y = Math.min(yl, yr) - 22;
 
-    drawText("BILL TO", rightMargin - 200, billToYPos, fontBold, 11, primaryColor);
-    billToYPos -= 18;
+    // =====================================================================
+    // PROPERTY + BILLING PERIOD row
+    // =====================================================================
+    hLine(L, R, y);
+    y -= 20;
+    tracked("Property", L, y, sansBold, 8, muted, 2);
+    tracked("Billing Period", rightColX, y, sansBold, 8, muted, 2);
+    y -= 15;
+    drawText(property?.name || "N/A", L, y, serifBold, 12, ink);
+    drawText(periodMonth, rightColX, y, serifBold, 12, ink);
+    y -= 13;
+    const addrParts = [
+      property?.address,
+      snapshot.corp_number_text ? `Corp ${snapshot.corp_number_text}` : null,
+    ].filter(Boolean);
+    if (addrParts.length) drawText(addrParts.join(" · "), L, y, sans, 9, muted);
+    y -= 26;
 
-    const billToName = snapshot.bill_to_name;
-    const billToAddress = snapshot.bill_to_address;
-    const billToGstin = snapshot.bill_to_gstin;
+    // =====================================================================
+    // LINE ITEMS TABLE — hairline top/bottom, right-aligned amounts
+    // =====================================================================
+    const hsnX = 360;
+    hLine(L, R, y);
+    y -= 14;
+    tracked("Description", L, y, sansBold, 7.5, muted, 1.8);
+    tracked("HSN / SAC", hsnX, y, sansBold, 7.5, muted, 1.8);
+    trackedRight("Amount (INR)", R, y, sansBold, 7.5, muted, 1.8);
+    y -= 10;
+    hLine(L, R, y);
+    y -= 20;
 
-    // Draw Bill To Name with wrapping
-    billToYPos = drawWrappedText(
-      billToName,
-      rightMargin - 200,
-      billToYPos,
-      maxWidthRight,
-      fontBold,
-      11,
-      blackColor,
-      14,
-    );
-    billToYPos -= 3;
+    const drawItemRow = (title: string, sub: string, amount: number) => {
+      drawText(title, L, y, sans, 10.5, ink);
+      drawText(sub, L, y - 12, sans, 9, muted);
+      drawText(HSN_SAC_CODE, hsnX, y, sans, 10, ink);
+      rightText(formatCurrency(amount), R, y, sans, 10.5, ink);
+      y -= 32;
+    };
 
-    // Draw Bill To Address with wrapping
-    if (billToAddress) {
-      billToYPos = drawWrappedText(
-        billToAddress,
-        rightMargin - 200,
-        billToYPos,
-        maxWidthRight,
-        fontRegular,
-        10,
-        grayColor,
-        12,
+    if (snapshot.owner_shares.length > 1) {
+      for (const share of snapshot.owner_shares) {
+        const amt = baseAmount * (share.share_percentage / 100);
+        drawItemRow(
+          "Renting of Immovable Property",
+          `${periodMonth} · ${share.owner_name} (${share.share_percentage}%)`,
+          amt,
+        );
+      }
+    } else {
+      drawItemRow(
+        "Renting of Immovable Property",
+        `For the month of ${periodMonth}`,
+        baseAmount,
       );
     }
 
-    if (billToGstin) {
-      drawText(`GSTIN: ${billToGstin}`, rightMargin - 200, billToYPos, fontRegular, 10, grayColor);
-      billToYPos -= 12;
-    }
+    hLine(L, R, y + 8, rule, 0.4);
+    y -= 4;
 
-    yPos = Math.min(yPos, billToYPos) - 40;
-    drawLine(leftMargin, yPos, rightMargin, yPos);
-    yPos -= 30;
-
-    // Property Details
-    drawText("PROPERTY DETAILS", leftMargin, yPos, fontBold, 11, primaryColor);
-    yPos -= 18;
-    drawText(`Property: ${property?.name || "N/A"}`, leftMargin, yPos, fontRegular, 10);
-    yPos -= 12;
-    drawText(`Address: ${property?.address || "N/A"}`, leftMargin, yPos, fontRegular, 10, grayColor);
-    yPos -= 12;
-    if (snapshot.corp_number_text) {
-      drawText(`Corp No: ${snapshot.corp_number_text}`, leftMargin, yPos, fontRegular, 10, grayColor);
-      yPos -= 12;
-    }
-    yPos -= 13;
-
-    // Invoice Items Table
-    const tableTop = yPos;
-    const tableHeaders = ["Description", "HSN/SAC", "Amount (INR)"];
-    const colWidths = [270, 80, 145];
-    const HSN_SAC_CODE = "997212"; // Renting of Immovable Property
-
-    // Draw table header background
-    page.drawRectangle({
-      x: leftMargin,
-      y: tableTop - 20,
-      width: rightMargin - leftMargin,
-      height: 25,
-      color: lightGrayColor,
-    });
-
-    // Draw table headers
-    let xPos = leftMargin + 10;
-    for (let i = 0; i < tableHeaders.length; i++) {
-      drawText(tableHeaders[i], xPos, tableTop - 13, fontBold, 10);
-      xPos += colWidths[i];
-    }
-
-    yPos = tableTop - 35;
-
-    // Calculate amounts
-    const baseAmount = payment.amount;
-    const requiresGst = snapshot.requires_gst;
-    const gstRate = 0.18; // 18% GST
-    const gstAmount = requiresGst ? baseAmount * gstRate : 0;
-    const totalAmount = baseAmount + gstAmount;
-
-    // Period - use billing_month if available, otherwise fall back to due_date
-    let periodMonth: string;
-    if (payment.billing_month) {
-      const [bYear, bMonth] = payment.billing_month.split("-");
-      const billingDate = new Date(parseInt(bYear), parseInt(bMonth) - 1, 1);
-      periodMonth = billingDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    } else {
-      const dueDate = new Date(payment.due_date);
-      periodMonth = dueDate.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    }
-
-    // Draw items - split by owner if multiple owners exist
-    const serviceCategoryLine = `Service Category: "Renting of Immovable Property"`;
-    if (ownerShares.length > 1) {
-      // Multiple owners - show individual line items for each owner
-      for (const share of ownerShares) {
-        const ownerAmount = baseAmount * (share.share_percentage / 100);
-        drawText(serviceCategoryLine, leftMargin + 10, yPos, fontRegular, 9);
-        drawText(
-          `For the month of ${periodMonth} - ${share.owner_name} (${share.share_percentage}%)`,
-          leftMargin + 10,
-          yPos - 12,
-          fontRegular,
-          9,
-          grayColor,
-        );
-        drawText(HSN_SAC_CODE, leftMargin + 280, yPos - 6, fontRegular, 10);
-        drawText(formatCurrency(ownerAmount), leftMargin + 360, yPos - 6, fontRegular, 10);
-        yPos -= 32;
-      }
-    } else {
-      // Single owner or no owner shares - show single line item
-      drawText(serviceCategoryLine, leftMargin + 10, yPos, fontRegular, 9);
-      drawText(`For the month of ${periodMonth}`, leftMargin + 10, yPos - 12, fontRegular, 9, grayColor);
-      drawText(HSN_SAC_CODE, leftMargin + 280, yPos - 6, fontRegular, 10);
-      drawText(formatCurrency(baseAmount), leftMargin + 360, yPos - 6, fontRegular, 10);
-      yPos -= 32;
-    }
-
+    // =====================================================================
+    // TOTALS PANEL (right-aligned)
+    // =====================================================================
+    const totalsX = 330;
+    const rowLine = (label: string, val: string) => {
+      drawText(label, totalsX, y, sans, 10, muted);
+      rightText(val, R, y, sans, 10.5, ink);
+      y -= 16;
+    };
     if (requiresGst) {
-      drawText("CGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
-      drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
-      yPos -= 18;
-
-      drawText("SGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
-      drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
-      yPos -= 18;
+      rowLine("Subtotal", formatCurrency(baseAmount));
+      rowLine("CGST @ 9%", formatCurrency(gstAmount / 2));
+      rowLine("SGST @ 9%", formatCurrency(gstAmount / 2));
+      hLine(totalsX, R, y + 6, rule, 0.4);
+      y -= 4;
     }
+    drawText("TOTAL", totalsX, y, sansBold, 10.5, ink);
+    rightText(formatCurrency(totalAmount), R, y - 2, serifBold, 16, ink);
+    y -= 10;
+    page.drawRectangle({ x: totalsX, y: y - 2, width: R - totalsX, height: 1.5, color: accent });
+    y -= 22;
 
-    yPos -= 10;
-    drawLine(leftMargin, yPos, rightMargin, yPos);
-    yPos -= 20;
-
-    // Total
-    drawText("TOTAL", leftMargin + 10, yPos, fontBold, 12);
-    drawText(formatCurrency(totalAmount), leftMargin + 350, yPos, fontBold, 14, primaryColor);
-    yPos -= 30;
-
-    // Amount in words
+    // Amount in words (italic serif, muted)
     const amountInWords = numberToWords(Math.round(totalAmount));
-    drawText(`Amount in words: ${amountInWords} Rupees Only`, leftMargin, yPos, fontRegular, 9, grayColor);
-    yPos -= 40;
+    drawText(
+      `Amount in words: ${amountInWords} Rupees Only`,
+      L, y, serifItalic, 10, muted,
+    );
+    y -= 28;
 
-    // Bank Details for Payment
+    // =====================================================================
+    // BANK DETAILS CARD
+    // =====================================================================
     const bankName = snapshot.bill_from_bank_name;
-    const bankAccountNumber = snapshot.bill_from_account_number;
+    const bankAcc = snapshot.bill_from_account_number;
     const bankIfsc = snapshot.bill_from_ifsc;
-    if (bankName || bankAccountNumber || bankIfsc) {
-      drawText("BANK DETAILS FOR PAYMENT", leftMargin, yPos, fontBold, 10, primaryColor);
-      yPos -= 14;
-      if (bankName) {
-        drawText(`Bank Name: ${bankName}`, leftMargin, yPos, fontRegular, 9, grayColor);
-        yPos -= 12;
-      }
-      if (bankAccountNumber) {
-        drawText(`Account Number: ${bankAccountNumber}`, leftMargin, yPos, fontRegular, 9, grayColor);
-        yPos -= 12;
-      }
-      if (bankIfsc) {
-        drawText(`IFSC Code: ${bankIfsc}`, leftMargin, yPos, fontRegular, 9, grayColor);
-        yPos -= 12;
-      }
-      yPos -= 10;
+    if (bankName || bankAcc || bankIfsc) {
+      const cardH = 68;
+      const cardY = y - cardH + 14;
+      page.drawRectangle({
+        x: L, y: cardY, width: R - L, height: cardH,
+        color: cream, borderColor: rule, borderWidth: 0.5,
+      });
+      page.drawRectangle({ x: L, y: cardY, width: 3, height: cardH, color: accent });
+      tracked("Bank Details for Payment", L + 18, y, sansBold, 8, muted, 2);
+      const col1 = L + 18, col2 = L + 210, col3 = L + 380;
+      const bY = y - 30;
+      if (bankName) labelValue("Bank", bankName, col1, bY);
+      if (bankAcc) labelValue("Account No.", bankAcc, col2, bY);
+      if (bankIfsc) labelValue("IFSC", bankIfsc, col3, bY);
+      y = cardY - 22;
     }
 
-    // Payment Status
+    // =====================================================================
+    // PAID stamp — outlined pill on the right, elegant
+    // =====================================================================
     if (payment.status === "paid") {
       const paidDate = payment.paid_date
-        ? new Date(payment.paid_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        ? new Date(payment.paid_date).toLocaleDateString("en-IN", {
+            day: "2-digit", month: "short", year: "numeric",
+          })
         : "";
-
+      const stampW = 165, stampH = 46;
+      const sx = R - stampW, sy = y - stampH + 14;
       page.drawRectangle({
-        x: leftMargin,
-        y: yPos - 10,
-        width: 150,
-        height: 30,
-        color: rgb(0.9, 1, 0.9),
-        borderColor: rgb(0.2, 0.7, 0.2),
-        borderWidth: 1,
+        x: sx, y: sy, width: stampW, height: stampH,
+        color: paidBg, borderColor: paidBorder, borderWidth: 1.2,
       });
-
-      drawText("PAID", leftMargin + 10, yPos, fontBold, 14, rgb(0.2, 0.6, 0.2));
-      if (paidDate) {
-        drawText(`on ${paidDate}`, leftMargin + 60, yPos, fontRegular, 10, grayColor);
-      }
+      drawText("PAID", sx + 14, sy + stampH - 22, serifBold, 18, paidInk);
+      if (paidDate) drawText(`on ${paidDate}`, sx + 62, sy + stampH - 20, sans, 9.5, paidInk);
       if (payment.payment_method) {
-        drawText(`via ${payment.payment_method}`, leftMargin + 10, yPos - 15, fontRegular, 9, grayColor);
+        drawText(`via ${payment.payment_method}`, sx + 14, sy + 10, sans, 9, paidInk);
       }
     }
 
-    // Footer
-    yPos = 80;
-    drawLine(leftMargin, yPos, rightMargin, yPos);
-    yPos -= 20;
-    drawText("Thank you for your business!", leftMargin, yPos, fontRegular, 10, grayColor);
-    const signatureText = "This is a computer-generated invoice and does not require a signature.";
-    const signatureTextWidth = fontRegular.widthOfTextAtSize(signatureText, 9);
-    drawText(signatureText, (width - signatureTextWidth) / 2, yPos - 18, fontRegular, 9, grayColor);
+    // =====================================================================
+    // FOOTER — thin rule + tracked signature notice
+    // =====================================================================
+    const footerY = 70;
+    hLine(L, R, footerY, rule, 0.4);
+    page.drawRectangle({ x: L, y: footerY - 0.5, width: 32, height: 1.5, color: accent });
+    drawText("Thank you for your business.", L, footerY - 18, serifItalic, 10, muted);
+    trackedRight(
+      "Computer-generated invoice · No signature required",
+      R, footerY - 18, sansBold, 7, muted, 1.4,
+    );
 
     // Generate PDF bytes
     const pdfBytes = await pdfDoc.save();
