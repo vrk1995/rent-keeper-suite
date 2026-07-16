@@ -7,13 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Receipt, FileText, Loader2 } from "lucide-react";
+import { Receipt, FileText, Loader2, History } from "lucide-react";
 import { RentPayment } from "@/hooks/usePayments";
 import { usePaymentTransactions } from "@/hooks/usePaymentTransactions";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
+import { ActivityLogList } from "@/components/activity/ActivityLogList";
 import { formatINR } from "@/lib/currency";
+import { formatIST } from "@/lib/dateFormat";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -34,6 +37,7 @@ const methodLabels: Record<string, string> = {
 export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHistoryDialogProps) {
   const { data: transactions, isLoading } = usePaymentTransactions(open ? payment?.id : undefined);
   const { preview, loadingId, openReceipt, openStatement, refreshPreview, closePreview } = usePdfPreview();
+  const [showFullHistory, setShowFullHistory] = useState(false);
 
   const recorderIds = Array.from(new Set((transactions || []).map((t) => t.created_by).filter(Boolean))) as string[];
   const { data: recorderProfiles } = useQuery({
@@ -128,7 +132,7 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
                       </p>
                       {recorderName(t.created_by) && (
                         <p className="text-xs text-muted-foreground">
-                          Recorded by {recorderName(t.created_by)}
+                          Recorded by {recorderName(t.created_by)} on {formatIST(t.created_at)}
                         </p>
                       )}
                       {Number(t.tds_amount) > 0 && (
@@ -165,6 +169,20 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
               <FileText className="h-4 w-4 mr-2" />
               Download Full Statement
             </Button>
+          )}
+
+          <Button variant="ghost" size="sm" onClick={() => setShowFullHistory((v) => !v)}>
+            <History className="h-4 w-4 mr-2" />
+            {showFullHistory ? "Hide" : "Show"} full record history
+          </Button>
+          {showFullHistory && (
+            <div className="pt-1">
+              <ActivityLogList
+                entityType="rent_payments"
+                entityId={payment?.id}
+                emptyLabel="No changes recorded on this payment record yet."
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
