@@ -10,6 +10,8 @@ export interface PdfPreviewState {
   paymentId: string;
   /** Only set for invoice previews, once the underlying invoice row has been resolved. */
   invoiceId?: string;
+  /** Extra params sent to the edge function (e.g. a specific transactionId, or statement mode). */
+  extra?: Record<string, unknown>;
 }
 
 /** Generates invoice/receipt PDFs and shows them in an in-app preview instead of a new tab. */
@@ -22,12 +24,13 @@ export function usePdfPreview() {
     paymentId: string,
     title: string,
     fallbackFileName: string,
-    documentType: "invoice" | "receipt"
+    documentType: "invoice" | "receipt",
+    extra?: Record<string, unknown>
   ) => {
     setLoadingId(paymentId);
     try {
       const { data, error } = await supabase.functions.invoke(fn, {
-        body: { paymentId },
+        body: { paymentId, ...extra },
       });
       if (error) throw error;
       setPreview((prev) => {
@@ -38,6 +41,7 @@ export function usePdfPreview() {
           fileName: data.filename || fallbackFileName,
           documentType,
           paymentId,
+          extra,
         };
       });
 
@@ -72,14 +76,37 @@ export function usePdfPreview() {
   const openInvoice = (paymentId: string) =>
     generate("generate-invoice-pdf", paymentId, "Invoice", "Invoice.pdf", "invoice");
 
-  const openReceipt = (paymentId: string) =>
-    generate("generate-receipt-pdf", paymentId, "Receipt", "Receipt.pdf", "receipt");
+  /** Receipt for a single installment (transactionId), or the whole payment when omitted. */
+  const openReceipt = (paymentId: string, transactionId?: string) =>
+    generate(
+      "generate-receipt-pdf",
+      paymentId,
+      "Receipt",
+      "Receipt.pdf",
+      "receipt",
+      transactionId ? { transactionId } : undefined
+    );
+
+  /** Combined statement listing every installment against this month's rent with a balance. */
+  const openStatement = (paymentId: string) =>
+    generate("generate-receipt-pdf", paymentId, "Payment Statement", "Statement.pdf", "receipt", {
+      statement: true,
+    });
 
   /** Re-runs whatever generated the current preview — used after an edit is saved, so the
    *  visible PDF reflects the new data instead of the stale blob from before the edit. */
   const refreshPreview = () => {
     if (!preview) return Promise.resolve();
-    return preview.documentType === "invoice" ? openInvoice(preview.paymentId) : openReceipt(preview.paymentId);
+    return preview.documentType === "invoice"
+      ? openInvoice(preview.paymentId)
+      : generate(
+          "generate-receipt-pdf",
+          preview.paymentId,
+          preview.title,
+          preview.fileName,
+          "receipt",
+          preview.extra
+        );
   };
 
   const closePreview = () => {
@@ -87,5 +114,5 @@ export function usePdfPreview() {
     setPreview(null);
   };
 
-  return { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview };
+  return { preview, loadingId, openInvoice, openReceipt, openStatement, refreshPreview, closePreview };
 }

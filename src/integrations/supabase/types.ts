@@ -538,6 +538,63 @@ export type Database = {
           },
         ]
       }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          paid_date: string
+          payment_method: string | null
+          received_amount: number
+          rent_payment_id: string
+          tds_amount: number
+          workspace_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_date: string
+          payment_method?: string | null
+          received_amount: number
+          rent_payment_id: string
+          tds_amount?: number
+          workspace_id?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_date?: string
+          payment_method?: string | null
+          received_amount?: number
+          rent_payment_id?: string
+          tds_amount?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_rent_payment_id_fkey"
+            columns: ["rent_payment_id"]
+            isOneToOne: false
+            referencedRelation: "rent_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

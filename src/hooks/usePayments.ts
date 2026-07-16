@@ -327,6 +327,14 @@ export const useRevertPaymentToUnpaid = () => {
 
       const status = new Date(existing.due_date) < new Date() ? "overdue" : "pending";
 
+      // Clear the installment history too — undo is meant to fully wipe the recorded
+      // receipt(s) so the payment can be recorded again from scratch.
+      const { error: txnDeleteError } = await supabase
+        .from("payment_transactions")
+        .delete()
+        .eq("rent_payment_id", id);
+      if (txnDeleteError) throw txnDeleteError;
+
       const { data, error } = await supabase
         .from("rent_payments")
         .update({
@@ -346,8 +354,9 @@ export const useRevertPaymentToUnpaid = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-transactions", data.id] });
     },
     onError: (error) => {
       toast.error("Failed to revert payment: " + error.message);

@@ -37,6 +37,7 @@ import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
 import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
+import { PaymentHistoryDialog } from "@/components/payments/PaymentHistoryDialog";
 import { paymentStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { useIsAdmin } from "@/hooks/useTeam";
@@ -78,10 +79,11 @@ const Payments = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
-  const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
+  const { preview, loadingId, openInvoice, refreshPreview, closePreview } = usePdfPreview();
   const { isAdmin } = useIsAdmin();
   const [editPayment, setEditPayment] = useState<{ paymentId: string; invoiceId: string | null } | null>(null);
   const [resolvingEditId, setResolvingEditId] = useState<string | null>(null);
+  const [historyPayment, setHistoryPayment] = useState<RentPayment | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -148,11 +150,8 @@ const Payments = () => {
     }
   };
 
-  const handleDownloadReceipt = (paymentId: string) => {
-    openReceipt(paymentId).catch((error: any) => {
-      console.error("Error generating receipt:", error);
-      toast.error("Failed to generate receipt: " + error.message);
-    });
+  const handleOpenHistory = (payment: RentPayment) => {
+    setHistoryPayment(payment);
   };
 
   const handleGeneratePayments = () => {
@@ -377,15 +376,10 @@ const Payments = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDownloadReceipt(payment.id)}
-                              disabled={loadingId === payment.id}
+                              onClick={() => handleOpenHistory(payment)}
                             >
-                              {loadingId === payment.id ? (
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <Receipt className="w-4 h-4 mr-1" />
-                              )}
-                              Receipt
+                              <Receipt className="w-4 h-4 mr-1" />
+                              Receipts
                             </Button>
                           )}
                           <UndoPaymentButton payment={payment} />
@@ -477,15 +471,10 @@ const Payments = () => {
                           variant="ghost"
                           size="sm"
                           className="flex-1 h-8 text-xs"
-                          onClick={() => handleDownloadReceipt(payment.id)}
-                          disabled={loadingId === payment.id}
+                          onClick={() => handleOpenHistory(payment)}
                         >
-                          {loadingId === payment.id ? (
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          ) : (
-                            <Receipt className="w-3 h-3 mr-1" />
-                          )}
-                          Receipt
+                          <Receipt className="w-3 h-3 mr-1" />
+                          Receipts
                         </Button>
                       )}
                       <UndoPaymentButton payment={payment} className="h-8" />
@@ -561,6 +550,12 @@ const Payments = () => {
         invoiceId={editPayment?.invoiceId ?? undefined}
         open={!!editPayment}
         onOpenChange={(open) => !open && setEditPayment(null)}
+      />
+
+      <PaymentHistoryDialog
+        payment={historyPayment}
+        open={!!historyPayment}
+        onOpenChange={(open) => !open && setHistoryPayment(null)}
       />
     </div>
   );

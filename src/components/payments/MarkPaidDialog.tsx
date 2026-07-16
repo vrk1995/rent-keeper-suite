@@ -28,6 +28,7 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RentPayment, useMarkPaymentPaid } from "@/hooks/usePayments";
+import { useCreatePaymentTransaction } from "@/hooks/usePaymentTransactions";
 import { formatINR } from "@/lib/currency";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
@@ -60,6 +61,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
   const markPaid = useMarkPaymentPaid();
+  const createTransaction = useCreatePaymentTransaction();
   const { preview, openReceipt, refreshPreview, closePreview } = usePdfPreview();
 
   // Default the TDS toggle from the tenant's preference each time the dialog opens for a payment
@@ -89,6 +91,26 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
       return;
     }
 
+    // Record THIS installment as its own history entry first, so nothing is lost even if the
+    // running-total update below fails. Each entry keeps its own date/amount/method.
+    let transactionId: string | undefined;
+    try {
+      const txn = await createTransaction.mutateAsync({
+        rent_payment_id: payment.id,
+        amount: grossSettled,
+        tds_amount: tdsAmount,
+        received_amount: receivedAmount,
+        paid_date: format(paidDate, "yyyy-MM-dd"),
+        payment_method: paymentMethod,
+        notes: notes.trim() || undefined,
+      });
+      transactionId = txn.id;
+    } catch (err) {
+      console.error("Failed to record payment installment:", err);
+      toast.error("Failed to record payment: " + (err as Error).message);
+      return;
+    }
+
     await markPaid.mutateAsync({
       id: payment.id,
       paid_date: format(paidDate, "yyyy-MM-dd"),
@@ -100,9 +122,9 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
       tds_amount: tdsAmount,
     });
 
-    // Generate receipt for the payment
+    // Generate a receipt for THIS installment specifically.
     try {
-      await openReceipt(payment.id);
+      await openReceipt(payment.id, transactionId);
       toast.success("Payment recorded!");
     } catch (err: any) {
       console.error("Receipt generation error:", err);

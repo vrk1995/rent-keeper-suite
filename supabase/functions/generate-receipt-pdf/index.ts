@@ -7,6 +7,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface Txn {
+  id: string;
+  amount: number;
+  tds_amount: number;
+  received_amount: number;
+  paid_date: string;
+  payment_method: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -17,7 +28,9 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { paymentId } = await req.json();
+    // transactionId => receipt for one installment; statement => full ledger for the rent;
+    // neither => legacy single receipt for the whole (fully-paid) payment.
+    const { paymentId, transactionId, statement } = await req.json();
 
     if (!paymentId) {
       return new Response(
@@ -25,8 +38,6 @@ serve(async (req: Request): Promise<Response> => {
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
-    console.log("Generating receipt for payment:", paymentId);
 
     // Fetch payment with tenant and property details
     const { data: payment, error: paymentError } = await supabase
@@ -45,14 +56,15 @@ serve(async (req: Request): Promise<Response> => {
       .single();
 
     if (paymentError || !payment) {
-      console.error("Error fetching payment:", paymentError);
       return new Response(
         JSON.stringify({ error: "Payment not found" }),
         { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    if (payment.status !== "paid") {
+    // A single legacy receipt only makes sense once fully paid. Installment receipts and
+    // statements are valid for partial payments too.
+    if (!transactionId && !statement && payment.status !== "paid") {
       return new Response(
         JSON.stringify({ error: "Payment is not marked as paid" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -62,29 +74,31 @@ serve(async (req: Request): Promise<Response> => {
     const tenant = payment.tenant;
     const property = payment.property;
 
-    // Generate receipt number
-    const paidDate = new Date(payment.paid_date || new Date());
-    const yearShort = String(paidDate.getFullYear()).slice(-2);
+    // All installments recorded against this rent, oldest first.
+    const { data: txnRows } = await supabase
+      .from("payment_transactions")
+      .select("id, amount, tds_amount, received_amount, paid_date, payment_method, notes, created_at")
+      .eq("rent_payment_id", paymentId)
+      .order("paid_date", { ascending: true })
+      .order("created_at", { ascending: true });
+    const transactions: Txn[] = (txnRows as Txn[]) || [];
+
     const prefix = property?.invoice_prefix || property?.name?.substring(0, 3).toUpperCase() || "REC";
     const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
-    const receiptNumber = `REC-${prefix}-${yearShort}-${timestamp}`;
 
-    // Fetch tenant owner shares
-    let ownerShares: { owner_id: string; share_percentage: number; owner_name: string }[] = [];
-    if (tenant?.id) {
-      const { data: shares } = await supabase
-        .from("tenant_owner_shares")
-        .select(`owner_id, share_percentage, property_owners(name)`)
-        .eq("tenant_id", tenant.id);
-
-      if (shares && shares.length > 0) {
-        ownerShares = shares.map((s: any) => ({
-          owner_id: s.owner_id,
-          share_percentage: s.share_percentage,
-          owner_name: s.property_owners?.name || "Owner",
-        }));
-      }
+    // Rent period label
+    let periodMonth: string;
+    if (payment.billing_month) {
+      const [bY, bM] = payment.billing_month.split("-");
+      periodMonth = new Date(parseInt(bY), parseInt(bM) - 1, 1)
+        .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    } else {
+      periodMonth = new Date(payment.due_date)
+        .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
     }
+
+    const totalDue = Number(payment.amount) || 0;
+    const totalReceivedGross = transactions.reduce((s, t) => s + Number(t.amount), 0);
 
     // === Build PDF ===
     const pdfDoc = await PDFDocument.create();
@@ -107,11 +121,9 @@ serve(async (req: Request): Promise<Response> => {
     const drawText = (text: string, x: number, y: number, font = fontRegular, size = 10, color = blackColor) => {
       page.drawText(text, { x, y, font, size, color });
     };
-
     const drawLine = (x1: number, y1: number, x2: number, y2: number, thickness = 1) => {
       page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness, color: grayColor });
     };
-
     const drawWrappedText = (text: string, x: number, y: number, maxWidth: number, font = fontRegular, size = 10, color = blackColor, lineHeight = 14): number => {
       if (!text) return y;
       const words = text.split(" ");
@@ -134,14 +146,23 @@ serve(async (req: Request): Promise<Response> => {
       return currentY;
     };
 
-    // === HEADER ===
-    drawText("PAYMENT RECEIPT", leftMargin, yPos, fontBold, 24, primaryColor);
+    const isStatement = !!statement;
+    const docTitle = isStatement ? "PAYMENT STATEMENT" : "PAYMENT RECEIPT";
+    const docNumber = isStatement
+      ? `STMT-${prefix}-${String(new Date().getFullYear()).slice(-2)}-${timestamp}`
+      : `REC-${prefix}-${String(new Date().getFullYear()).slice(-2)}-${timestamp}`;
 
-    const receiptDate = paidDate.toLocaleDateString("en-IN", {
-      day: "2-digit", month: "short", year: "numeric",
-    });
-    drawText(`Receipt No: ${receiptNumber}`, rightMargin - 160, yPos, fontBold, 10);
-    drawText(`Date: ${receiptDate}`, rightMargin - 160, yPos - 15, fontRegular, 10, grayColor);
+    // Header date: for an installment receipt, use that installment's date; else today.
+    const thisTxn = transactionId ? transactions.find((t) => t.id === transactionId) : null;
+    const headerDate = thisTxn ? new Date(thisTxn.paid_date) : new Date();
+
+    // === HEADER ===
+    drawText(docTitle, leftMargin, yPos, fontBold, 24, primaryColor);
+    drawText(`No: ${docNumber}`, rightMargin - 170, yPos, fontBold, 10);
+    drawText(
+      `Date: ${headerDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`,
+      rightMargin - 170, yPos - 15, fontRegular, 10, grayColor
+    );
 
     yPos -= 50;
     drawLine(leftMargin, yPos, rightMargin, yPos);
@@ -150,10 +171,8 @@ serve(async (req: Request): Promise<Response> => {
     // === RECEIVED FROM (Owner/Landlord) ===
     drawText("RECEIVED FROM", leftMargin, yPos, fontBold, 11, primaryColor);
     yPos -= 18;
-
     const receivedFromName = tenant?.bill_from_name || "Property Owner";
     const receivedFromAddress = tenant?.bill_from_address || property?.address || "";
-
     yPos = drawWrappedText(receivedFromName, leftMargin, yPos, 220, fontBold, 11, blackColor, 14);
     yPos -= 3;
     if (receivedFromAddress) {
@@ -164,142 +183,170 @@ serve(async (req: Request): Promise<Response> => {
     let issuedToY = height - 50 - 50 - 30 - 18;
     drawText("ISSUED TO", rightMargin - 200, issuedToY, fontBold, 11, primaryColor);
     issuedToY -= 18;
-
     const issuedToName = tenant?.bill_to_name || tenant?.name || "Tenant";
     const issuedToAddress = tenant?.bill_to_address || "";
-
     issuedToY = drawWrappedText(issuedToName, rightMargin - 200, issuedToY, 200, fontBold, 11, blackColor, 14);
     issuedToY -= 3;
     if (issuedToAddress) {
       issuedToY = drawWrappedText(issuedToAddress, rightMargin - 200, issuedToY, 200, fontRegular, 10, grayColor, 12);
     }
 
-    yPos = Math.min(yPos, issuedToY) - 40;
-    drawLine(leftMargin, yPos, rightMargin, yPos);
-    yPos -= 30;
-
-    // === PROPERTY ===
-    drawText("PROPERTY", leftMargin, yPos, fontBold, 11, primaryColor);
-    yPos -= 18;
-    drawText(`${property?.name || "N/A"}`, leftMargin, yPos, fontRegular, 10);
-    yPos -= 12;
-    drawText(`${property?.address || ""}`, leftMargin, yPos, fontRegular, 10, grayColor);
-    yPos -= 30;
-
-    // === PAYMENT DETAILS TABLE ===
-    const tableTop = yPos;
-    page.drawRectangle({
-      x: leftMargin, y: tableTop - 20,
-      width: rightMargin - leftMargin, height: 25,
-      color: lightGrayColor,
-    });
-    drawText("Description", leftMargin + 10, tableTop - 13, fontBold, 10);
-    drawText("Amount (INR)", leftMargin + 360, tableTop - 13, fontBold, 10);
-
-    yPos = tableTop - 35;
-
-    // Period
-    let periodMonth: string;
-    if (payment.billing_month) {
-      const [bY, bM] = payment.billing_month.split("-");
-      periodMonth = new Date(parseInt(bY), parseInt(bM) - 1, 1)
-        .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    } else {
-      periodMonth = new Date(payment.due_date)
-        .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-    }
-
-    const baseAmount = payment.amount;
-    const requiresGst = tenant?.requires_gst || false;
-    const gstAmount = requiresGst ? baseAmount * 0.18 : 0;
-    const tdsApplicable = payment.tds_applicable || false;
-    const tdsAmount = tdsApplicable ? (payment.tds_amount || 0) : 0;
-    const totalAmount = baseAmount + gstAmount - tdsAmount;
-
-    // Line items
-    if (ownerShares.length > 1) {
-      for (const share of ownerShares) {
-        const ownerAmount = baseAmount * (share.share_percentage / 100);
-        drawText(`Rent for ${periodMonth} - ${share.owner_name} (${share.share_percentage}%)`, leftMargin + 10, yPos, fontRegular, 10);
-        drawText(formatCurrency(ownerAmount), leftMargin + 360, yPos, fontRegular, 10);
-        yPos -= 20;
-      }
-    } else {
-      drawText(`Rent for ${periodMonth}`, leftMargin + 10, yPos, fontRegular, 10);
-      drawText(formatCurrency(baseAmount), leftMargin + 360, yPos, fontRegular, 10);
-      yPos -= 20;
-    }
-
-    if (requiresGst) {
-      drawText("CGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
-      drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
-      yPos -= 18;
-      drawText("SGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
-      drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
-      yPos -= 18;
-    }
-
-    if (tdsApplicable) {
-      drawText("Less: TDS Deducted @ 10%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
-      drawText(`- ${formatCurrency(tdsAmount)}`, leftMargin + 360, yPos, fontRegular, 10, grayColor);
-      yPos -= 18;
-    }
-
-    yPos -= 10;
+    yPos = Math.min(yPos, issuedToY) - 30;
     drawLine(leftMargin, yPos, rightMargin, yPos);
     yPos -= 25;
 
-    // TOTAL RECEIVED
-    drawText("TOTAL RECEIVED", leftMargin + 10, yPos, fontBold, 12);
-    drawText(formatCurrency(totalAmount), leftMargin + 350, yPos, fontBold, 14, primaryColor);
-    yPos -= 20;
+    // === PROPERTY + PERIOD ===
+    drawText("PROPERTY", leftMargin, yPos, fontBold, 11, primaryColor);
+    yPos -= 16;
+    drawText(`${property?.name || "N/A"}`, leftMargin, yPos, fontRegular, 10);
+    yPos -= 12;
+    drawText(`${property?.address || ""}`, leftMargin, yPos, fontRegular, 10, grayColor);
+    yPos -= 12;
+    drawText(`Rent for: ${periodMonth}`, leftMargin, yPos, fontRegular, 10, grayColor);
+    yPos -= 25;
 
-    // Amount in words
-    const amountInWords = numberToWords(Math.round(totalAmount));
-    drawText(`Amount in words: ${amountInWords} Rupees Only`, leftMargin, yPos, fontRegular, 9, grayColor);
-    yPos -= 40;
+    if (isStatement) {
+      // === STATEMENT: table of every installment with a running balance ===
+      const cols = { date: leftMargin + 6, method: leftMargin + 130, amount: leftMargin + 250, tds: leftMargin + 340, bal: leftMargin + 430 };
+      page.drawRectangle({ x: leftMargin, y: yPos - 5, width: rightMargin - leftMargin, height: 22, color: lightGrayColor });
+      const headY = yPos + 2;
+      drawText("Date", cols.date, headY, fontBold, 9);
+      drawText("Method", cols.method, headY, fontBold, 9);
+      drawText("Amount", cols.amount, headY, fontBold, 9);
+      drawText("TDS", cols.tds, headY, fontBold, 9);
+      drawText("Balance", cols.bal, headY, fontBold, 9);
+      yPos -= 22;
 
-    // === PAYMENT CONFIRMATION BOX ===
-    page.drawRectangle({
-      x: leftMargin, y: yPos - 15,
-      width: rightMargin - leftMargin, height: 55,
-      color: greenBg,
-      borderColor: primaryColor,
-      borderWidth: 1,
-    });
+      let running = 0;
+      for (const t of transactions) {
+        running += Number(t.amount);
+        const bal = totalDue - running;
+        const methodLabel = t.payment_method
+          ? t.payment_method.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+          : "-";
+        drawText(new Date(t.paid_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" }), cols.date, yPos, fontRegular, 9);
+        drawText(methodLabel.length > 16 ? methodLabel.slice(0, 15) + "." : methodLabel, cols.method, yPos, fontRegular, 9);
+        drawText(formatCurrency(Number(t.amount)), cols.amount, yPos, fontRegular, 9);
+        drawText(Number(t.tds_amount) > 0 ? formatCurrency(Number(t.tds_amount)) : "-", cols.tds, yPos, fontRegular, 9, grayColor);
+        drawText(formatCurrency(bal), cols.bal, yPos, fontRegular, 9);
+        yPos -= 18;
+      }
 
-    drawText("PAYMENT RECEIVED", leftMargin + 15, yPos + 18, fontBold, 14, primaryColor);
+      yPos -= 4;
+      drawLine(leftMargin, yPos, rightMargin, yPos);
+      yPos -= 22;
+      drawText("Total Rent Due", leftMargin + 6, yPos, fontRegular, 10, grayColor);
+      drawText(formatCurrency(totalDue), cols.bal, yPos, fontRegular, 10);
+      yPos -= 16;
+      drawText("Total Received", leftMargin + 6, yPos, fontRegular, 10, grayColor);
+      drawText(formatCurrency(totalReceivedGross), cols.bal, yPos, fontRegular, 10, primaryColor);
+      yPos -= 20;
+      const balance = totalDue - totalReceivedGross;
+      drawText(balance <= 0 ? "FULLY PAID" : "BALANCE DUE", leftMargin + 6, yPos, fontBold, 12, balance <= 0 ? primaryColor : rgb(0.8, 0.3, 0.1));
+      drawText(formatCurrency(Math.max(0, balance)), leftMargin + 350, yPos, fontBold, 12, balance <= 0 ? primaryColor : rgb(0.8, 0.3, 0.1));
+    } else {
+      // === RECEIPT: one payment (a specific installment, or the whole payment legacy) ===
+      const gross = thisTxn ? Number(thisTxn.amount) : Number(payment.paid_amount) || 0;
+      const tds = thisTxn ? Number(thisTxn.tds_amount) : (payment.tds_applicable ? Number(payment.tds_amount) || 0 : 0);
+      const net = thisTxn ? Number(thisTxn.received_amount) : gross - tds;
+      const method = thisTxn ? thisTxn.payment_method : payment.payment_method;
+      const notes = thisTxn ? thisTxn.notes : payment.notes;
 
-    const paidDateStr = paidDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    drawText(`Date: ${paidDateStr}`, leftMargin + 15, yPos, fontRegular, 10, grayColor);
+      // How much had been received up to and including this installment.
+      let receivedUpToThis = totalReceivedGross;
+      if (thisTxn) {
+        receivedUpToThis = 0;
+        for (const t of transactions) {
+          receivedUpToThis += Number(t.amount);
+          if (t.id === thisTxn.id) break;
+        }
+      }
+      const balanceAfter = totalDue - receivedUpToThis;
 
-    if (payment.payment_method) {
-      const methodLabel = payment.payment_method.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-      drawText(`Method: ${methodLabel}`, leftMargin + 200, yPos, fontRegular, 10, grayColor);
-    }
+      // Details table
+      page.drawRectangle({ x: leftMargin, y: yPos - 5, width: rightMargin - leftMargin, height: 22, color: lightGrayColor });
+      drawText("Description", leftMargin + 10, yPos + 2, fontBold, 10);
+      drawText("Amount (INR)", leftMargin + 360, yPos + 2, fontBold, 10);
+      yPos -= 26;
 
-    if (payment.notes) {
-      drawText(`Notes: ${payment.notes}`, leftMargin + 15, yPos - 16, fontRegular, 9, grayColor);
+      drawText(`Rent for ${periodMonth} (total)`, leftMargin + 10, yPos, fontRegular, 10);
+      drawText(formatCurrency(totalDue), leftMargin + 360, yPos, fontRegular, 10, grayColor);
+      yPos -= 20;
+
+      drawText("Amount received (this payment)", leftMargin + 10, yPos, fontRegular, 10);
+      drawText(formatCurrency(gross), leftMargin + 360, yPos, fontRegular, 10);
+      yPos -= 18;
+
+      if (tds > 0) {
+        drawText("Less: TDS Deducted @ 10%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
+        drawText(`- ${formatCurrency(tds)}`, leftMargin + 360, yPos, fontRegular, 10, grayColor);
+        yPos -= 18;
+      }
+
+      yPos -= 6;
+      drawLine(leftMargin, yPos, rightMargin, yPos);
+      yPos -= 24;
+
+      drawText(tds > 0 ? "NET RECEIVED" : "AMOUNT RECEIVED", leftMargin + 10, yPos, fontBold, 12);
+      drawText(formatCurrency(net), leftMargin + 350, yPos, fontBold, 14, primaryColor);
+      yPos -= 20;
+
+      const amountInWords = numberToWords(Math.round(net));
+      drawText(`Amount in words: ${amountInWords} Rupees Only`, leftMargin, yPos, fontRegular, 9, grayColor);
+      yPos -= 30;
+
+      // Running summary
+      drawText(`Total received so far: ${formatCurrency(receivedUpToThis)}`, leftMargin, yPos, fontRegular, 10, grayColor);
+      yPos -= 14;
+      drawText(
+        balanceAfter <= 0 ? "Balance: Nil (Fully Paid)" : `Balance remaining: ${formatCurrency(balanceAfter)}`,
+        leftMargin, yPos, fontBold, 10, balanceAfter <= 0 ? primaryColor : rgb(0.8, 0.3, 0.1)
+      );
+      yPos -= 28;
+
+      // Payment confirmation box
+      page.drawRectangle({
+        x: leftMargin, y: yPos - 15, width: rightMargin - leftMargin, height: 55,
+        color: greenBg, borderColor: primaryColor, borderWidth: 1,
+      });
+      drawText("PAYMENT RECEIVED", leftMargin + 15, yPos + 18, fontBold, 14, primaryColor);
+      drawText(
+        `Date: ${headerDate.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`,
+        leftMargin + 15, yPos, fontRegular, 10, grayColor
+      );
+      if (method) {
+        const methodLabel = method.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        drawText(`Method: ${methodLabel}`, leftMargin + 200, yPos, fontRegular, 10, grayColor);
+      }
+      if (notes) {
+        drawText(`Notes: ${notes}`, leftMargin + 15, yPos - 16, fontRegular, 9, grayColor);
+      }
     }
 
     // === FOOTER ===
     yPos = 80;
     drawLine(leftMargin, yPos, rightMargin, yPos);
     yPos -= 20;
-    drawText("This receipt confirms that the above payment has been received.", leftMargin, yPos, fontRegular, 10, grayColor);
-    drawText("This is a computer-generated receipt.", width / 2 - 80, yPos - 15, fontRegular, 8, grayColor);
+    drawText(
+      isStatement
+        ? "This statement summarises all payments received against the above rent."
+        : "This receipt confirms that the above payment has been received.",
+      leftMargin, yPos, fontRegular, 10, grayColor
+    );
+    const footer = isStatement
+      ? "This is a computer-generated statement and does not require a signature."
+      : "This is a computer-generated receipt and does not require a signature.";
+    const fw = fontRegular.widthOfTextAtSize(footer, 8);
+    drawText(footer, (width - fw) / 2, yPos - 15, fontRegular, 8, grayColor);
 
-    // Generate PDF bytes
     const pdfBytes = await pdfDoc.save();
     const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
-
-    console.log("Receipt PDF generated successfully");
 
     return new Response(
       JSON.stringify({
         pdf: base64Pdf,
-        filename: `Receipt-${receiptNumber}.pdf`,
-        receiptNumber,
+        filename: `${isStatement ? "Statement" : "Receipt"}-${docNumber}.pdf`,
+        receiptNumber: docNumber,
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
@@ -330,7 +377,6 @@ function numberToWords(num: number): string {
   if (num < 0) return "Minus " + numberToWords(-num);
 
   let words = "";
-
   if (Math.floor(num / 10000000) > 0) {
     words += numberToWords(Math.floor(num / 10000000)) + " Crore ";
     num %= 10000000;
