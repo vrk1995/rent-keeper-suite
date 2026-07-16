@@ -99,6 +99,30 @@ export const useUpcomingPayments = () => {
   });
 };
 
+/** A tenant's unsettled invoices (pending/overdue/partial), oldest due date first — the pool
+ *  a Receive Payment reconciliation allocates a lump sum across. */
+export const useOutstandingPaymentsForTenant = (tenantId?: string) => {
+  return useQuery({
+    queryKey: ["payments", "outstanding", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rent_payments")
+        .select(`
+          *,
+          property:properties(name),
+          unit:units(name, building:buildings(name))
+        `)
+        .eq("tenant_id", tenantId!)
+        .in("status", ["pending", "overdue", "partial"])
+        .order("due_date", { ascending: true });
+
+      if (error) throw error;
+      return data as RentPayment[];
+    },
+    enabled: !!tenantId,
+  });
+};
+
 export const useCreatePayment = () => {
   const queryClient = useQueryClient();
 

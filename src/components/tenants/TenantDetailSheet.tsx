@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import AddTenantDialog from "./AddTenantDialog";
 import VacateTenantDialog from "./VacateTenantDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
+import { ReceivePaymentDialog } from "@/components/payments/ReceivePaymentDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
 import { RentPayment } from "@/hooks/usePayments";
@@ -59,6 +60,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
+  const [receivePaymentOpen, setReceivePaymentOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("payments");
 
   // Fetch payments for this tenant
@@ -237,6 +239,13 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                   </Button>
                 </div>
               )}
+            </div>
+
+            <div className="flex justify-end mt-3">
+              <Button variant="outline" size="sm" onClick={() => setReceivePaymentOpen(true)}>
+                <IndianRupee className="w-4 h-4 mr-1" />
+                Receive Payment
+              </Button>
             </div>
 
             {/* Summary cards */}
@@ -515,6 +524,12 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         open={!!markPaidPayment}
         onOpenChange={(open) => !open && setMarkPaidPayment(null)}
         payment={markPaidPayment}
+      />
+
+      <ReceivePaymentDialog
+        open={receivePaymentOpen}
+        onOpenChange={setReceivePaymentOpen}
+        tenantId={tenant.id}
       />
 
       <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />

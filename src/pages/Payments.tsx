@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users, Search, Pencil } from "lucide-react";
+import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users, Search, Pencil, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -38,6 +38,7 @@ import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { UndoPaymentButton } from "@/components/payments/UndoPaymentButton";
 import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 import { PaymentHistoryDialog } from "@/components/payments/PaymentHistoryDialog";
+import { ReceivePaymentDialog } from "@/components/payments/ReceivePaymentDialog";
 import { paymentStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { useIsAdmin } from "@/hooks/useTeam";
@@ -85,6 +86,7 @@ const Payments = () => {
   const [resolvingEditId, setResolvingEditId] = useState<string | null>(null);
   const [historyPayment, setHistoryPayment] = useState<RentPayment | null>(null);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [receivePaymentOpen, setReceivePaymentOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${now.getMonth() + 1}`;
@@ -167,15 +169,24 @@ const Payments = () => {
           <h1 className="text-2xl md:text-3xl font-display font-bold">Payments</h1>
           <p className="text-sm md:text-base text-muted-foreground">Track and manage rent payments</p>
         </div>
-        <Button 
-          variant="hero"
-          size="sm"
-          className="w-fit"
-          onClick={() => setGenerateDialogOpen(true)}
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Generate Payments
-        </Button>
+        <div className="flex gap-2 w-fit">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReceivePaymentOpen(true)}
+          >
+            <IndianRupee className="w-4 h-4 mr-2" />
+            Receive Payment
+          </Button>
+          <Button
+            variant="hero"
+            size="sm"
+            onClick={() => setGenerateDialogOpen(true)}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Generate Payments
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -556,6 +567,11 @@ const Payments = () => {
         payment={historyPayment}
         open={!!historyPayment}
         onOpenChange={(open) => !open && setHistoryPayment(null)}
+      />
+
+      <ReceivePaymentDialog
+        open={receivePaymentOpen}
+        onOpenChange={setReceivePaymentOpen}
       />
     </div>
   );
