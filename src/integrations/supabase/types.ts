@@ -14,42 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      billing_addresses: {
-        Row: {
-          address: string | null
-          created_at: string
-          gstin: string | null
-          id: string
-          is_default: boolean | null
-          name: string
-          pan: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          address?: string | null
-          created_at?: string
-          gstin?: string | null
-          id?: string
-          is_default?: boolean | null
-          name: string
-          pan?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          address?: string | null
-          created_at?: string
-          gstin?: string | null
-          id?: string
-          is_default?: boolean | null
-          name?: string
-          pan?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       billing_address_bank_accounts: {
         Row: {
           account_number: string
@@ -93,6 +57,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      billing_addresses: {
+        Row: {
+          address: string | null
+          created_at: string
+          gstin: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          pan: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          gstin?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          pan?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          gstin?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          pan?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       buildings: {
         Row: {
@@ -1676,6 +1676,7 @@ export type Database = {
     }
     Functions: {
       can_edit_team: { Args: { _user_id: string }; Returns: boolean }
+      can_record_payments: { Args: { _user_id: string }; Returns: boolean }
       current_workspace_id: { Args: never; Returns: string }
       daily_payment_processing: { Args: never; Returns: Json }
       generate_monthly_rent_payments: { Args: never; Returns: Json }
