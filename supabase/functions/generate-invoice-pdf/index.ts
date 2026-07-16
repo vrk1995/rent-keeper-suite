@@ -25,10 +25,10 @@ serve(async (req: Request): Promise<Response> => {
     const { paymentId }: InvoiceRequest = await req.json();
 
     if (!paymentId) {
-      return new Response(
-        JSON.stringify({ error: "Payment ID is required" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return new Response(JSON.stringify({ error: "Payment ID is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     console.log("Generating invoice for payment:", paymentId);
@@ -36,7 +36,8 @@ serve(async (req: Request): Promise<Response> => {
     // Fetch payment with tenant and property details (including invoice_prefix and owner_id)
     const { data: payment, error: paymentError } = await supabase
       .from("rent_payments")
-      .select(`
+      .select(
+        `
         *,
         tenant:tenants(
           id,
@@ -56,16 +57,17 @@ serve(async (req: Request): Promise<Response> => {
           bill_to_gstin
         ),
         property:properties(id, name, address, invoice_prefix, owner_id)
-      `)
+      `,
+      )
       .eq("id", paymentId)
       .single();
 
     if (paymentError || !payment) {
       console.error("Error fetching payment:", paymentError);
-      return new Response(
-        JSON.stringify({ error: "Payment not found" }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return new Response(JSON.stringify({ error: "Payment not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     console.log("Payment data:", JSON.stringify(payment, null, 2));
@@ -82,19 +84,19 @@ serve(async (req: Request): Promise<Response> => {
         .from("tenant_floor_units")
         .select("floor_units(corp_number)")
         .eq("tenant_id", payment.tenant_id);
-      const corpNumbers = (tenantUnits || [])
-        .map((u: any) => u.floor_units?.corp_number)
-        .filter(Boolean);
+      const corpNumbers = (tenantUnits || []).map((u: any) => u.floor_units?.corp_number).filter(Boolean);
 
       let ownerShares: { owner_id: string; share_percentage: number; owner_name: string }[] = [];
       if (tenant?.id) {
         const { data: shares, error: sharesError } = await supabase
           .from("tenant_owner_shares")
-          .select(`
+          .select(
+            `
             owner_id,
             share_percentage,
             property_owners(name)
-          `)
+          `,
+          )
           .eq("tenant_id", tenant.id);
 
         if (!sharesError && shares && shares.length > 0) {
@@ -126,13 +128,15 @@ serve(async (req: Request): Promise<Response> => {
     // Check if an invoice already exists for this payment
     const { data: existingInvoice } = await supabase
       .from("invoices")
-      .select(`
+      .select(
+        `
         id, invoice_number,
         bill_from_name, bill_from_address, bill_from_gstin, bill_from_pan,
         bill_from_bank_name, bill_from_account_number, bill_from_ifsc,
         bill_to_name, bill_to_address, bill_to_gstin,
         requires_gst, corp_number_text, owner_shares_snapshot
-      `)
+      `,
+      )
       .eq("property_id", payment.property_id)
       .eq("tenant_id", payment.tenant_id)
       .eq("due_date", payment.due_date)
@@ -340,12 +344,21 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     // Helper function to draw wrapped text and return the new Y position
-    const drawWrappedText = (text: string, x: number, y: number, maxWidth: number, font = fontRegular, size = 10, color = blackColor, lineHeight = 14): number => {
+    const drawWrappedText = (
+      text: string,
+      x: number,
+      y: number,
+      maxWidth: number,
+      font = fontRegular,
+      size = 10,
+      color = blackColor,
+      lineHeight = 14,
+    ): number => {
       if (!text) return y;
       const words = text.split(" ");
       let line = "";
       let currentY = y;
-      
+
       for (const word of words) {
         const testLine = line + (line ? " " : "") + word;
         if (font.widthOfTextAtSize(testLine, size) > maxWidth && line) {
@@ -366,7 +379,7 @@ serve(async (req: Request): Promise<Response> => {
     // HEADER - INVOICE title (TAX INVOICE if GST applicable, otherwise just INVOICE)
     const invoiceTitle = snapshot.requires_gst ? "TAX INVOICE" : "INVOICE";
     drawText(invoiceTitle, leftMargin, yPos, fontBold, 24, primaryColor);
-    
+
     // Invoice number and date on the right (invoiceNumber was already set above)
     const invoiceDate = new Date(payment.paid_date || payment.due_date).toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -394,12 +407,12 @@ serve(async (req: Request): Promise<Response> => {
     // Draw Bill From Name with wrapping
     yPos = drawWrappedText(billFromName, leftMargin, yPos, maxWidthLeft, fontBold, 11, blackColor, 14);
     yPos -= 3;
-    
+
     // Draw Bill From Address with wrapping
     if (billFromAddress) {
       yPos = drawWrappedText(billFromAddress, leftMargin, yPos, maxWidthLeft, fontRegular, 10, grayColor, 12);
     }
-    
+
     if (billFromGstin) {
       drawText(`GSTIN: ${billFromGstin}`, leftMargin, yPos, fontRegular, 10, grayColor);
       yPos -= 12;
@@ -414,7 +427,7 @@ serve(async (req: Request): Promise<Response> => {
     // BILL TO section (on the right) - calculate starting Y position
     // Start Bill To at the same level as Bill From started
     let billToYPos = height - 50 - 50 - 30 - 18;
-    
+
     drawText("BILL TO", rightMargin - 200, billToYPos, fontBold, 11, primaryColor);
     billToYPos -= 18;
 
@@ -423,12 +436,30 @@ serve(async (req: Request): Promise<Response> => {
     const billToGstin = snapshot.bill_to_gstin;
 
     // Draw Bill To Name with wrapping
-    billToYPos = drawWrappedText(billToName, rightMargin - 200, billToYPos, maxWidthRight, fontBold, 11, blackColor, 14);
+    billToYPos = drawWrappedText(
+      billToName,
+      rightMargin - 200,
+      billToYPos,
+      maxWidthRight,
+      fontBold,
+      11,
+      blackColor,
+      14,
+    );
     billToYPos -= 3;
 
     // Draw Bill To Address with wrapping
     if (billToAddress) {
-      billToYPos = drawWrappedText(billToAddress, rightMargin - 200, billToYPos, maxWidthRight, fontRegular, 10, grayColor, 12);
+      billToYPos = drawWrappedText(
+        billToAddress,
+        rightMargin - 200,
+        billToYPos,
+        maxWidthRight,
+        fontRegular,
+        10,
+        grayColor,
+        12,
+      );
     }
 
     if (billToGstin) {
@@ -458,7 +489,7 @@ serve(async (req: Request): Promise<Response> => {
     const tableHeaders = ["Description", "HSN/SAC", "Amount (INR)"];
     const colWidths = [270, 80, 145];
     const HSN_SAC_CODE = "997212"; // Renting of Immovable Property
-    
+
     // Draw table header background
     page.drawRectangle({
       x: leftMargin,
@@ -504,7 +535,11 @@ serve(async (req: Request): Promise<Response> => {
         drawText(serviceCategoryLine, leftMargin + 10, yPos, fontRegular, 9);
         drawText(
           `For the month of ${periodMonth} - ${share.owner_name} (${share.share_percentage}%)`,
-          leftMargin + 10, yPos - 12, fontRegular, 9, grayColor
+          leftMargin + 10,
+          yPos - 12,
+          fontRegular,
+          9,
+          grayColor,
         );
         drawText(HSN_SAC_CODE, leftMargin + 280, yPos - 6, fontRegular, 10);
         drawText(formatCurrency(ownerAmount), leftMargin + 360, yPos - 6, fontRegular, 10);
@@ -523,7 +558,7 @@ serve(async (req: Request): Promise<Response> => {
       drawText("CGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
       drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
       yPos -= 18;
-      
+
       drawText("SGST @ 9%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
       drawText(formatCurrency(gstAmount / 2), leftMargin + 360, yPos, fontRegular, 10);
       yPos -= 18;
@@ -567,10 +602,10 @@ serve(async (req: Request): Promise<Response> => {
 
     // Payment Status
     if (payment.status === "paid") {
-      const paidDate = payment.paid_date 
+      const paidDate = payment.paid_date
         ? new Date(payment.paid_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
         : "";
-      
+
       page.drawRectangle({
         x: leftMargin,
         y: yPos - 10,
@@ -580,7 +615,7 @@ serve(async (req: Request): Promise<Response> => {
         borderColor: rgb(0.2, 0.7, 0.2),
         borderWidth: 1,
       });
-      
+
       drawText("PAID", leftMargin + 10, yPos, fontBold, 14, rgb(0.2, 0.6, 0.2));
       if (paidDate) {
         drawText(`on ${paidDate}`, leftMargin + 60, yPos, fontRegular, 10, grayColor);
@@ -606,22 +641,21 @@ serve(async (req: Request): Promise<Response> => {
     console.log("PDF generated successfully");
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         pdf: base64Pdf,
-        filename: `Invoice-${invoiceNumber}.pdf`
+        filename: `Invoice-${invoiceNumber}.pdf`,
       }),
-      { 
-        status: 200, 
-        headers: { "Content-Type": "application/json", ...corsHeaders } 
-      }
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      },
     );
-
   } catch (error: any) {
     console.error("Error generating invoice:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 });
 
@@ -636,8 +670,28 @@ function formatCurrency(amount: number): string {
 
 // Helper function to convert number to words (Indian numbering system)
 function numberToWords(num: number): string {
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
-    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
 
   if (num === 0) return "Zero";
