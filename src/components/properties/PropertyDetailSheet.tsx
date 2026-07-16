@@ -45,6 +45,7 @@ import {
   IndianRupee,
   Plus,
   User,
+  History,
 } from "lucide-react";
 import { Property } from "@/hooks/useProperties";
 import { Tenant } from "@/hooks/useTenants";
@@ -58,6 +59,7 @@ import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
 import { invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { AddExpenseDialog } from "./AddExpenseDialog";
+import { ActivityLogList } from "@/components/activity/ActivityLogList";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
 import AddPropertyDialog from "./AddPropertyDialog";
 import AddTenantDialog from "@/components/tenants/AddTenantDialog";
@@ -315,6 +317,10 @@ export function PropertyDetailSheet({
               <TabsTrigger value="ledger" className="gap-2">
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Ledger</span>
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="gap-2">
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">Activity</span>
               </TabsTrigger>
             </TabsList>
 
@@ -745,6 +751,11 @@ export function PropertyDetailSheet({
                     </>
                   )}
                 </div>
+              </TabsContent>
+
+              {/* Activity Tab */}
+              <TabsContent value="activity" className="p-6 m-0">
+                <ActivityLogList entityType="properties" entityId={property.id} />
               </TabsContent>
             </ScrollArea>
           </Tabs>

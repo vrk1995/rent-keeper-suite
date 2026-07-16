@@ -10,6 +10,7 @@ export interface PaymentTransaction {
   paid_date: string;
   payment_method: string | null;
   notes: string | null;
+  created_by: string | null;
   created_at: string;
 }
 

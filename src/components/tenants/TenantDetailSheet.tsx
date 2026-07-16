@@ -31,6 +31,7 @@ import {
   CreditCard,
   IndianRupee,
   LogOut,
+  History,
 } from "lucide-react";
 import { Tenant } from "@/hooks/useTenants";
 import { useQuery } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ import { RentPayment } from "@/hooks/usePayments";
 import { paymentStatusConfig, invoiceStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { useIsAdmin } from "@/hooks/useTeam";
+import { ActivityLogList } from "@/components/activity/ActivityLogList";
 
 interface TenantDetailSheetProps {
   tenant: Tenant | null;
@@ -62,6 +64,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
   const [receivePaymentOpen, setReceivePaymentOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("payments");
+  const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
 
   // Fetch payments for this tenant
   const { data: payments } = useQuery({
@@ -273,7 +276,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
 
           <div className="p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="payments" className="text-xs sm:text-sm">
                   <CreditCard className="w-3 h-3 mr-1 hidden sm:inline" />
                   Payments
@@ -289,6 +292,10 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                 <TabsTrigger value="config" className="text-xs sm:text-sm">
                   <Settings className="w-3 h-3 mr-1 hidden sm:inline" />
                   Details
+                </TabsTrigger>
+                <TabsTrigger value="activity" className="text-xs sm:text-sm">
+                  <History className="w-3 h-3 mr-1 hidden sm:inline" />
+                  Activity
                 </TabsTrigger>
               </TabsList>
 
@@ -368,7 +375,8 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                 ) : (
                   invoices.map((invoice) => (
                     <Card key={invoice.id}>
-                      <CardContent className="p-3 flex items-center justify-between">
+                      <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
                         <div>
                           <p className="font-mono text-sm font-medium">{invoice.invoice_number}</p>
                           <p className="text-xs text-muted-foreground">
@@ -379,7 +387,22 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                           <Badge variant={invoiceStatusConfig[invoice.status]?.variant || "secondary"}>
                             {invoice.status}
                           </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
+                          >
+                            <History className="w-3 h-3 mr-1" />
+                            History
+                          </Button>
                         </div>
+                      </div>
+                      {expandedInvoiceId === invoice.id && (
+                        <div className="mt-3 pt-3 border-t">
+                          <ActivityLogList entityType="invoices" entityId={invoice.id} />
+                        </div>
+                      )}
                       </CardContent>
                     </Card>
                   ))
@@ -514,6 +537,11 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+
+              {/* Activity Tab */}
+              <TabsContent value="activity" className="mt-4">
+                <ActivityLogList entityType="tenants" entityId={tenant.id} />
               </TabsContent>
             </Tabs>
           </div>

@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import { usePaymentTransactions } from "@/hooks/usePaymentTransactions";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { formatINR } from "@/lib/currency";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface PaymentHistoryDialogProps {
@@ -32,6 +34,22 @@ const methodLabels: Record<string, string> = {
 export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHistoryDialogProps) {
   const { data: transactions, isLoading } = usePaymentTransactions(open ? payment?.id : undefined);
   const { preview, loadingId, openReceipt, openStatement, refreshPreview, closePreview } = usePdfPreview();
+
+  const recorderIds = Array.from(new Set((transactions || []).map((t) => t.created_by).filter(Boolean))) as string[];
+  const { data: recorderProfiles } = useQuery({
+    queryKey: ["profiles", "for-transactions", recorderIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", recorderIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: recorderIds.length > 0,
+  });
+  const recorderName = (userId: string | null) =>
+    userId ? recorderProfiles?.find((p) => p.user_id === userId)?.full_name || "Unknown user" : null;
 
   const totalDue = payment?.amount || 0;
   const totalReceived = (transactions || []).reduce((s, t) => s + Number(t.amount), 0);
@@ -108,6 +126,11 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
                         {format(new Date(t.paid_date), "PPP")}
                         {t.payment_method ? ` · ${methodLabels[t.payment_method] || t.payment_method}` : ""}
                       </p>
+                      {recorderName(t.created_by) && (
+                        <p className="text-xs text-muted-foreground">
+                          Recorded by {recorderName(t.created_by)}
+                        </p>
+                      )}
                       {Number(t.tds_amount) > 0 && (
                         <p className="text-xs text-muted-foreground">
                           TDS: {formatINR(Number(t.tds_amount))} · Received: {formatINR(Number(t.received_amount))}
