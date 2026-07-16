@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { usePayments, useGenerateMonthlyPayments, RentPayment } from "@/hooks/usePayments";
+import { useInvoices } from "@/hooks/useInvoices";
 import { formatINR } from "@/lib/currency";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
@@ -72,6 +73,7 @@ const formatBillingMonth = (billingMonth: string | null, dueDate: string) => {
 
 const Payments = () => {
   const { data: payments, isLoading, isError, refetch } = usePayments();
+  const { data: invoices } = useInvoices();
   const { propertyOptions, tenantOptions } = useFilterOptions();
   const generatePayments = useGenerateMonthlyPayments();
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,6 +95,18 @@ const Payments = () => {
   });
 
   const monthOptions = getMonthOptions();
+
+  // Invoices aren't linked to payments by FK, so match on the same natural key used
+  // elsewhere: property + tenant + due date + amount.
+  const invoiceNumberByPayment = new Map<string, string>();
+  invoices?.forEach((inv) => {
+    invoiceNumberByPayment.set(
+      `${inv.property_id}|${inv.tenant_id}|${inv.due_date}|${Number(inv.amount).toFixed(2)}`,
+      inv.invoice_number
+    );
+  });
+  const getInvoiceNumber = (p: RentPayment) =>
+    invoiceNumberByPayment.get(`${p.property_id}|${p.tenant_id}|${p.due_date}|${Number(p.amount).toFixed(2)}`) || "";
 
   const filteredPayments = payments?.filter((p) => {
     const matchesProperty = propertyFilter === "all" || p.property_id === propertyFilter;
@@ -311,6 +325,7 @@ const Payments = () => {
                   <TableRow>
                     <TableHead>Property</TableHead>
                     <TableHead>Tenant</TableHead>
+                    <TableHead>Invoice #</TableHead>
                     <TableHead>Billing Month</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Due Date</TableHead>
@@ -332,6 +347,9 @@ const Payments = () => {
                           {locationDisplay}
                         </TableCell>
                         <TableCell>{payment.tenant?.name}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {getInvoiceNumber(payment) || "—"}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-normal">
                             <Calendar className="w-3 h-3 mr-1" />
@@ -427,6 +445,9 @@ const Payments = () => {
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm truncate">{payment.tenant?.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{locationDisplay}</p>
+                        {getInvoiceNumber(payment) && (
+                          <p className="text-xs font-mono text-muted-foreground truncate">{getInvoiceNumber(payment)}</p>
+                        )}
                       </div>
                       <Badge variant={paymentStatusConfig[payment.status]?.variant || "secondary"} className="text-xs ml-2 shrink-0">
                         <StatusIcon className="w-3 h-3 mr-1" />
