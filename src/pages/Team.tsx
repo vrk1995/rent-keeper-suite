@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Shield, UserCog, Eye, Crown, Trash2, Pencil } from "lucide-react";
+import { Users, Shield, UserCog, Eye, Crown, Trash2, Pencil, Building2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -43,6 +45,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { AddTeamMemberDialog } from "@/components/team/AddTeamMemberDialog";
 import { ErrorState } from "@/components/ui/error-state";
+import { useAllPropertyAccess, useSetPropertyAccess } from "@/hooks/usePropertyAccess";
+import { useProperties } from "@/hooks/useProperties";
 
 const roleConfig: Record<AppRole, { label: string; icon: React.ElementType; color: string; description: string }> = {
   super_admin: {
@@ -81,6 +85,12 @@ const Team = () => {
   const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const { data: propertyAccess } = useAllPropertyAccess();
+  const { data: properties } = useProperties();
+  const setPropertyAccess = useSetPropertyAccess();
+  const [accessEditingId, setAccessEditingId] = useState<string | null>(null);
+  const [accessScope, setAccessScope] = useState<"all" | "selected">("all");
+  const [accessPropertyIds, setAccessPropertyIds] = useState<string[]>([]);
   
   // Get current user
   const { data: currentUser } = useQuery({
@@ -109,6 +119,36 @@ const Team = () => {
   const openEdit = (userId: string, currentName: string | null | undefined) => {
     setEditingId(userId);
     setEditName(currentName ?? "");
+  };
+
+  // A member's scope: their granted property ids (empty = unrestricted, sees everything).
+  const getMemberScope = (userId: string) =>
+    (propertyAccess || []).filter((a) => a.user_id === userId).map((a) => a.property_id);
+
+  const scopeLabel = (userId: string) => {
+    const scope = getMemberScope(userId);
+    if (scope.length === 0) return "All properties";
+    const names = scope
+      .map((id) => properties?.find((p) => p.id === id)?.name)
+      .filter(Boolean);
+    return names.length > 0 ? names.join(", ") : `${scope.length} properties`;
+  };
+
+  const openAccessEdit = (userId: string) => {
+    const scope = getMemberScope(userId);
+    setAccessEditingId(userId);
+    setAccessScope(scope.length === 0 ? "all" : "selected");
+    setAccessPropertyIds(scope);
+  };
+
+  const handleSaveAccess = async () => {
+    if (!accessEditingId) return;
+    if (accessScope === "selected" && accessPropertyIds.length === 0) return;
+    await setPropertyAccess.mutateAsync({
+      userId: accessEditingId,
+      propertyIds: accessScope === "all" ? [] : accessPropertyIds,
+    });
+    setAccessEditingId(null);
   };
 
   const handleSaveName = async () => {
@@ -219,6 +259,12 @@ const Team = () => {
                         <p className="text-sm text-muted-foreground">
                           Member since {new Date(member.created_at).toLocaleDateString()}
                         </p>
+                        {member.role !== "super_admin" && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Building2 className="h-3 w-3" />
+                            {scopeLabel(member.user_id)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     
@@ -269,6 +315,18 @@ const Team = () => {
                           title="Edit name"
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {canModify && member.role !== "super_admin" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Edit property access"
+                          onClick={() => openAccessEdit(member.user_id)}
+                          title="Edit property access"
+                        >
+                          <Building2 className="h-4 w-4" />
                         </Button>
                       )}
 
@@ -327,6 +385,66 @@ const Team = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Property Access Dialog */}
+      <Dialog open={!!accessEditingId} onOpenChange={(o) => !o && setAccessEditingId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Property access</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <RadioGroup
+              value={accessScope}
+              onValueChange={(v) => setAccessScope(v as "all" | "selected")}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="all" id="team-access-all" />
+                <Label htmlFor="team-access-all" className="font-normal cursor-pointer">All properties</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="selected" id="team-access-selected" />
+                <Label htmlFor="team-access-selected" className="font-normal cursor-pointer">Selected properties only</Label>
+              </div>
+            </RadioGroup>
+            {accessScope === "selected" && (
+              <div className="space-y-2 rounded-lg border p-3 max-h-52 overflow-y-auto">
+                {(properties || []).map((p) => {
+                  const checked = accessPropertyIds.includes(p.id);
+                  return (
+                    <div key={p.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`team-prop-${p.id}`}
+                        checked={checked}
+                        onCheckedChange={(isChecked) =>
+                          setAccessPropertyIds((prev) =>
+                            isChecked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                          )
+                        }
+                      />
+                      <Label htmlFor={`team-prop-${p.id}`} className="text-sm font-normal cursor-pointer">
+                        {p.name}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {accessScope === "selected" && accessPropertyIds.length === 0 && (
+              <p className="text-xs text-destructive">Select at least one property.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAccessEditingId(null)}>Cancel</Button>
+            <Button
+              onClick={handleSaveAccess}
+              disabled={setPropertyAccess.isPending || (accessScope === "selected" && accessPropertyIds.length === 0)}
+            >
+              {setPropertyAccess.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Name Dialog */}
       <Dialog open={!!editingId} onOpenChange={(o) => !o && setEditingId(null)}>

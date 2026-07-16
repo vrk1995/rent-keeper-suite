@@ -153,16 +153,20 @@ export const useInviteTeamMember = () => {
       email,
       role,
       fullName,
+      propertyIds,
     }: {
       email: string;
       role: AppRole;
       fullName?: string;
+      /** Restrict the invitee to these properties; omit/empty = access to all properties. */
+      propertyIds?: string[];
     }) => {
       const { data, error } = await supabase.functions.invoke("invite-team-member", {
         body: {
           email,
           role,
           full_name: fullName,
+          property_ids: propertyIds && propertyIds.length > 0 ? propertyIds : undefined,
           // Always route auth email callbacks through terntripsindia.in.
           redirect_to: getCanonicalAuthRedirectUrl(),
         },

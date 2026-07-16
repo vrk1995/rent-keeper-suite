@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const tokenHash = await sha256(token);
     const { data: invite, error: inviteErr } = await admin
       .from("team_invites")
-      .select("id, email, full_name, role, expires_at, accepted_at, workspace_id")
+      .select("id, email, full_name, role, expires_at, accepted_at, workspace_id, property_ids")
       .eq("token_hash", tokenHash)
       .maybeSingle();
 
@@ -123,6 +123,25 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .insert({ user_id: userId, role: invite.role, workspace_id: invite.workspace_id });
     if (roleErr) throw roleErr;
+
+    // Materialize the invite's property scope. Reset first so re-invites replace rather
+    // than accumulate; an unscoped invite (null/empty) leaves the user unrestricted.
+    await admin
+      .from("user_property_access")
+      .delete()
+      .eq("user_id", userId)
+      .eq("workspace_id", invite.workspace_id);
+    const propertyIds: string[] = Array.isArray(invite.property_ids) ? invite.property_ids : [];
+    if (propertyIds.length > 0) {
+      const { error: accessErr } = await admin.from("user_property_access").insert(
+        propertyIds.map((property_id) => ({
+          user_id: userId,
+          property_id,
+          workspace_id: invite.workspace_id,
+        })),
+      );
+      if (accessErr) throw accessErr;
+    }
 
     await admin.from("team_invites").update({ accepted_at: new Date().toISOString() }).eq("id", invite.id);
 

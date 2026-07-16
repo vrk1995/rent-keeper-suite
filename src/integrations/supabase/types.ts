@@ -1206,6 +1206,7 @@ export type Database = {
           id: string
           invited_by_name: string | null
           invited_by_user_id: string
+          property_ids: string[] | null
           role: Database["public"]["Enums"]["app_role"]
           token_hash: string
           updated_at: string
@@ -1220,6 +1221,7 @@ export type Database = {
           id?: string
           invited_by_name?: string | null
           invited_by_user_id: string
+          property_ids?: string[] | null
           role?: Database["public"]["Enums"]["app_role"]
           token_hash: string
           updated_at?: string
@@ -1234,6 +1236,7 @@ export type Database = {
           id?: string
           invited_by_name?: string | null
           invited_by_user_id?: string
+          property_ids?: string[] | null
           role?: Database["public"]["Enums"]["app_role"]
           token_hash?: string
           updated_at?: string
@@ -1564,6 +1567,48 @@ export type Database = {
           },
           {
             foreignKeyName: "units_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_property_access: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          property_id: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          property_id: string
+          user_id: string
+          workspace_id?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          property_id?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_property_access_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_property_access_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
