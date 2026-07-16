@@ -376,8 +376,8 @@ export type Database = {
           created_at: string
           created_by: string
           due_date: string
-          invoice_date: string | null
           id: string
+          invoice_date: string | null
           invoice_number: string
           items: Json | null
           notes: string | null
@@ -405,8 +405,8 @@ export type Database = {
           created_at?: string
           created_by: string
           due_date: string
-          invoice_date?: string | null
           id?: string
+          invoice_date?: string | null
           invoice_number: string
           items?: Json | null
           notes?: string | null
@@ -434,8 +434,8 @@ export type Database = {
           created_at?: string
           created_by?: string
           due_date?: string
-          invoice_date?: string | null
           id?: string
+          invoice_date?: string | null
           invoice_number?: string
           items?: Json | null
           notes?: string | null
@@ -1104,8 +1104,8 @@ export type Database = {
           billing_month: string | null
           created_at: string
           due_date: string
-          invoice_date: string | null
           id: string
+          invoice_date: string | null
           marked_by: string | null
           notes: string | null
           paid_amount: number
@@ -1126,8 +1126,8 @@ export type Database = {
           billing_month?: string | null
           created_at?: string
           due_date: string
-          invoice_date?: string | null
           id?: string
+          invoice_date?: string | null
           marked_by?: string | null
           notes?: string | null
           paid_amount?: number
@@ -1148,8 +1148,8 @@ export type Database = {
           billing_month?: string | null
           created_at?: string
           due_date?: string
-          invoice_date?: string | null
           id?: string
+          invoice_date?: string | null
           marked_by?: string | null
           notes?: string | null
           paid_amount?: number
@@ -1360,6 +1360,7 @@ export type Database = {
           bill_to_gstin: string | null
           bill_to_name: string | null
           created_at: string
+          due_days_after_invoice: number
           email: string | null
           floor_id: string | null
           floor_unit_id: string | null
@@ -1374,7 +1375,6 @@ export type Database = {
           property_owner_id: string | null
           rent_due_day: number | null
           rent_due_month_offset: number
-          due_days_after_invoice: number
           rented_sqft: number | null
           requires_gst: boolean | null
           security_deposit: number | null
@@ -1396,6 +1396,7 @@ export type Database = {
           bill_to_gstin?: string | null
           bill_to_name?: string | null
           created_at?: string
+          due_days_after_invoice?: number
           email?: string | null
           floor_id?: string | null
           floor_unit_id?: string | null
@@ -1410,7 +1411,6 @@ export type Database = {
           property_owner_id?: string | null
           rent_due_day?: number | null
           rent_due_month_offset?: number
-          due_days_after_invoice?: number
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
@@ -1432,6 +1432,7 @@ export type Database = {
           bill_to_gstin?: string | null
           bill_to_name?: string | null
           created_at?: string
+          due_days_after_invoice?: number
           email?: string | null
           floor_id?: string | null
           floor_unit_id?: string | null
@@ -1446,7 +1447,6 @@ export type Database = {
           property_owner_id?: string | null
           rent_due_day?: number | null
           rent_due_month_offset?: number
-          due_days_after_invoice?: number
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
