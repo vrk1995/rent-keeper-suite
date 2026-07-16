@@ -82,7 +82,7 @@ const tenantSchema = z.object({
   bill_from_pan: z.string().max(10).optional(),
   bill_from_bank_name: z.string().max(100).optional(),
   bill_from_account_number: z.string().max(30).optional(),
-  bill_from_ifsc: z.string().max(11).optional(),
+  bill_from_ifsc: z.string().trim().max(11).optional(),
   bill_to_name: z.string().max(100).optional(),
   bill_to_address: z.string().max(500).optional(),
   bill_to_gstin: z.string().max(15).optional(),
@@ -1334,7 +1334,7 @@ const AddTenantDialog = ({
                             <Input
                               placeholder="HDFC0000123"
                               {...field}
-                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase().trim())}
                             />
                           </FormControl>
                           <FormMessage />
