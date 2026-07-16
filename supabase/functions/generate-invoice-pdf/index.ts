@@ -287,6 +287,7 @@ serve(async (req: Request): Promise<Response> => {
           due_date: payment.due_date,
           status: payment.status === "paid" ? "paid" : "sent",
           created_by: createdBy,
+          workspace_id: payment.workspace_id,
           items: JSON.stringify([{ description: `Rent for ${rentPeriod}`, amount: payment.amount }]),
           bill_from_name: snapshot.bill_from_name,
           bill_from_address: snapshot.bill_from_address,
