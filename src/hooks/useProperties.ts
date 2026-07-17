@@ -7,13 +7,15 @@ import type { Json } from "@/integrations/supabase/types";
 // plus an individual co-owner, etc. NEVER holds an Aadhaar number: Aadhaar is typed at
 // generation time and passed transiently, never persisted (Aadhaar Act / DPDP compliance).
 export interface AgreementLandlord {
-  entity_name: string;
-  signatory_name: string;
+  party_type: string; // "individual" | "organisation"
+  org_type: string; // e.g. "Partnership Firm" (organisation only)
+  entity_name: string; // organisation name (organisation only)
+  signatory_name: string; // the person who signs
   relation_type: string; // "son" | "daughter" | "wife" | "husband" | ""
   relation_name: string;
   age: string;
   occupation: string;
-  designation: string;
+  designation: string; // organisation only
   address: string;
   gstin: string;
   pan: string;

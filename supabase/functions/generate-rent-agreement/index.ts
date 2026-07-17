@@ -27,7 +27,6 @@ interface AgreementRequest {
   tenantAadhaar?: string;
 }
 
-// A blank line to hand-fill on a printout when a field wasn't captured in the app.
 const BLANK = "________________________";
 const v = (val: string | number | null | undefined, blank = BLANK): string => {
   if (val === null || val === undefined) return blank;
@@ -80,14 +79,16 @@ const termLabel = (months: number | null): string => {
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
 const numberWord = (n: number): string => (n >= 0 && n < NUMBER_WORDS.length ? NUMBER_WORDS[n] : String(n));
 
-// Render "S/o / D/o / W/o / H/o <name>" from a relation type + name.
 const relationPhrase = (type: string | null | undefined, name: string): string => {
-  const abbrev =
-    type === "daughter" ? "D/o" : type === "wife" ? "W/o" : type === "husband" ? "H/o" : "S/o";
+  const abbrev = type === "daughter" ? "D/o" : type === "wife" ? "W/o" : type === "husband" ? "H/o" : "S/o";
   return `${abbrev} ${v(name)}`;
 };
 
-interface Landlord {
+// A party to the agreement — an individual (signs personally) or an organisation (signs
+// through an authorised representative). Same shape for landlords and the tenant.
+interface Party {
+  partyType: string; // "individual" | "organisation"
+  orgType: string;
   entityName: string;
   signatoryName: string;
   relationType: string;
@@ -101,6 +102,20 @@ interface Landlord {
   aadhaar: string; // transient
 }
 
+const partyDisplayName = (p: Party): string =>
+  (p.partyType === "organisation" ? p.entityName : p.signatoryName) || BLANK;
+
+// The recital description of a party, worded by type. Individuals sign personally;
+// organisations are "represented by" their authorised signatory.
+const partyClause = (p: Party): string => {
+  const idBits = (p.gstin ? `, GSTIN ${p.gstin}` : "") + (p.pan ? `, PAN ${p.pan}` : "");
+  if (p.partyType === "organisation") {
+    const typeBit = p.orgType ? `a ${p.orgType}, ` : "";
+    return `${v(p.entityName)}, ${typeBit}having its office at ${v(p.address)}${idBits}, represented by its ${v(p.designation, "Authorized Signatory")} ${v(p.signatoryName)}, ${relationPhrase(p.relationType, p.relationName)}, aged ${v(p.age)} years, ${v(p.occupation)}, holding Aadhaar No. ${v(p.aadhaar)}`;
+  }
+  return `${v(p.signatoryName)}, ${relationPhrase(p.relationType, p.relationName)}, aged ${v(p.age)} years, ${v(p.occupation)}, residing at ${v(p.address)}${idBits}, holding Aadhaar No. ${v(p.aadhaar)}`;
+};
+
 // ---- shared paragraph builders ----
 const heading = (text: string) =>
   new Paragraph({ text, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { after: 240 } });
@@ -112,17 +127,10 @@ const para = (text: string, opts: { bold?: boolean; italics?: boolean; spacingAf
   });
 
 const clause = (num: string, text: string) =>
-  new Paragraph({
-    children: [new TextRun({ text: `${num}. `, bold: true }), new TextRun({ text })],
-    spacing: { after: 160 },
-  });
+  new Paragraph({ children: [new TextRun({ text: `${num}. `, bold: true }), new TextRun({ text })], spacing: { after: 160 } });
 
 const subClause = (label: string, text: string) =>
-  new Paragraph({
-    children: [new TextRun({ text: `${label}) `, bold: true }), new TextRun({ text })],
-    spacing: { after: 140 },
-    indent: { left: 360 },
-  });
+  new Paragraph({ children: [new TextRun({ text: `${label}) `, bold: true }), new TextRun({ text })], spacing: { after: 140 }, indent: { left: 360 } });
 
 const sectionHeading = (num: string, text: string) =>
   new Paragraph({ children: [new TextRun({ text: `${num}. ${text}`, bold: true, size: 24 })], spacing: { before: 240, after: 160 } });
@@ -147,36 +155,34 @@ const simpleTable = (rows: string[][]) =>
     rows: rows.map((r, i) => new TableRow({ children: r.map((c) => cell(c, { header: i === 0, width: 100 / r.length })) })),
   });
 
-// A landlord's opening party paragraph, e.g. "1) Acme ... represented by ... S/o ... Aadhaar No. ..."
-const landlordPartyParagraph = (l: Landlord, index: number, total: number): Paragraph => {
+const landlordPartyParagraph = (l: Party, index: number, total: number): Paragraph => {
   const label = total > 1 ? `${index + 1}) ` : "";
-  const repClause = l.signatoryName || l.designation
-    ? `, represented by its ${v(l.designation, "Authorized Signatory")} ${v(l.signatoryName)}, ${relationPhrase(l.relationType, l.relationName)}, aged ${v(l.age)} years, ${v(l.occupation)}`
-    : "";
-  const idClause =
-    (l.gstin ? `, GSTIN ${l.gstin}` : "") +
-    (l.pan ? `, PAN ${l.pan}` : "") +
-    `, holding Aadhaar No. ${v(l.aadhaar)}`;
   return new Paragraph({
-    children: [
-      new TextRun({ text: label, bold: true }),
-      new TextRun({ text: `${v(l.entityName)}, having its address at ${v(l.address)}${repClause}${idClause}.` }),
-    ],
+    children: [new TextRun({ text: label, bold: true }), new TextRun({ text: `${partyClause(l)}.` })],
     spacing: { after: 160 },
   });
 };
 
-// Stacked signature block: each landlord, then the tenant, then witnesses.
-const signatureSection = (landlords: Landlord[], landlordRole: string, tenantRole: string, tenantEntity: string, tenantSignatory: string, tenantDesignation: string): Paragraph[] => {
+// One party's signature block: the name, and (for organisations) the representative line.
+const signatureLines = (p: Party): Paragraph[] => {
+  const out: Paragraph[] = [para(partyDisplayName(p), { bold: true, spacingAfter: 40 })];
+  if (p.partyType === "organisation") {
+    out.push(para(`Represented by ${v(p.designation, "Authorized Signatory")}: ${v(p.signatoryName)}`, { spacingAfter: 500 }));
+  } else {
+    out.push(para("(Signature)", { spacingAfter: 500 }));
+  }
+  return out;
+};
+
+const signatureSection = (landlords: Party[], tenant: Party, landlordRole: string, tenantRole: string): Paragraph[] => {
   const out: Paragraph[] = [];
   out.push(para(`${landlordRole}${landlords.length > 1 ? "S" : ""}:`, { bold: true, spacingAfter: 200 }));
   landlords.forEach((l, i) => {
-    out.push(para(`${landlords.length > 1 ? `(${i + 1}) ` : ""}${v(l.entityName)}`, { bold: true, spacingAfter: 40 }));
-    out.push(para(`Represented by ${v(l.designation, "Authorized Signatory")}: ${v(l.signatoryName)}`, { spacingAfter: 500 }));
+    if (landlords.length > 1) out.push(para(`(${i + 1})`, { spacingAfter: 20 }));
+    signatureLines(l).forEach((p) => out.push(p));
   });
   out.push(para(`${tenantRole}:`, { bold: true, spacingAfter: 40 }));
-  out.push(para(`${v(tenantEntity)}`, { bold: true, spacingAfter: 40 }));
-  out.push(para(`Represented by ${v(tenantDesignation, "Authorized Signatory")}: ${v(tenantSignatory)}`, { spacingAfter: 500 }));
+  signatureLines(tenant).forEach((p) => out.push(p));
   out.push(para("Witnesses:", { bold: true, spacingAfter: 200 }));
   out.push(para("1. ______________________________"));
   out.push(para("2. ______________________________", { spacingAfter: 200 }));
@@ -185,19 +191,8 @@ const signatureSection = (landlords: Landlord[], landlordRole: string, tenantRol
 
 interface Data {
   agreementDateLabel: string;
-  landlords: Landlord[];
-
-  tenantName: string;
-  tenantAddress: string;
-  tenantGstin: string;
-  tenantPan: string;
-  tenantSignatoryName: string;
-  tenantRelationType: string;
-  tenantRelationName: string;
-  tenantSignatoryAge: string;
-  tenantSignatoryOccupation: string;
-  tenantSignatoryDesignation: string;
-  tenantAadhaar: string;
+  landlords: Party[];
+  tenant: Party;
 
   propertyName: string;
   propertyAddress: string;
@@ -232,8 +227,8 @@ interface Data {
   buildingTaxBy: string;
 }
 
-const collectiveLandlordName = (landlords: Landlord[]): string =>
-  landlords.map((l) => l.entityName).filter(Boolean).join(" and ") || BLANK;
+const collectiveLandlordName = (landlords: Party[]): string =>
+  landlords.map((l) => partyDisplayName(l)).filter((s) => s && s !== BLANK).join(" and ") || BLANK;
 
 function buildLicenseAgreement(d: Data): Document {
   const children: (Paragraph | Table)[] = [];
@@ -250,16 +245,13 @@ function buildLicenseAgreement(d: Data): Document {
   children.push(para("AND"));
   children.push(
     para(
-      `${v(d.tenantName)}` +
-        (d.tenantGstin ? `, GSTIN ${d.tenantGstin}` : "") +
-        (d.tenantPan ? `, PAN ${d.tenantPan}` : "") +
-        `, represented by its ${v(d.tenantSignatoryDesignation, "Authorized Signatory")} ${v(d.tenantSignatoryName)}, ${relationPhrase(d.tenantRelationType, d.tenantRelationName)}, aged ${v(d.tenantSignatoryAge)} years, ${v(d.tenantSignatoryOccupation)}, residing at ${v(d.tenantAddress)}, holding Aadhaar No. ${v(d.tenantAadhaar)} (hereinafter referred to as the "LICENSEE" which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include its successors, permitted assigns, executors and administrators) of the SECOND PART.`
+      `${partyClause(d.tenant)} (hereinafter referred to as the "LICENSEE" which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include its successors, permitted assigns, executors and administrators) of the SECOND PART.`
     )
   );
 
   children.push(
     para(
-      `WHEREAS the Licensor is the absolute owner in possession and enjoyment of the commercial property bearing Door No. ${v(d.doorNumber)} admeasuring ${v(d.totalSqft)} sq.ft., situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber !== BLANK && d.subDivisionNumber ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, in the building known as "${v(d.propertyName)}" (hereinafter referred to as the "Scheduled Premises", more particularly described in the Schedule hereunder).`
+      `WHEREAS the Licensor is the absolute owner in possession and enjoyment of the property bearing Door No. ${v(d.doorNumber)} admeasuring ${v(d.totalSqft)} sq.ft., situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber && d.subDivisionNumber !== BLANK ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, in the building known as "${v(d.propertyName)}" (hereinafter referred to as the "Scheduled Premises", more particularly described in the Schedule hereunder).`
     )
   );
   children.push(
@@ -293,7 +285,7 @@ function buildLicenseAgreement(d: Data): Document {
   children.push(clause(String(n++), "The original of this Agreement shall be retained by the Licensor, and a duplicate of the same shall be retained by the Licensee."));
 
   children.push(para("IN WITNESS WHEREOF the parties herein have set their respective hands to this Agreement on the date mentioned above.", { spacingAfter: 400 }));
-  signatureSection(d.landlords, "LICENSOR", "LICENSEE", d.tenantName, d.tenantSignatoryName, d.tenantSignatoryDesignation).forEach((p) => children.push(p));
+  signatureSection(d.landlords, d.tenant, "LICENSOR", "LICENSEE").forEach((p) => children.push(p));
 
   children.push(heading("SCHEDULE — Description of Property"));
   children.push(
@@ -340,17 +332,14 @@ function buildLeaseDeed(d: Data): Document {
   children.push(para("AND"));
   children.push(
     para(
-      `${v(d.tenantName)}` +
-        (d.tenantGstin ? `, GSTIN ${d.tenantGstin}` : "") +
-        (d.tenantPan ? `, PAN ${d.tenantPan}` : "") +
-        `, represented by its ${v(d.tenantSignatoryDesignation, "Authorized Signatory")} ${v(d.tenantSignatoryName)}, ${relationPhrase(d.tenantRelationType, d.tenantRelationName)}, aged ${v(d.tenantSignatoryAge)} years, ${v(d.tenantSignatoryOccupation)}, residing at ${v(d.tenantAddress)}, holding Aadhaar No. ${v(d.tenantAadhaar)} (hereinafter referred to as the "LESSEE", which expression shall, unless repugnant to the subject or context thereof, include its successors and permitted assigns) of the OTHER PART.`
+      `${partyClause(d.tenant)} (hereinafter referred to as the "LESSEE", which expression shall, unless repugnant to the subject or context thereof, include its successors and permitted assigns) of the OTHER PART.`
     )
   );
   children.push(para("(The Lessor and the Lessee are hereinafter collectively referred to as the \"Parties\" and individually as a \"Party\").", { italics: true }));
 
   children.push(
     para(
-      `WHEREAS the Lessor is absolutely seized and possessed of and otherwise well and sufficiently entitled to the premises admeasuring ${v(d.totalSqft)} sq.ft., bearing Door No. ${v(d.doorNumber)}, in the building known as "${v(d.propertyName)}", situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber !== BLANK && d.subDivisionNumber ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, with an undivided share of ${v(d.undividedShare)} (hereinafter referred to as the "Demised Premises", more particularly described in the Schedule to this Lease Deed).`
+      `WHEREAS the Lessor is absolutely seized and possessed of and otherwise well and sufficiently entitled to the premises admeasuring ${v(d.totalSqft)} sq.ft., bearing Door No. ${v(d.doorNumber)}, in the building known as "${v(d.propertyName)}", situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber && d.subDivisionNumber !== BLANK ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, with an undivided share of ${v(d.undividedShare)} (hereinafter referred to as the "Demised Premises", more particularly described in the Schedule to this Lease Deed).`
     )
   );
   children.push(
@@ -416,7 +405,7 @@ function buildLeaseDeed(d: Data): Document {
   children.push(para("In case the Demised Premises or any part thereof is destroyed or damaged by a force majeure event (fire, riot, civil commotion, or the like) not within the control of the Parties, rendering it wholly or partially unfit for use, the rent (or a proportionate part thereof) shall cease to be payable until the Demised Premises is restored by the Lessor."));
 
   children.push(sectionHeading("10", "NOTICES"));
-  children.push(para(`Any notice under this Lease Deed shall be served in writing at the address of the Lessor (${v(collectiveLandlordName(d.landlords))}) or the Lessee (${v(d.tenantAddress)}) as stated herein.`));
+  children.push(para(`Any notice under this Lease Deed shall be served in writing at the address of the Lessor (${v(collectiveLandlordName(d.landlords))}) or the Lessee (${v(d.tenant.address)}) as stated herein.`));
 
   children.push(sectionHeading("11", "STAMP DUTY AND REGISTRATION CHARGES"));
   children.push(para("This Lease Deed shall be executed and, where required by law, registered. Stamp duty and registration charges shall be borne by the Parties as mutually agreed, in accordance with the applicable State Stamp Act."));
@@ -428,7 +417,7 @@ function buildLeaseDeed(d: Data): Document {
   children.push(para(`This Lease Deed shall be governed by the laws of India. The competent courts at ${v(d.district)} alone shall have jurisdiction over any dispute arising out of this Lease Deed.`));
 
   children.push(para("IN WITNESS WHEREOF the Parties have executed this Lease Deed on the date first mentioned above.", { spacingAfter: 400 }));
-  signatureSection(d.landlords, "LESSOR", "LESSEE", d.tenantName, d.tenantSignatoryName, d.tenantSignatoryDesignation).forEach((p) => children.push(p));
+  signatureSection(d.landlords, d.tenant, "LESSOR", "LESSEE").forEach((p) => children.push(p));
 
   children.push(heading("SCHEDULE — Description of Demised Premises"));
   children.push(
@@ -491,14 +480,12 @@ serve(async (req: Request): Promise<Response> => {
 
     const property = tenant.property;
 
-    // Landlords: the property's saved list, or a single one derived from the tenant's
-    // billing details. Aadhaar is layered in from the request body by index — never the DB.
-    const savedLandlords: any[] = Array.isArray(property?.agreement_landlords)
-      ? property.agreement_landlords
-      : [];
-    let landlords: Landlord[];
+    const savedLandlords: any[] = Array.isArray(property?.agreement_landlords) ? property.agreement_landlords : [];
+    let landlords: Party[];
     if (savedLandlords.length > 0) {
       landlords = savedLandlords.map((l: any, i: number) => ({
+        partyType: l.party_type || "individual",
+        orgType: l.org_type || "",
         entityName: l.entity_name || "",
         signatoryName: l.signatory_name || "",
         relationType: l.relation_type || "son",
@@ -514,8 +501,10 @@ serve(async (req: Request): Promise<Response> => {
     } else {
       landlords = [
         {
-          entityName: tenant.bill_from_name || "",
-          signatoryName: "",
+          partyType: "individual",
+          orgType: "",
+          entityName: "",
+          signatoryName: tenant.bill_from_name || "",
           relationType: "son",
           relationName: "",
           age: "",
@@ -529,6 +518,22 @@ serve(async (req: Request): Promise<Response> => {
       ];
     }
 
+    const tenantParty: Party = {
+      partyType: tenant.party_type || "individual",
+      orgType: tenant.org_type || "",
+      entityName: tenant.bill_to_name || tenant.name || "",
+      signatoryName: tenant.signatory_name || (tenant.party_type === "organisation" ? "" : tenant.bill_to_name || tenant.name || ""),
+      relationType: tenant.signatory_relation_type || "son",
+      relationName: tenant.signatory_relation_name || "",
+      age: tenant.signatory_age?.toString() || "",
+      occupation: tenant.signatory_occupation || "",
+      designation: tenant.signatory_designation || "",
+      address: tenant.permanent_address || tenant.bill_to_address || "",
+      gstin: tenant.bill_to_gstin || "",
+      pan: tenant.bill_to_pan || "",
+      aadhaar: tenantAadhaar || "",
+    };
+
     const { data: tenantUnits } = await supabase
       .from("tenant_floor_units")
       .select("floor_units(corp_number)")
@@ -541,18 +546,7 @@ serve(async (req: Request): Promise<Response> => {
     const data: Data = {
       agreementDateLabel: dateLabel(new Date().toISOString()),
       landlords,
-
-      tenantName: tenant.bill_to_name || tenant.name || "",
-      tenantAddress: tenant.permanent_address || tenant.bill_to_address || "",
-      tenantGstin: tenant.bill_to_gstin || "",
-      tenantPan: tenant.bill_to_pan || "",
-      tenantSignatoryName: tenant.signatory_name || "",
-      tenantRelationType: tenant.signatory_relation_type || "son",
-      tenantRelationName: tenant.signatory_relation_name || "",
-      tenantSignatoryAge: tenant.signatory_age?.toString() || "",
-      tenantSignatoryOccupation: tenant.signatory_occupation || "",
-      tenantSignatoryDesignation: tenant.signatory_designation || "",
-      tenantAadhaar: tenantAadhaar || "",
+      tenant: tenantParty,
 
       propertyName: property?.name || "",
       propertyAddress: property?.address || "",

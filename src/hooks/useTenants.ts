@@ -37,6 +37,9 @@ export interface Tenant {
   bill_to_address: string | null;
   bill_to_gstin: string | null;
   bill_to_pan: string | null;
+  // Agreement party: is the tenant an individual or an organisation (firm/company/etc.)?
+  party_type: string | null;
+  org_type: string | null;
   // Signatory (individual signing the agreement) + agreement-specific lease terms.
   // Aadhaar is never stored here — it's typed at generation time and passed transiently.
   signatory_name: string | null;
@@ -109,6 +112,8 @@ export interface CreateTenantInput {
   bill_to_address?: string;
   bill_to_gstin?: string;
   bill_to_pan?: string;
+  party_type?: string;
+  org_type?: string;
   signatory_name?: string;
   signatory_relation_type?: string;
   signatory_relation_name?: string;

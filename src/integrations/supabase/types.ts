@@ -1468,6 +1468,8 @@ export type Database = {
           move_in_date: string
           name: string
           notice_period_months: number | null
+          org_type: string | null
+          party_type: string | null
           permanent_address: string | null
           phone: string | null
           property_id: string
@@ -1521,6 +1523,8 @@ export type Database = {
           move_in_date: string
           name: string
           notice_period_months?: number | null
+          org_type?: string | null
+          party_type?: string | null
           permanent_address?: string | null
           phone?: string | null
           property_id: string
@@ -1574,6 +1578,8 @@ export type Database = {
           move_in_date?: string
           name?: string
           notice_period_months?: number | null
+          org_type?: string | null
+          party_type?: string | null
           permanent_address?: string | null
           phone?: string | null
           property_id?: string
