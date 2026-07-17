@@ -39,6 +39,7 @@ interface BillingAddressFormData {
   address: string;
   gstin: string;
   pan: string;
+  invoice_prefix: string;
   is_default: boolean;
 }
 
@@ -56,6 +57,7 @@ const BillingAddresses = () => {
     address: "",
     gstin: "",
     pan: "",
+    invoice_prefix: "",
     is_default: false,
   });
 
@@ -67,11 +69,12 @@ const BillingAddresses = () => {
         address: address.address || "",
         gstin: address.gstin || "",
         pan: address.pan || "",
+        invoice_prefix: address.invoice_prefix || "",
         is_default: address.is_default,
       });
     } else {
       setEditAddress(null);
-      setFormData({ name: "", address: "", gstin: "", pan: "", is_default: false });
+      setFormData({ name: "", address: "", gstin: "", pan: "", invoice_prefix: "", is_default: false });
     }
     setDialogOpen(true);
   };
@@ -79,7 +82,7 @@ const BillingAddresses = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditAddress(null);
-    setFormData({ name: "", address: "", gstin: "", pan: "", is_default: false });
+    setFormData({ name: "", address: "", gstin: "", pan: "", invoice_prefix: "", is_default: false });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,6 +96,7 @@ const BillingAddresses = () => {
         address: formData.address || null,
         gstin: formData.gstin || null,
         pan: formData.pan || null,
+        invoice_prefix: formData.invoice_prefix.toUpperCase() || null,
         is_default: formData.is_default,
       });
     } else {
@@ -101,6 +105,7 @@ const BillingAddresses = () => {
         address: formData.address || undefined,
         gstin: formData.gstin || undefined,
         pan: formData.pan || undefined,
+        invoice_prefix: formData.invoice_prefix.toUpperCase() || undefined,
         is_default: formData.is_default,
       });
     }
@@ -204,6 +209,12 @@ const BillingAddresses = () => {
                     <span className="font-mono">{address.pan}</span>
                   </p>
                 )}
+                {address.invoice_prefix && (
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Invoice Prefix:</span>{" "}
+                    <span className="font-mono">{address.invoice_prefix}</span>
+                  </p>
+                )}
                 <BankAccountsSection billingAddressId={address.id} />
               </CardContent>
             </Card>
@@ -262,6 +273,21 @@ const BillingAddresses = () => {
                 onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
                 maxLength={10}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="invoice_prefix">Invoice Prefix</Label>
+              <Input
+                id="invoice_prefix"
+                placeholder="e.g., SPD"
+                value={formData.invoice_prefix}
+                onChange={(e) => setFormData({ ...formData, invoice_prefix: e.target.value.toUpperCase() })}
+                maxLength={20}
+              />
+              <p className="text-xs text-muted-foreground">
+                Used for invoice numbering: INV-[PREFIX]-[FY]-001. All invoices billed from this
+                address share one sequential numbering series, regardless of property.
+              </p>
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">

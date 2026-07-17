@@ -223,18 +223,37 @@ serve(async (req: Request): Promise<Response> => {
     } else {
       snapshot = await computeLiveSnapshot();
       invoiceDateFinal = payment.invoice_date || payment.due_date;
-      // Generate new invoice number with property prefix
-      const dueDate = new Date(payment.due_date);
-      const year = dueDate.getFullYear();
-      const yearShort = String(year).slice(-2);
-      const prefix = property?.invoice_prefix || property?.name?.substring(0, 3).toUpperCase() || "INV";
 
-      // Get or create sequence for this property and year
+      // Prefix belongs to the billing address issuing the invoice, not the property. The
+      // invoice's frozen bill_from_name is a copy (not a live FK), so resolve it by name
+      // match against billing_addresses; fall back to the property's legacy prefix, then a
+      // name-derived one, if no billing address (or no prefix on it) is found.
+      let prefix = property?.invoice_prefix || property?.name?.substring(0, 3).toUpperCase() || "INV";
+      if (snapshot.bill_from_name) {
+        const { data: billingAddresses } = await supabase
+          .from("billing_addresses")
+          .select("invoice_prefix")
+          .eq("name", snapshot.bill_from_name)
+          .not("invoice_prefix", "is", null)
+          .limit(1);
+        if (billingAddresses?.[0]?.invoice_prefix) {
+          prefix = billingAddresses[0].invoice_prefix;
+        }
+      }
+
+      // Financial year (Apr 1 - Mar 31), labeled by its ending calendar year, computed from
+      // the invoice's own issue date — not the payment due date.
+      const invDate = new Date(invoiceDateFinal);
+      const fyEndYear = invDate.getMonth() >= 3 ? invDate.getFullYear() + 1 : invDate.getFullYear();
+      const yearShort = String(fyEndYear).slice(-2);
+
+      // Get or create sequence for this prefix and financial year — shared across every
+      // property billed under the same prefix, so numbering stays sequential per GST series.
       const { data: sequence, error: seqError } = await supabase
         .from("invoice_sequences")
         .select("id, last_sequence")
-        .eq("property_id", payment.property_id)
-        .eq("year", year)
+        .eq("prefix", prefix)
+        .eq("year", fyEndYear)
         .single();
 
       let nextSequence: number;
@@ -244,8 +263,9 @@ serve(async (req: Request): Promise<Response> => {
         const { data: newSeq, error: createSeqError } = await supabase
           .from("invoice_sequences")
           .insert({
+            prefix: prefix,
             property_id: payment.property_id,
-            year: year,
+            year: fyEndYear,
             last_sequence: 1,
           })
           .select()

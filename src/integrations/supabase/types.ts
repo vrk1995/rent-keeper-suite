@@ -108,6 +108,7 @@ export type Database = {
           created_at: string
           gstin: string | null
           id: string
+          invoice_prefix: string | null
           is_default: boolean | null
           name: string
           pan: string | null
@@ -119,6 +120,7 @@ export type Database = {
           created_at?: string
           gstin?: string | null
           id?: string
+          invoice_prefix?: string | null
           is_default?: boolean | null
           name: string
           pan?: string | null
@@ -130,6 +132,7 @@ export type Database = {
           created_at?: string
           gstin?: string | null
           id?: string
+          invoice_prefix?: string | null
           is_default?: boolean | null
           name?: string
           pan?: string | null
@@ -363,7 +366,8 @@ export type Database = {
           created_at: string
           id: string
           last_sequence: number
-          property_id: string
+          prefix: string
+          property_id: string | null
           updated_at: string
           workspace_id: string
           year: number
@@ -372,7 +376,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_sequence?: number
-          property_id: string
+          prefix: string
+          property_id?: string | null
           updated_at?: string
           workspace_id?: string
           year: number
@@ -381,7 +386,8 @@ export type Database = {
           created_at?: string
           id?: string
           last_sequence?: number
-          property_id?: string
+          prefix?: string
+          property_id?: string | null
           updated_at?: string
           workspace_id?: string
           year?: number

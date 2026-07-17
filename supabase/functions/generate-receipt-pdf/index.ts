@@ -83,7 +83,21 @@ serve(async (req: Request): Promise<Response> => {
       .order("created_at", { ascending: true });
     const transactions: Txn[] = (txnRows as Txn[]) || [];
 
-    const prefix = property?.invoice_prefix || property?.name?.substring(0, 3).toUpperCase() || "REC";
+    // Prefix belongs to the billing address issuing the invoice, not the property — resolve
+    // it by name match against billing_addresses (tenant's bill_from_name is a copy, not a
+    // live FK), falling back to the property's legacy prefix, then a name-derived one.
+    let prefix = property?.invoice_prefix || property?.name?.substring(0, 3).toUpperCase() || "REC";
+    if (tenant?.bill_from_name) {
+      const { data: billingAddresses } = await supabase
+        .from("billing_addresses")
+        .select("invoice_prefix")
+        .eq("name", tenant.bill_from_name)
+        .not("invoice_prefix", "is", null)
+        .limit(1);
+      if (billingAddresses?.[0]?.invoice_prefix) {
+        prefix = billingAddresses[0].invoice_prefix;
+      }
+    }
     const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
 
     // Rent period label
