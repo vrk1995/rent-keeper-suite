@@ -314,6 +314,7 @@ export interface AdminUpdatePaymentInput {
   id: string;
   amount?: number;
   due_date?: string;
+  invoice_date?: string;
   paid_date?: string | null;
   payment_method?: string | null;
   notes?: string | null;

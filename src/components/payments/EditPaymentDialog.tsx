@@ -43,6 +43,7 @@ interface EditPaymentDialogProps {
 interface FormState {
   amount: string;
   due_date: Date | undefined;
+  invoice_date: Date | undefined;
   paid_date: Date | undefined;
   payment_method: string;
   notes: string;
@@ -53,6 +54,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   amount: "",
   due_date: undefined,
+  invoice_date: undefined,
   paid_date: undefined,
   payment_method: "",
   notes: "",
@@ -85,7 +87,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
       try {
         const { data: payment, error: paymentError } = await supabase
           .from("rent_payments")
-          .select("amount, due_date, paid_date, payment_method, notes")
+          .select("amount, due_date, invoice_date, paid_date, payment_method, notes")
           .eq("id", paymentId)
           .single();
 
@@ -111,6 +113,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
           const loaded: FormState = {
             amount: String(payment.amount),
             due_date: new Date(payment.due_date),
+            invoice_date: payment.invoice_date ? new Date(payment.invoice_date) : new Date(payment.due_date),
             paid_date: payment.paid_date ? new Date(payment.paid_date) : undefined,
             payment_method: payment.payment_method || "",
             notes: payment.notes || "",
@@ -141,6 +144,10 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
       toast.error("Due date is required");
       return;
     }
+    if (!form.invoice_date) {
+      toast.error("Invoice date is required");
+      return;
+    }
     if (invoiceId && !form.invoice_number.trim()) {
       toast.error("Invoice number is required");
       return;
@@ -151,21 +158,25 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
         id: paymentId,
         amount: amountNum,
         due_date: format(form.due_date, "yyyy-MM-dd"),
+        invoice_date: format(form.invoice_date, "yyyy-MM-dd"),
         paid_date: form.paid_date ? format(form.paid_date, "yyyy-MM-dd") : null,
         payment_method: form.payment_method || null,
         notes: form.notes.trim() || null,
       });
 
       if (invoiceId) {
-        // Keep the invoice's amount/due date in sync with the payment so the two never
-        // drift apart — invoices are matched to payments by these fields, not a foreign
-        // key, so letting them diverge breaks that match the next time the PDF is opened.
+        // Keep the invoice's amount/dates in sync with the payment so the two never drift
+        // apart — invoices are matched to payments by property+tenant+due_date+amount, not
+        // a foreign key, so letting due_date/amount diverge breaks that match the next time
+        // the PDF is opened. invoice_date is just carried along since it's frozen on the
+        // invoice at issue time and won't otherwise pick up a correction made here.
         await updateInvoice.mutateAsync({
           id: invoiceId,
           invoice_number: form.invoice_number.trim(),
           status: form.invoice_status,
           amount: amountNum,
           due_date: format(form.due_date, "yyyy-MM-dd"),
+          invoice_date: format(form.invoice_date, "yyyy-MM-dd"),
         });
       }
 
@@ -276,12 +287,39 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
                 </Popover>
               </div>
             </div>
-            {invoiceId && (
-              <p className="text-xs text-muted-foreground -mt-2">
-                Due date is also printed as the invoice date on the invoice PDF, unless a paid
-                date is set below — in which case the paid date is used instead.
-              </p>
-            )}
+
+            <div className="space-y-2">
+              <Label>Invoice Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full pl-3 text-left font-normal",
+                      !form.invoice_date && "text-muted-foreground"
+                    )}
+                  >
+                    {form.invoice_date ? format(form.invoice_date, "PP") : <span>Pick a date</span>}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.invoice_date}
+                    onSelect={(date) => setForm((f) => ({ ...f, invoice_date: date }))}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              {invoiceId && (
+                <p className="text-xs text-muted-foreground">
+                  Printed as the "ISSUED" date on the invoice PDF. Frozen once the invoice is
+                  created, so it won't otherwise update on its own — edit it here if it's wrong.
+                </p>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label>Paid / Receipt Date</Label>
@@ -322,7 +360,7 @@ export function EditPaymentDialog({ paymentId, invoiceId, open, onOpenChange, on
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Shown as the receipt date on the receipt PDF{invoiceId ? ", and takes over from the due date as the invoice date once set" : ""}.
+                Shown as the receipt date on the receipt PDF.
               </p>
             </div>
 

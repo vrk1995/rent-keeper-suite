@@ -116,6 +116,7 @@ export interface UpdateInvoiceInput {
   invoice_number?: string;
   amount?: number;
   due_date?: string;
+  invoice_date?: string;
   status?: string;
   notes?: string | null;
 }
