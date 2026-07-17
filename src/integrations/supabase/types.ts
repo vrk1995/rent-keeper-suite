@@ -112,6 +112,12 @@ export type Database = {
           is_default: boolean | null
           name: string
           pan: string | null
+          signatory_age: number | null
+          signatory_aadhaar: string | null
+          signatory_designation: string | null
+          signatory_name: string | null
+          signatory_occupation: string | null
+          signatory_relation: string | null
           updated_at: string
           user_id: string
         }
@@ -124,6 +130,12 @@ export type Database = {
           is_default?: boolean | null
           name: string
           pan?: string | null
+          signatory_age?: number | null
+          signatory_aadhaar?: string | null
+          signatory_designation?: string | null
+          signatory_name?: string | null
+          signatory_occupation?: string | null
+          signatory_relation?: string | null
           updated_at?: string
           user_id: string
         }
@@ -136,6 +148,12 @@ export type Database = {
           is_default?: boolean | null
           name?: string
           pan?: string | null
+          signatory_age?: number | null
+          signatory_aadhaar?: string | null
+          signatory_designation?: string | null
+          signatory_name?: string | null
+          signatory_occupation?: string | null
+          signatory_relation?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -684,7 +702,14 @@ export type Database = {
       properties: {
         Row: {
           address: string
+          boundary_east: string | null
+          boundary_north: string | null
+          boundary_south: string | null
+          boundary_west: string | null
+          building_tax_by: string | null
           created_at: string
+          district: string | null
+          door_number: string | null
           floors_owned: number | null
           id: string
           invoice_prefix: string | null
@@ -695,13 +720,25 @@ export type Database = {
           property_owner_id: string | null
           property_type: string | null
           status: string | null
+          sub_division_number: string | null
+          survey_number: string | null
+          taluk: string | null
           total_sqft: number | null
+          undivided_share: string | null
           updated_at: string
+          village: string | null
           workspace_id: string
         }
         Insert: {
           address: string
+          boundary_east?: string | null
+          boundary_north?: string | null
+          boundary_south?: string | null
+          boundary_west?: string | null
+          building_tax_by?: string | null
           created_at?: string
+          district?: string | null
+          door_number?: string | null
           floors_owned?: number | null
           id?: string
           invoice_prefix?: string | null
@@ -712,13 +749,25 @@ export type Database = {
           property_owner_id?: string | null
           property_type?: string | null
           status?: string | null
+          sub_division_number?: string | null
+          survey_number?: string | null
+          taluk?: string | null
           total_sqft?: number | null
+          undivided_share?: string | null
           updated_at?: string
+          village?: string | null
           workspace_id?: string
         }
         Update: {
           address?: string
+          boundary_east?: string | null
+          boundary_north?: string | null
+          boundary_south?: string | null
+          boundary_west?: string | null
+          building_tax_by?: string | null
           created_at?: string
+          district?: string | null
+          door_number?: string | null
           floors_owned?: number | null
           id?: string
           invoice_prefix?: string | null
@@ -729,8 +778,13 @@ export type Database = {
           property_owner_id?: string | null
           property_type?: string | null
           status?: string | null
+          sub_division_number?: string | null
+          survey_number?: string | null
+          taluk?: string | null
           total_sqft?: number | null
+          undivided_share?: string | null
           updated_at?: string
+          village?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -1402,6 +1456,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          agreement_template: string | null
           bill_from_account_number: string | null
           bill_from_address: string | null
           bill_from_bank_name: string | null
@@ -1412,6 +1467,7 @@ export type Database = {
           bill_to_address: string | null
           bill_to_gstin: string | null
           bill_to_name: string | null
+          bill_to_pan: string | null
           created_at: string
           due_days_after_invoice: number
           email: string | null
@@ -1420,17 +1476,32 @@ export type Database = {
           id: string
           lease_end_date: string
           lease_start_date: string
+          lock_in_period_months: number | null
+          major_maintenance_by: string | null
+          minor_maintenance_by: string | null
           monthly_rent: number | null
           move_in_date: string
           name: string
+          notice_period_months: number | null
+          permanent_address: string | null
           phone: string | null
           property_id: string
           property_owner_id: string | null
+          purpose_of_use: string | null
+          renewal_terms: string | null
           rent_due_day: number | null
           rent_due_month_offset: number
+          rent_escalation_frequency_years: number | null
+          rent_escalation_percent: number | null
           rented_sqft: number | null
           requires_gst: boolean | null
           security_deposit: number | null
+          signatory_age: number | null
+          signatory_aadhaar: string | null
+          signatory_designation: string | null
+          signatory_name: string | null
+          signatory_occupation: string | null
+          signatory_relation: string | null
           status: string | null
           tds_applicable: boolean
           unit_id: string | null
@@ -1438,6 +1509,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          agreement_template?: string | null
           bill_from_account_number?: string | null
           bill_from_address?: string | null
           bill_from_bank_name?: string | null
@@ -1448,6 +1520,7 @@ export type Database = {
           bill_to_address?: string | null
           bill_to_gstin?: string | null
           bill_to_name?: string | null
+          bill_to_pan?: string | null
           created_at?: string
           due_days_after_invoice?: number
           email?: string | null
@@ -1456,9 +1529,24 @@ export type Database = {
           id?: string
           lease_end_date: string
           lease_start_date: string
+          lock_in_period_months?: number | null
+          major_maintenance_by?: string | null
+          minor_maintenance_by?: string | null
           monthly_rent?: number | null
           move_in_date: string
           name: string
+          notice_period_months?: number | null
+          permanent_address?: string | null
+          purpose_of_use?: string | null
+          renewal_terms?: string | null
+          rent_escalation_frequency_years?: number | null
+          rent_escalation_percent?: number | null
+          signatory_age?: number | null
+          signatory_aadhaar?: string | null
+          signatory_designation?: string | null
+          signatory_name?: string | null
+          signatory_occupation?: string | null
+          signatory_relation?: string | null
           phone?: string | null
           property_id: string
           property_owner_id?: string | null
@@ -1474,6 +1562,7 @@ export type Database = {
           workspace_id?: string
         }
         Update: {
+          agreement_template?: string | null
           bill_from_account_number?: string | null
           bill_from_address?: string | null
           bill_from_bank_name?: string | null
@@ -1484,6 +1573,7 @@ export type Database = {
           bill_to_address?: string | null
           bill_to_gstin?: string | null
           bill_to_name?: string | null
+          bill_to_pan?: string | null
           created_at?: string
           due_days_after_invoice?: number
           email?: string | null
@@ -1492,17 +1582,32 @@ export type Database = {
           id?: string
           lease_end_date?: string
           lease_start_date?: string
+          lock_in_period_months?: number | null
+          major_maintenance_by?: string | null
+          minor_maintenance_by?: string | null
           monthly_rent?: number | null
           move_in_date?: string
           name?: string
+          notice_period_months?: number | null
+          permanent_address?: string | null
           phone?: string | null
           property_id?: string
           property_owner_id?: string | null
+          purpose_of_use?: string | null
+          renewal_terms?: string | null
           rent_due_day?: number | null
           rent_due_month_offset?: number
+          rent_escalation_frequency_years?: number | null
+          rent_escalation_percent?: number | null
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
+          signatory_age?: number | null
+          signatory_aadhaar?: string | null
+          signatory_designation?: string | null
+          signatory_name?: string | null
+          signatory_occupation?: string | null
+          signatory_relation?: string | null
           status?: string | null
           tds_applicable?: boolean
           unit_id?: string | null

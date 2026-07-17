@@ -33,6 +33,7 @@ import {
   LogOut,
   History,
   Copy,
+  FileSignature,
 } from "lucide-react";
 import { Tenant } from "@/hooks/useTenants";
 import { useQuery } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ import { formatINR } from "@/lib/currency";
 import { toast } from "sonner";
 import AddTenantDialog from "./AddTenantDialog";
 import VacateTenantDialog from "./VacateTenantDialog";
+import GenerateRentAgreementDialog from "./GenerateRentAgreementDialog";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
 import { ReceivePaymentDialog } from "@/components/payments/ReceivePaymentDialog";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
@@ -62,6 +64,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [vacateDialogOpen, setVacateDialogOpen] = useState(false);
+  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, openReceipt, refreshPreview, closePreview } = usePdfPreview();
   const [markPaidPayment, setMarkPaidPayment] = useState<RentPayment | null>(null);
   const [receivePaymentOpen, setReceivePaymentOpen] = useState(false);
@@ -250,7 +253,11 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
               )}
             </div>
 
-            <div className="flex justify-end mt-3">
+            <div className="flex justify-end gap-2 mt-3">
+              <Button variant="outline" size="sm" onClick={() => setAgreementDialogOpen(true)}>
+                <FileSignature className="w-4 h-4 mr-1" />
+                Rent Agreement
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setReceivePaymentOpen(true)}>
                 <IndianRupee className="w-4 h-4 mr-1" />
                 Receive Payment
@@ -589,6 +596,12 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
         open={vacateDialogOpen}
         onOpenChange={setVacateDialogOpen}
         onVacated={() => onOpenChange(false)}
+      />
+
+      <GenerateRentAgreementDialog
+        tenant={tenant}
+        open={agreementDialogOpen}
+        onOpenChange={setAgreementDialogOpen}
       />
     </>
   );

@@ -36,6 +36,24 @@ export interface Tenant {
   bill_to_name: string | null;
   bill_to_address: string | null;
   bill_to_gstin: string | null;
+  bill_to_pan: string | null;
+  // Signatory (individual signing the agreement) + agreement-specific lease terms.
+  signatory_name: string | null;
+  signatory_relation: string | null;
+  signatory_age: number | null;
+  signatory_occupation: string | null;
+  signatory_designation: string | null;
+  signatory_aadhaar: string | null;
+  permanent_address: string | null;
+  purpose_of_use: string | null;
+  notice_period_months: number | null;
+  lock_in_period_months: number | null;
+  rent_escalation_percent: number | null;
+  rent_escalation_frequency_years: number | null;
+  renewal_terms: string | null;
+  minor_maintenance_by: string | null;
+  major_maintenance_by: string | null;
+  agreement_template: string | null;
   property?: {
     name: string;
     address: string;
@@ -89,6 +107,23 @@ export interface CreateTenantInput {
   bill_to_name?: string;
   bill_to_address?: string;
   bill_to_gstin?: string;
+  bill_to_pan?: string;
+  signatory_name?: string;
+  signatory_relation?: string;
+  signatory_age?: number;
+  signatory_occupation?: string;
+  signatory_designation?: string;
+  signatory_aadhaar?: string;
+  permanent_address?: string;
+  purpose_of_use?: string;
+  notice_period_months?: number;
+  lock_in_period_months?: number;
+  rent_escalation_percent?: number;
+  rent_escalation_frequency_years?: number;
+  renewal_terms?: string;
+  minor_maintenance_by?: string;
+  major_maintenance_by?: string;
+  agreement_template?: string;
 }
 
 export const useTenants = () => {

@@ -15,6 +15,19 @@ export interface Property {
   floors_owned: number;
   total_sqft: number;
   invoice_prefix: string | null;
+  // Legal description — for the "Schedule" section of an auto-generated rent agreement.
+  survey_number: string | null;
+  sub_division_number: string | null;
+  village: string | null;
+  taluk: string | null;
+  district: string | null;
+  door_number: string | null;
+  boundary_north: string | null;
+  boundary_south: string | null;
+  boundary_east: string | null;
+  boundary_west: string | null;
+  undivided_share: string | null;
+  building_tax_by: string | null;
   created_at: string;
   updated_at: string;
   property_owner?: {
@@ -34,6 +47,18 @@ export interface CreatePropertyInput {
   total_sqft?: number;
   property_owner_id?: string;
   invoice_prefix?: string;
+  survey_number?: string;
+  sub_division_number?: string;
+  village?: string;
+  taluk?: string;
+  district?: string;
+  door_number?: string;
+  boundary_north?: string;
+  boundary_south?: string;
+  boundary_east?: string;
+  boundary_west?: string;
+  undivided_share?: string;
+  building_tax_by?: string;
 }
 
 export const useProperties = () => {
