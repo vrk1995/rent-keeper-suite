@@ -112,12 +112,6 @@ export type Database = {
           is_default: boolean | null
           name: string
           pan: string | null
-          signatory_aadhaar: string | null
-          signatory_age: number | null
-          signatory_designation: string | null
-          signatory_name: string | null
-          signatory_occupation: string | null
-          signatory_relation: string | null
           updated_at: string
           user_id: string
         }
@@ -130,12 +124,6 @@ export type Database = {
           is_default?: boolean | null
           name: string
           pan?: string | null
-          signatory_aadhaar?: string | null
-          signatory_age?: number | null
-          signatory_designation?: string | null
-          signatory_name?: string | null
-          signatory_occupation?: string | null
-          signatory_relation?: string | null
           updated_at?: string
           user_id: string
         }
@@ -148,12 +136,6 @@ export type Database = {
           is_default?: boolean | null
           name?: string
           pan?: string | null
-          signatory_aadhaar?: string | null
-          signatory_age?: number | null
-          signatory_designation?: string | null
-          signatory_name?: string | null
-          signatory_occupation?: string | null
-          signatory_relation?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -702,6 +684,7 @@ export type Database = {
       properties: {
         Row: {
           address: string
+          agreement_landlords: Json | null
           boundary_east: string | null
           boundary_north: string | null
           boundary_south: string | null
@@ -731,6 +714,7 @@ export type Database = {
         }
         Insert: {
           address: string
+          agreement_landlords?: Json | null
           boundary_east?: string | null
           boundary_north?: string | null
           boundary_south?: string | null
@@ -760,6 +744,7 @@ export type Database = {
         }
         Update: {
           address?: string
+          agreement_landlords?: Json | null
           boundary_east?: string | null
           boundary_north?: string | null
           boundary_south?: string | null
@@ -1496,12 +1481,12 @@ export type Database = {
           rented_sqft: number | null
           requires_gst: boolean | null
           security_deposit: number | null
-          signatory_aadhaar: string | null
           signatory_age: number | null
           signatory_designation: string | null
           signatory_name: string | null
           signatory_occupation: string | null
-          signatory_relation: string | null
+          signatory_relation_name: string | null
+          signatory_relation_type: string | null
           status: string | null
           tds_applicable: boolean
           unit_id: string | null
@@ -1537,24 +1522,24 @@ export type Database = {
           name: string
           notice_period_months?: number | null
           permanent_address?: string | null
-          phone?: string | null
-          property_id: string
-          property_owner_id?: string | null
           purpose_of_use?: string | null
           renewal_terms?: string | null
-          rent_due_day?: number | null
-          rent_due_month_offset?: number
           rent_escalation_frequency_years?: number | null
           rent_escalation_percent?: number | null
-          rented_sqft?: number | null
-          requires_gst?: boolean | null
-          security_deposit?: number | null
-          signatory_aadhaar?: string | null
           signatory_age?: number | null
           signatory_designation?: string | null
           signatory_name?: string | null
           signatory_occupation?: string | null
-          signatory_relation?: string | null
+          signatory_relation_name?: string | null
+          signatory_relation_type?: string | null
+          phone?: string | null
+          property_id: string
+          property_owner_id?: string | null
+          rent_due_day?: number | null
+          rent_due_month_offset?: number
+          rented_sqft?: number | null
+          requires_gst?: boolean | null
+          security_deposit?: number | null
           status?: string | null
           tds_applicable?: boolean
           unit_id?: string | null
@@ -1602,12 +1587,12 @@ export type Database = {
           rented_sqft?: number | null
           requires_gst?: boolean | null
           security_deposit?: number | null
-          signatory_aadhaar?: string | null
           signatory_age?: number | null
           signatory_designation?: string | null
           signatory_name?: string | null
           signatory_occupation?: string | null
-          signatory_relation?: string | null
+          signatory_relation_name?: string | null
+          signatory_relation_type?: string | null
           status?: string | null
           tds_applicable?: boolean
           unit_id?: string | null

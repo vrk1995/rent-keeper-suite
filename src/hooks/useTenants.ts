@@ -38,12 +38,13 @@ export interface Tenant {
   bill_to_gstin: string | null;
   bill_to_pan: string | null;
   // Signatory (individual signing the agreement) + agreement-specific lease terms.
+  // Aadhaar is never stored here — it's typed at generation time and passed transiently.
   signatory_name: string | null;
-  signatory_relation: string | null;
+  signatory_relation_type: string | null;
+  signatory_relation_name: string | null;
   signatory_age: number | null;
   signatory_occupation: string | null;
   signatory_designation: string | null;
-  signatory_aadhaar: string | null;
   permanent_address: string | null;
   purpose_of_use: string | null;
   notice_period_months: number | null;
@@ -109,11 +110,11 @@ export interface CreateTenantInput {
   bill_to_gstin?: string;
   bill_to_pan?: string;
   signatory_name?: string;
-  signatory_relation?: string;
+  signatory_relation_type?: string;
+  signatory_relation_name?: string;
   signatory_age?: number;
   signatory_occupation?: string;
   signatory_designation?: string;
-  signatory_aadhaar?: string;
   permanent_address?: string;
   purpose_of_use?: string;
   notice_period_months?: number;

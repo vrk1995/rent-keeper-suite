@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, FileDown, Loader2 } from "lucide-react";
+import { AlertTriangle, FileDown, Loader2, Plus, Trash2, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,8 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tenant, useUpdateTenant } from "@/hooks/useTenants";
-import { useProperties, useUpdateProperty } from "@/hooks/useProperties";
-import { useBillingAddresses, useUpdateBillingAddress } from "@/hooks/useBillingAddresses";
+import { useProperties, useUpdateProperty, AgreementLandlord } from "@/hooks/useProperties";
+import { useBillingAddresses } from "@/hooks/useBillingAddresses";
+import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadBase64File } from "@/lib/fileDownload";
 import { toast } from "sonner";
@@ -43,19 +44,50 @@ type AgreementTemplate = "license" | "lease_deed";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
+const RELATION_OPTIONS = [
+  { value: "son", label: "Son of (Father's name)" },
+  { value: "daughter", label: "Daughter of (Father's name)" },
+  { value: "wife", label: "Wife of (Husband's name)" },
+  { value: "husband", label: "Husband of (Wife's name)" },
+];
+
+const relationNameLabel = (type: string): string => {
+  switch (type) {
+    case "wife":
+      return "Husband's Name";
+    case "husband":
+      return "Wife's Name";
+    default:
+      return "Father's Name";
+  }
+};
+
+// Aadhaar is collected transiently and NEVER written to our database (Aadhaar Act / DPDP
+// data-minimisation). It lives only in this component's state and is passed to the edge
+// function to fill the document, then discarded when the dialog closes.
+const emptyLandlord = (): AgreementLandlord => ({
+  entity_name: "",
+  signatory_name: "",
+  relation_type: "son",
+  relation_name: "",
+  age: "",
+  occupation: "",
+  designation: "",
+  address: "",
+  gstin: "",
+  pan: "",
+});
+
 const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRentAgreementDialogProps) => {
   const { data: properties } = useProperties();
   const { data: billingAddresses } = useBillingAddresses();
   const updateTenant = useUpdateTenant();
   const updateProperty = useUpdateProperty();
-  const updateBillingAddress = useUpdateBillingAddress();
 
   const property = useMemo(
     () => properties?.find((p) => p.id === tenant?.property_id) || null,
     [properties, tenant?.property_id]
   );
-  // billing_addresses isn't a live FK from the tenant — tenant.bill_from_* are copies taken
-  // at selection time — so resolve the matching row by name the same way invoice generation does.
   const billingAddress = useMemo(
     () => billingAddresses?.find((a) => a.name === tenant?.bill_from_name) || null,
     [billingAddresses, tenant?.bill_from_name]
@@ -64,17 +96,10 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
   const [template, setTemplate] = useState<AgreementTemplate>("license");
   const [generating, setGenerating] = useState(false);
 
-  // Landlord (billing address) signatory fields
-  const [landlord, setLandlord] = useState({
-    signatory_name: "",
-    signatory_relation: "",
-    signatory_age: "",
-    signatory_occupation: "",
-    signatory_designation: "",
-    signatory_aadhaar: "",
-  });
+  // Landlords (stored, minus Aadhaar) + their transient Aadhaar values, indexed in parallel.
+  const [landlords, setLandlords] = useState<AgreementLandlord[]>([emptyLandlord()]);
+  const [landlordAadhaars, setLandlordAadhaars] = useState<string[]>([""]);
 
-  // Property legal description fields
   const [propertyFields, setPropertyFields] = useState({
     survey_number: "",
     sub_division_number: "",
@@ -90,16 +115,15 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
     building_tax_by: "landlord",
   });
 
-  // Tenant signatory + lease term fields
   const [tenantFields, setTenantFields] = useState({
     signatory_name: "",
-    signatory_relation: "",
+    relation_type: "son",
+    relation_name: "",
     signatory_age: "",
     signatory_occupation: "",
     signatory_designation: "",
-    signatory_aadhaar: "",
-    permanent_address: "",
     bill_to_pan: "",
+    permanent_address: "",
     purpose_of_use: "",
     notice_period_months: "1",
     lock_in_period_months: "",
@@ -109,18 +133,30 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
     minor_maintenance_by: "tenant",
     major_maintenance_by: "landlord",
   });
+  const [tenantAadhaar, setTenantAadhaar] = useState("");
 
   useEffect(() => {
     if (!open || !tenant) return;
     setTemplate((tenant.agreement_template as AgreementTemplate) || "license");
-    setLandlord({
-      signatory_name: billingAddress?.signatory_name || "",
-      signatory_relation: billingAddress?.signatory_relation || "",
-      signatory_age: billingAddress?.signatory_age?.toString() || "",
-      signatory_occupation: billingAddress?.signatory_occupation || "",
-      signatory_designation: billingAddress?.signatory_designation || "",
-      signatory_aadhaar: billingAddress?.signatory_aadhaar || "",
-    });
+
+    // Landlords: use the property's saved list if present, else seed one from the tenant's
+    // billing details so the common single-landlord case is pre-filled.
+    const saved = (property?.agreement_landlords as unknown as AgreementLandlord[] | null) || null;
+    if (saved && saved.length > 0) {
+      setLandlords(saved.map((l) => ({ ...emptyLandlord(), ...l })));
+      setLandlordAadhaars(saved.map(() => ""));
+    } else {
+      const seeded: AgreementLandlord = {
+        ...emptyLandlord(),
+        entity_name: tenant.bill_from_name || billingAddress?.name || "",
+        address: tenant.bill_from_address || billingAddress?.address || "",
+        gstin: tenant.bill_from_gstin || billingAddress?.gstin || "",
+        pan: tenant.bill_from_pan || billingAddress?.pan || "",
+      };
+      setLandlords([seeded]);
+      setLandlordAadhaars([""]);
+    }
+
     setPropertyFields({
       survey_number: property?.survey_number || "",
       sub_division_number: property?.sub_division_number || "",
@@ -137,13 +173,13 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
     });
     setTenantFields({
       signatory_name: tenant.signatory_name || "",
-      signatory_relation: tenant.signatory_relation || "",
+      relation_type: tenant.signatory_relation_type || "son",
+      relation_name: tenant.signatory_relation_name || "",
       signatory_age: tenant.signatory_age?.toString() || "",
       signatory_occupation: tenant.signatory_occupation || "",
       signatory_designation: tenant.signatory_designation || "",
-      signatory_aadhaar: tenant.signatory_aadhaar || "",
-      permanent_address: tenant.permanent_address || "",
       bill_to_pan: tenant.bill_to_pan || "",
+      permanent_address: tenant.permanent_address || "",
       purpose_of_use: tenant.purpose_of_use || "",
       notice_period_months: tenant.notice_period_months?.toString() || "1",
       lock_in_period_months: tenant.lock_in_period_months?.toString() || "",
@@ -153,17 +189,28 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
       minor_maintenance_by: tenant.minor_maintenance_by || "tenant",
       major_maintenance_by: tenant.major_maintenance_by || "landlord",
     });
+    setTenantAadhaar("");
   }, [open, tenant, property, billingAddress]);
+
+  const setLandlord = (index: number, patch: Partial<AgreementLandlord>) => {
+    setLandlords((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  };
+  const addLandlord = () => {
+    setLandlords((prev) => [...prev, emptyLandlord()]);
+    setLandlordAadhaars((prev) => [...prev, ""]);
+  };
+  const removeLandlord = (index: number) => {
+    setLandlords((prev) => prev.filter((_, i) => i !== index));
+    setLandlordAadhaars((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const missingFields = useMemo(() => {
     const missing: string[] = [];
-    if (!billingAddress) {
-      missing.push("Landlord identity — no billing address matches this tenant's billing name");
-    } else {
-      if (!landlord.signatory_name) missing.push("Landlord signatory name");
-      if (!landlord.signatory_relation) missing.push("Landlord S/o, W/o or D/o");
-      if (!landlord.signatory_aadhaar) missing.push("Landlord Aadhaar number");
-    }
+    landlords.forEach((l, i) => {
+      const who = landlords.length > 1 ? `Landlord ${i + 1}` : "Landlord";
+      if (!l.signatory_name) missing.push(`${who} signatory name`);
+      if (!l.relation_name) missing.push(`${who} ${relationNameLabel(l.relation_type).toLowerCase()}`);
+    });
     if (!property) {
       missing.push("Property legal description — tenant has no linked property");
     } else {
@@ -175,29 +222,17 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
       }
     }
     if (!tenantFields.signatory_name) missing.push("Tenant signatory name");
-    if (!tenantFields.signatory_relation) missing.push("Tenant S/o, W/o or D/o");
-    if (!tenantFields.signatory_aadhaar) missing.push("Tenant Aadhaar number");
+    if (!tenantFields.relation_name) missing.push(`Tenant ${relationNameLabel(tenantFields.relation_type).toLowerCase()}`);
     if (!tenantFields.permanent_address) missing.push("Tenant permanent address");
     if (!tenantFields.purpose_of_use) missing.push("Purpose of use");
     return missing;
-  }, [billingAddress, property, landlord, propertyFields, tenantFields]);
+  }, [landlords, property, propertyFields, tenantFields]);
 
   const handleGenerate = async () => {
     if (!tenant) return;
     setGenerating(true);
     try {
-      // Persist edits back to their owning tables so they're pre-filled next time.
-      if (billingAddress) {
-        await updateBillingAddress.mutateAsync({
-          id: billingAddress.id,
-          signatory_name: landlord.signatory_name || null,
-          signatory_relation: landlord.signatory_relation || null,
-          signatory_age: landlord.signatory_age ? Number(landlord.signatory_age) : null,
-          signatory_occupation: landlord.signatory_occupation || null,
-          signatory_designation: landlord.signatory_designation || null,
-          signatory_aadhaar: landlord.signatory_aadhaar || null,
-        });
-      }
+      // Persist the reusable (non-Aadhaar) details back to their owning tables.
       if (property) {
         await updateProperty.mutateAsync({
           id: property.id,
@@ -213,19 +248,20 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
           boundary_west: propertyFields.boundary_west || null,
           undivided_share: propertyFields.undivided_share || null,
           building_tax_by: propertyFields.building_tax_by || null,
+          agreement_landlords: landlords as unknown as Json,
         });
       }
       await updateTenant.mutateAsync({
         id: tenant.id,
         agreement_template: template,
         signatory_name: tenantFields.signatory_name || null,
-        signatory_relation: tenantFields.signatory_relation || null,
+        signatory_relation_type: tenantFields.relation_type || null,
+        signatory_relation_name: tenantFields.relation_name || null,
         signatory_age: tenantFields.signatory_age ? Number(tenantFields.signatory_age) : null,
         signatory_occupation: tenantFields.signatory_occupation || null,
         signatory_designation: tenantFields.signatory_designation || null,
-        signatory_aadhaar: tenantFields.signatory_aadhaar || null,
-        permanent_address: tenantFields.permanent_address || null,
         bill_to_pan: tenantFields.bill_to_pan || null,
+        permanent_address: tenantFields.permanent_address || null,
         purpose_of_use: tenantFields.purpose_of_use || null,
         notice_period_months: tenantFields.notice_period_months ? Number(tenantFields.notice_period_months) : null,
         lock_in_period_months: tenantFields.lock_in_period_months ? Number(tenantFields.lock_in_period_months) : null,
@@ -236,16 +272,22 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
         major_maintenance_by: tenantFields.major_maintenance_by || null,
       });
 
+      // Aadhaar values travel only in this request body — never saved to the DB.
       const { data, error } = await supabase.functions.invoke("generate-rent-agreement", {
-        body: { tenantId: tenant.id, template },
+        body: {
+          tenantId: tenant.id,
+          template,
+          landlordAadhaars,
+          tenantAadhaar,
+        },
       });
       if (error) throw error;
 
       downloadBase64File(data.docx, data.filename || "Rent-Agreement.docx", DOCX_MIME);
       toast.success("Rent agreement generated!");
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error("Failed to generate agreement: " + error.message);
+    } catch (error) {
+      toast.error("Failed to generate agreement: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setGenerating(false);
     }
@@ -255,7 +297,7 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Generate Rent Agreement — {tenant.name}</DialogTitle>
         </DialogHeader>
@@ -291,6 +333,14 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
             </RadioGroup>
           </div>
 
+          <Alert className="border-primary/30 bg-primary/5">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-xs">
+              Aadhaar numbers are used only to fill this document and are <strong>not saved</strong> to
+              the app. Every other detail below is stored so it auto-fills next time (e.g. renewals).
+            </AlertDescription>
+          </Alert>
+
           {missingFields.length > 0 && (
             <Alert variant="default" className="border-warning/40 bg-warning/5">
               <AlertTriangle className="h-4 w-4 text-warning" />
@@ -307,73 +357,117 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
             </Alert>
           )}
 
-          <Accordion type="multiple" defaultValue={["landlord", "tenant"]} className="w-full">
-            <AccordionItem value="landlord">
-              <AccordionTrigger>Landlord (Licensor / Lessor) Details</AccordionTrigger>
-              <AccordionContent className="space-y-3 pt-1">
-                {!billingAddress ? (
-                  <p className="text-sm text-muted-foreground">
-                    No billing address matches this tenant's "Bill From" name ({tenant.bill_from_name || "—"}).
-                    Fix the tenant's billing details first so these can be saved.
-                  </p>
-                ) : (
-                  <>
+          <Accordion type="multiple" defaultValue={["landlords", "tenant"]} className="w-full">
+            <AccordionItem value="landlords">
+              <AccordionTrigger>
+                Landlord{landlords.length > 1 ? "s" : ""} (Licensor / Lessor)
+              </AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-1">
+                {landlords.map((l, i) => (
+                  <div key={i} className="rounded-lg border p-3 space-y-3 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Landlord {i + 1}</span>
+                      {landlords.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Remove landlord"
+                          onClick={() => removeLandlord(i)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Entity / Firm Name</Label>
+                      <Input
+                        placeholder="e.g., Acme Properties Pvt Ltd (or the owner's name)"
+                        value={l.entity_name}
+                        onChange={(e) => setLandlord(i, { entity_name: e.target.value })}
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label>Signatory Name</Label>
                         <Input
-                          placeholder="e.g., Mr. P N Balakrishnan"
-                          value={landlord.signatory_name}
-                          onChange={(e) => setLandlord({ ...landlord, signatory_name: e.target.value })}
+                          placeholder="e.g., John Doe"
+                          value={l.signatory_name}
+                          onChange={(e) => setLandlord(i, { signatory_name: e.target.value })}
                         />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Designation</Label>
                         <Input
                           placeholder="e.g., Managing Partner"
-                          value={landlord.signatory_designation}
-                          onChange={(e) => setLandlord({ ...landlord, signatory_designation: e.target.value })}
+                          value={l.designation}
+                          onChange={(e) => setLandlord(i, { designation: e.target.value })}
                         />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label>S/o, W/o or D/o</Label>
+                        <Label>Relation</Label>
+                        <Select value={l.relation_type} onValueChange={(val) => setLandlord(i, { relation_type: val })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {RELATION_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>{relationNameLabel(l.relation_type)}</Label>
                         <Input
-                          placeholder="e.g., S/o Mr. Narayana Kamath"
-                          value={landlord.signatory_relation}
-                          onChange={(e) => setLandlord({ ...landlord, signatory_relation: e.target.value })}
+                          placeholder="e.g., Richard Doe"
+                          value={l.relation_name}
+                          onChange={(e) => setLandlord(i, { relation_name: e.target.value })}
                         />
                       </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label>Age</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={landlord.signatory_age}
-                          onChange={(e) => setLandlord({ ...landlord, signatory_age: e.target.value })}
-                        />
+                        <Input type="number" min={0} value={l.age} onChange={(e) => setLandlord(i, { age: e.target.value })} />
                       </div>
+                      <div className="space-y-1.5">
+                        <Label>Occupation</Label>
+                        <Input placeholder="e.g., Business" value={l.occupation} onChange={(e) => setLandlord(i, { occupation: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Address</Label>
+                      <Textarea rows={2} value={l.address} onChange={(e) => setLandlord(i, { address: e.target.value })} />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label>Occupation</Label>
-                        <Input
-                          value={landlord.signatory_occupation}
-                          onChange={(e) => setLandlord({ ...landlord, signatory_occupation: e.target.value })}
-                        />
+                        <Label>GSTIN</Label>
+                        <Input maxLength={15} value={l.gstin} onChange={(e) => setLandlord(i, { gstin: e.target.value.toUpperCase() })} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Aadhaar Number</Label>
-                        <Input
-                          maxLength={14}
-                          value={landlord.signatory_aadhaar}
-                          onChange={(e) => setLandlord({ ...landlord, signatory_aadhaar: e.target.value })}
-                        />
+                        <Label>PAN</Label>
+                        <Input maxLength={10} value={l.pan} onChange={(e) => setLandlord(i, { pan: e.target.value.toUpperCase() })} />
                       </div>
                     </div>
-                  </>
-                )}
+                    <div className="space-y-1.5">
+                      <Label className="flex items-center gap-1">
+                        Aadhaar Number <span className="text-[10px] text-muted-foreground font-normal">(not saved)</span>
+                      </Label>
+                      <Input
+                        maxLength={14}
+                        placeholder="Optional — used for the document only"
+                        value={landlordAadhaars[i] || ""}
+                        onChange={(e) =>
+                          setLandlordAadhaars((prev) => prev.map((a, idx) => (idx === i ? e.target.value : a)))
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={addLandlord}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Another Landlord
+                </Button>
               </AccordionContent>
             </AccordionItem>
 
@@ -415,7 +509,7 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
                       </div>
                       <div className="space-y-1.5">
                         <Label>Undivided Land Share</Label>
-                        <Input placeholder="e.g., 14494/77200 in 7.28 Ares" value={propertyFields.undivided_share} onChange={(e) => setPropertyFields({ ...propertyFields, undivided_share: e.target.value })} />
+                        <Input placeholder="e.g., 1000/50000 share in 10 Ares" value={propertyFields.undivided_share} onChange={(e) => setPropertyFields({ ...propertyFields, undivided_share: e.target.value })} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -452,13 +546,13 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
             </AccordionItem>
 
             <AccordionItem value="tenant">
-              <AccordionTrigger>Tenant (Licensee / Lessee) Details</AccordionTrigger>
+              <AccordionTrigger>Tenant (Licensee / Lessee)</AccordionTrigger>
               <AccordionContent className="space-y-3 pt-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Signatory Name</Label>
                     <Input
-                      placeholder="e.g., Mr. A K Shaji"
+                      placeholder="e.g., Jane Doe"
                       value={tenantFields.signatory_name}
                       onChange={(e) => setTenantFields({ ...tenantFields, signatory_name: e.target.value })}
                     />
@@ -466,7 +560,7 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
                   <div className="space-y-1.5">
                     <Label>Designation</Label>
                     <Input
-                      placeholder="e.g., Managing Partner, Proprietor"
+                      placeholder="e.g., Proprietor / Director"
                       value={tenantFields.signatory_designation}
                       onChange={(e) => setTenantFields({ ...tenantFields, signatory_designation: e.target.value })}
                     />
@@ -474,12 +568,26 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>S/o, W/o or D/o</Label>
+                    <Label>Relation</Label>
+                    <Select value={tenantFields.relation_type} onValueChange={(v) => setTenantFields({ ...tenantFields, relation_type: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {RELATION_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{relationNameLabel(tenantFields.relation_type)}</Label>
                     <Input
-                      value={tenantFields.signatory_relation}
-                      onChange={(e) => setTenantFields({ ...tenantFields, signatory_relation: e.target.value })}
+                      placeholder="e.g., Richard Doe"
+                      value={tenantFields.relation_name}
+                      onChange={(e) => setTenantFields({ ...tenantFields, relation_name: e.target.value })}
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Age</Label>
                     <Input
@@ -489,21 +597,12 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
                       onChange={(e) => setTenantFields({ ...tenantFields, signatory_age: e.target.value })}
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Occupation</Label>
                     <Input
+                      placeholder="e.g., Business"
                       value={tenantFields.signatory_occupation}
                       onChange={(e) => setTenantFields({ ...tenantFields, signatory_occupation: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Aadhaar Number</Label>
-                    <Input
-                      maxLength={14}
-                      value={tenantFields.signatory_aadhaar}
-                      onChange={(e) => setTenantFields({ ...tenantFields, signatory_aadhaar: e.target.value })}
                     />
                   </div>
                 </div>
@@ -514,6 +613,17 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
                       maxLength={10}
                       value={tenantFields.bill_to_pan}
                       onChange={(e) => setTenantFields({ ...tenantFields, bill_to_pan: e.target.value.toUpperCase() })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1">
+                      Aadhaar Number <span className="text-[10px] text-muted-foreground font-normal">(not saved)</span>
+                    </Label>
+                    <Input
+                      maxLength={14}
+                      placeholder="Optional — used for the document only"
+                      value={tenantAadhaar}
+                      onChange={(e) => setTenantAadhaar(e.target.value)}
                     />
                   </div>
                 </div>
@@ -535,7 +645,7 @@ const GenerateRentAgreementDialog = ({ tenant, open, onOpenChange }: GenerateRen
                   <Label>Purpose of Use</Label>
                   <Textarea
                     rows={2}
-                    placeholder="e.g., running a business of sales and service of mobile phones, laptops and accessories"
+                    placeholder="e.g., running a retail business"
                     value={tenantFields.purpose_of_use}
                     onChange={(e) => setTenantFields({ ...tenantFields, purpose_of_use: e.target.value })}
                   />

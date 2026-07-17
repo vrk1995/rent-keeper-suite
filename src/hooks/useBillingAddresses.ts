@@ -10,14 +10,6 @@ export interface BillingAddress {
   gstin: string | null;
   pan: string | null;
   invoice_prefix: string | null;
-  // Signatory details — the individual who signs on behalf of this billing entity, used
-  // when auto-generating rent agreements (a firm's billing name isn't a signing person).
-  signatory_name: string | null;
-  signatory_relation: string | null;
-  signatory_age: number | null;
-  signatory_occupation: string | null;
-  signatory_designation: string | null;
-  signatory_aadhaar: string | null;
   is_default: boolean;
   created_at: string;
   updated_at: string;
@@ -29,12 +21,6 @@ export interface CreateBillingAddressInput {
   gstin?: string;
   pan?: string;
   invoice_prefix?: string;
-  signatory_name?: string;
-  signatory_relation?: string;
-  signatory_age?: number;
-  signatory_occupation?: string;
-  signatory_designation?: string;
-  signatory_aadhaar?: string;
   is_default?: boolean;
 }
 
@@ -154,7 +140,7 @@ export const useCheckDuplicateBillingAddress = () => {
       if (!user) return null;
 
       // Check by name or GSTIN if provided
-      let query = supabase
+      const query = supabase
         .from("billing_addresses")
         .select("id")
         .eq("user_id", user.id)

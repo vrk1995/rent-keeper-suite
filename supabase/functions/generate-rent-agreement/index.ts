@@ -22,10 +22,12 @@ const corsHeaders = {
 interface AgreementRequest {
   tenantId: string;
   template: "license" | "lease_deed";
+  // Aadhaar values are sent only in the request body — never read from or written to the DB.
+  landlordAadhaars?: string[];
+  tenantAadhaar?: string;
 }
 
-// A blank line the tenant/landlord can hand-fill on a printout when a field wasn't captured
-// in the app. Keeps the "standard template" promise honest instead of silently omitting clauses.
+// A blank line to hand-fill on a printout when a field wasn't captured in the app.
 const BLANK = "________________________";
 const v = (val: string | number | null | undefined, blank = BLANK): string => {
   if (val === null || val === undefined) return blank;
@@ -78,14 +80,30 @@ const termLabel = (months: number | null): string => {
 const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
 const numberWord = (n: number): string => (n >= 0 && n < NUMBER_WORDS.length ? NUMBER_WORDS[n] : String(n));
 
+// Render "S/o / D/o / W/o / H/o <name>" from a relation type + name.
+const relationPhrase = (type: string | null | undefined, name: string): string => {
+  const abbrev =
+    type === "daughter" ? "D/o" : type === "wife" ? "W/o" : type === "husband" ? "H/o" : "S/o";
+  return `${abbrev} ${v(name)}`;
+};
+
+interface Landlord {
+  entityName: string;
+  signatoryName: string;
+  relationType: string;
+  relationName: string;
+  age: string;
+  occupation: string;
+  designation: string;
+  address: string;
+  gstin: string;
+  pan: string;
+  aadhaar: string; // transient
+}
+
 // ---- shared paragraph builders ----
 const heading = (text: string) =>
-  new Paragraph({
-    text,
-    heading: HeadingLevel.HEADING_1,
-    alignment: AlignmentType.CENTER,
-    spacing: { after: 240 },
-  });
+  new Paragraph({ text, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { after: 240 } });
 
 const para = (text: string, opts: { bold?: boolean; italics?: boolean; spacingAfter?: number } = {}) =>
   new Paragraph({
@@ -107,10 +125,7 @@ const subClause = (label: string, text: string) =>
   });
 
 const sectionHeading = (num: string, text: string) =>
-  new Paragraph({
-    children: [new TextRun({ text: `${num}. ${text}`, bold: true, size: 24 })],
-    spacing: { before: 240, after: 160 },
-  });
+  new Paragraph({ children: [new TextRun({ text: `${num}. ${text}`, bold: true, size: 24 })], spacing: { before: 240, after: 160 } });
 
 const cell = (text: string, opts: { header?: boolean; width?: number } = {}) =>
   new TableCell({
@@ -129,68 +144,60 @@ const simpleTable = (rows: string[][]) =>
       insideHorizontal: { style: BorderStyle.SINGLE, size: 2, color: "999999" },
       insideVertical: { style: BorderStyle.SINGLE, size: 2, color: "999999" },
     },
-    rows: rows.map(
-      (r, i) => new TableRow({ children: r.map((c) => cell(c, { header: i === 0, width: 100 / r.length })) })
-    ),
+    rows: rows.map((r, i) => new TableRow({ children: r.map((c) => cell(c, { header: i === 0, width: 100 / r.length })) })),
   });
 
-const signatureBlock = (landlordLabel: string, tenantLabel: string, landlordName: string, tenantName: string) =>
-  new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: {
-      top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-      bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-      left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-      right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-      insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-    },
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            children: [
-              para(landlordLabel, { bold: true, spacingAfter: 600 }),
-              para(landlordName || BLANK),
-            ],
-          }),
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            children: [
-              para(tenantLabel, { bold: true, spacingAfter: 600 }),
-              para(tenantName || BLANK),
-            ],
-          }),
-        ],
-      }),
+// A landlord's opening party paragraph, e.g. "1) Acme ... represented by ... S/o ... Aadhaar No. ..."
+const landlordPartyParagraph = (l: Landlord, index: number, total: number): Paragraph => {
+  const label = total > 1 ? `${index + 1}) ` : "";
+  const repClause = l.signatoryName || l.designation
+    ? `, represented by its ${v(l.designation, "Authorized Signatory")} ${v(l.signatoryName)}, ${relationPhrase(l.relationType, l.relationName)}, aged ${v(l.age)} years, ${v(l.occupation)}`
+    : "";
+  const idClause =
+    (l.gstin ? `, GSTIN ${l.gstin}` : "") +
+    (l.pan ? `, PAN ${l.pan}` : "") +
+    `, holding Aadhaar No. ${v(l.aadhaar)}`;
+  return new Paragraph({
+    children: [
+      new TextRun({ text: label, bold: true }),
+      new TextRun({ text: `${v(l.entityName)}, having its address at ${v(l.address)}${repClause}${idClause}.` }),
     ],
+    spacing: { after: 160 },
   });
+};
+
+// Stacked signature block: each landlord, then the tenant, then witnesses.
+const signatureSection = (landlords: Landlord[], landlordRole: string, tenantRole: string, tenantEntity: string, tenantSignatory: string, tenantDesignation: string): Paragraph[] => {
+  const out: Paragraph[] = [];
+  out.push(para(`${landlordRole}${landlords.length > 1 ? "S" : ""}:`, { bold: true, spacingAfter: 200 }));
+  landlords.forEach((l, i) => {
+    out.push(para(`${landlords.length > 1 ? `(${i + 1}) ` : ""}${v(l.entityName)}`, { bold: true, spacingAfter: 40 }));
+    out.push(para(`Represented by ${v(l.designation, "Authorized Signatory")}: ${v(l.signatoryName)}`, { spacingAfter: 500 }));
+  });
+  out.push(para(`${tenantRole}:`, { bold: true, spacingAfter: 40 }));
+  out.push(para(`${v(tenantEntity)}`, { bold: true, spacingAfter: 40 }));
+  out.push(para(`Represented by ${v(tenantDesignation, "Authorized Signatory")}: ${v(tenantSignatory)}`, { spacingAfter: 500 }));
+  out.push(para("Witnesses:", { bold: true, spacingAfter: 200 }));
+  out.push(para("1. ______________________________"));
+  out.push(para("2. ______________________________", { spacingAfter: 200 }));
+  return out;
+};
 
 interface Data {
   agreementDateLabel: string;
-
-  landlordName: string;
-  landlordAddress: string;
-  landlordGstin: string;
-  landlordPan: string;
-  landlordSignatoryName: string;
-  landlordSignatoryRelation: string;
-  landlordSignatoryAge: string;
-  landlordSignatoryOccupation: string;
-  landlordSignatoryDesignation: string;
-  landlordSignatoryAadhaar: string;
+  landlords: Landlord[];
 
   tenantName: string;
   tenantAddress: string;
   tenantGstin: string;
   tenantPan: string;
   tenantSignatoryName: string;
-  tenantSignatoryRelation: string;
+  tenantRelationType: string;
+  tenantRelationName: string;
   tenantSignatoryAge: string;
   tenantSignatoryOccupation: string;
   tenantSignatoryDesignation: string;
-  tenantSignatoryAadhaar: string;
+  tenantAadhaar: string;
 
   propertyName: string;
   propertyAddress: string;
@@ -209,8 +216,6 @@ interface Data {
   corpNumberText: string;
 
   purposeOfUse: string;
-  leaseStartDateLabel: string;
-  leaseEndDateLabel: string;
   leaseStartShort: string;
   leaseEndShort: string;
   termMonths: number | null;
@@ -227,35 +232,34 @@ interface Data {
   buildingTaxBy: string;
 }
 
+const collectiveLandlordName = (landlords: Landlord[]): string =>
+  landlords.map((l) => l.entityName).filter(Boolean).join(" and ") || BLANK;
+
 function buildLicenseAgreement(d: Data): Document {
   const children: (Paragraph | Table)[] = [];
   children.push(heading("LICENSE AGREEMENT"));
+  children.push(para(`This Agreement is entered into on this ${d.agreementDateLabel}, between:`));
+  d.landlords.forEach((l, i) => children.push(landlordPartyParagraph(l, i, d.landlords.length)));
   children.push(
     para(
-      `This Agreement is entered into on this ${d.agreementDateLabel}, between`
-    )
-  );
-  children.push(
-    para(
-      `${v(d.landlordName)}, having its address at ${v(d.landlordAddress)}` +
-        (d.landlordGstin !== BLANK ? `, GSTIN ${d.landlordGstin}` : "") +
-        (d.landlordPan !== BLANK ? `, PAN ${d.landlordPan}` : "") +
-        `, represented by its ${v(d.landlordSignatoryDesignation, "Authorized Signatory")} ${v(d.landlordSignatoryName)}, ${v(d.landlordSignatoryRelation)}, aged ${v(d.landlordSignatoryAge)} years, ${v(d.landlordSignatoryOccupation)}, holding Aadhaar No. ${v(d.landlordSignatoryAadhaar)} (hereinafter referred to as the "LICENSOR" which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include its successors, permitted assigns, executors and administrators) of the FIRST PART;`
+      d.landlords.length > 1
+        ? `The parties above are hereinafter collectively referred to as the "LICENSOR" (which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include their respective successors, permitted assigns, executors and administrators) of the FIRST PART;`
+        : `(Hereinafter referred to as the "LICENSOR" which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include its successors, permitted assigns, executors and administrators) of the FIRST PART;`
     )
   );
   children.push(para("AND"));
   children.push(
     para(
       `${v(d.tenantName)}` +
-        (d.tenantGstin !== BLANK ? `, GSTIN ${d.tenantGstin}` : "") +
-        (d.tenantPan !== BLANK ? `, PAN ${d.tenantPan}` : "") +
-        `, represented by its ${v(d.tenantSignatoryDesignation, "Authorized Signatory")} ${v(d.tenantSignatoryName)}, ${v(d.tenantSignatoryRelation)}, aged ${v(d.tenantSignatoryAge)} years, ${v(d.tenantSignatoryOccupation)}, residing at ${v(d.tenantAddress)}, holding Aadhaar No. ${v(d.tenantSignatoryAadhaar)} (hereinafter referred to as the "LICENSEE" which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include its successors, permitted assigns, executors and administrators) of the SECOND PART.`
+        (d.tenantGstin ? `, GSTIN ${d.tenantGstin}` : "") +
+        (d.tenantPan ? `, PAN ${d.tenantPan}` : "") +
+        `, represented by its ${v(d.tenantSignatoryDesignation, "Authorized Signatory")} ${v(d.tenantSignatoryName)}, ${relationPhrase(d.tenantRelationType, d.tenantRelationName)}, aged ${v(d.tenantSignatoryAge)} years, ${v(d.tenantSignatoryOccupation)}, residing at ${v(d.tenantAddress)}, holding Aadhaar No. ${v(d.tenantAadhaar)} (hereinafter referred to as the "LICENSEE" which expression shall, unless repugnant to the subject or context thereof, be deemed to mean and include its successors, permitted assigns, executors and administrators) of the SECOND PART.`
     )
   );
 
   children.push(
     para(
-      `WHEREAS the Licensor is the absolute owner in possession and enjoyment of the commercial property bearing Door No. ${v(d.doorNumber)} admeasuring ${v(d.totalSqft)} sq.ft., situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber !== BLANK ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, in the building known as "${v(d.propertyName)}" (hereinafter referred to as the "Scheduled Premises", more particularly described in the Schedule hereunder).`
+      `WHEREAS the Licensor is the absolute owner in possession and enjoyment of the commercial property bearing Door No. ${v(d.doorNumber)} admeasuring ${v(d.totalSqft)} sq.ft., situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber !== BLANK && d.subDivisionNumber ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, in the building known as "${v(d.propertyName)}" (hereinafter referred to as the "Scheduled Premises", more particularly described in the Schedule hereunder).`
     )
   );
   children.push(
@@ -263,11 +267,7 @@ function buildLicenseAgreement(d: Data): Document {
       `AND WHEREAS the Licensee has approached the Licensor for grant of leave and license of the Scheduled Premises for the purpose of ${v(d.purposeOfUse, "the Licensee's business")}, for a period of ${termLabel(d.termMonths)} commencing from ${d.leaseStartShort}, and the Licensor has agreed for the same.`
     )
   );
-  children.push(
-    para(
-      "AND WHEREAS both parties desire to reduce into writing the terms of their understanding in this regard and are accordingly executing this Agreement."
-    )
-  );
+  children.push(para("AND WHEREAS both parties desire to reduce into writing the terms of their understanding in this regard and are accordingly executing this Agreement."));
   children.push(para("NOW THIS WITNESSETH AND IT IS HEREBY AGREED BY AND BETWEEN THE PARTIES HERETO AS FOLLOWS:", { bold: true }));
 
   children.push(clause("1", `The Licensor hereby grants leave to the Licensee, and the Licensee accepts the same, to occupy and use the Scheduled Premises for the purpose of ${v(d.purposeOfUse, "the Licensee's business")}, for a period of ${termLabel(d.termMonths)} commencing from ${d.leaseStartShort} and ending on ${d.leaseEndShort}.`));
@@ -280,23 +280,20 @@ function buildLicenseAgreement(d: Data): Document {
   children.push(clause("8", "TERMINATION: This Agreement shall be terminated under any of the following circumstances:"));
   children.push(subClause("a", `By the Licensee giving ${v(d.noticePeriodMonths, "1")} month(s) written notice to the Licensor expressing intention to terminate this Agreement.`));
   children.push(subClause("b", "By the Licensor, in the event of non-payment of license fee for one month or more, or for a material breach of this Agreement by the Licensee, subject to a 30 (thirty) day notice to remedy the breach."));
+  let n = 9;
   if (d.lockInPeriodMonths) {
-    children.push(clause("9", `LOCK-IN PERIOD: The Licensee shall not terminate this Agreement before the expiry of ${d.lockInPeriodMonths} months from the License Commencement Date.`));
+    children.push(clause(String(n++), `LOCK-IN PERIOD: The Licensee shall not terminate this Agreement before the expiry of ${d.lockInPeriodMonths} months from the License Commencement Date.`));
   }
-  children.push(clause(d.lockInPeriodMonths ? "10" : "9", `This Agreement is granted for the specific purpose of ${v(d.purposeOfUse, "the Licensee's business")}, for which the Licensee shall obtain all necessary legal and statutory permissions from the concerned authorities, failing which the Licensee alone shall bear the consequences.`));
-  children.push(clause(d.lockInPeriodMonths ? "11" : "10", "The Licensee shall not be entitled to sub-let, mortgage, assign or otherwise part with possession of the Scheduled Premises."));
-  children.push(clause(d.lockInPeriodMonths ? "12" : "11", "The Licensee is not permitted to alter, add to, or remove any part of the existing structure of the Scheduled Premises in any manner, without the prior written permission of the Licensor."));
-  children.push(clause(d.lockInPeriodMonths ? "13" : "12", `Necessary maintenance of the Scheduled Premises, incidental to peaceful occupation and enjoyment for the purpose for which it is taken, shall be borne by the ${d.minorMaintenanceBy === "landlord" ? "Licensor" : "Licensee"}, whereas major/structural maintenance shall be borne by the ${d.majorMaintenanceBy === "tenant" ? "Licensee" : "Licensor"}.`));
-  children.push(clause(d.lockInPeriodMonths ? "14" : "13", "The Licensee hereby agrees not to carry on, or permit to be carried on, at the Scheduled Premises any offensive or dangerous activity, or any activity prohibited by law."));
-  children.push(clause(d.lockInPeriodMonths ? "15" : "14", `RENEWAL: ${v(d.renewalTerms, `This Agreement may be renewed on expiry for a further like period, ${d.escalationPercent ? `by enhancing the existing license fee by ${d.escalationPercent}%` : "on terms mutually agreed between the parties"}, and can be renewed further on terms mutually agreed between the Licensor and the Licensee.`)}`));
-  children.push(clause(d.lockInPeriodMonths ? "16" : "15", "The original of this Agreement shall be retained by the Licensor, and a duplicate of the same shall be retained by the Licensee."));
+  children.push(clause(String(n++), `This Agreement is granted for the specific purpose of ${v(d.purposeOfUse, "the Licensee's business")}, for which the Licensee shall obtain all necessary legal and statutory permissions from the concerned authorities, failing which the Licensee alone shall bear the consequences.`));
+  children.push(clause(String(n++), "The Licensee shall not be entitled to sub-let, mortgage, assign or otherwise part with possession of the Scheduled Premises."));
+  children.push(clause(String(n++), "The Licensee is not permitted to alter, add to, or remove any part of the existing structure of the Scheduled Premises in any manner, without the prior written permission of the Licensor."));
+  children.push(clause(String(n++), `Necessary maintenance of the Scheduled Premises, incidental to peaceful occupation and enjoyment for the purpose for which it is taken, shall be borne by the ${d.minorMaintenanceBy === "landlord" ? "Licensor" : "Licensee"}, whereas major/structural maintenance shall be borne by the ${d.majorMaintenanceBy === "tenant" ? "Licensee" : "Licensor"}.`));
+  children.push(clause(String(n++), "The Licensee hereby agrees not to carry on, or permit to be carried on, at the Scheduled Premises any offensive or dangerous activity, or any activity prohibited by law."));
+  children.push(clause(String(n++), `RENEWAL: ${v(d.renewalTerms, `This Agreement may be renewed on expiry for a further like period, ${d.escalationPercent ? `by enhancing the existing license fee by ${d.escalationPercent}%` : "on terms mutually agreed between the parties"}, and can be renewed further on terms mutually agreed between the Licensor and the Licensee.`)}`));
+  children.push(clause(String(n++), "The original of this Agreement shall be retained by the Licensor, and a duplicate of the same shall be retained by the Licensee."));
 
   children.push(para("IN WITNESS WHEREOF the parties herein have set their respective hands to this Agreement on the date mentioned above.", { spacingAfter: 400 }));
-  children.push(signatureBlock("LICENSOR", "LICENSEE", d.landlordName, d.tenantName));
-
-  children.push(para("Witnesses:", { bold: true, spacingAfter: 300 }));
-  children.push(para("1. ______________________________"));
-  children.push(para("2. ______________________________", { spacingAfter: 400 }));
+  signatureSection(d.landlords, "LICENSOR", "LICENSEE", d.tenantName, d.tenantSignatoryName, d.tenantSignatoryDesignation).forEach((p) => children.push(p));
 
   children.push(heading("SCHEDULE — Description of Property"));
   children.push(
@@ -331,33 +328,29 @@ function buildLicenseAgreement(d: Data): Document {
 function buildLeaseDeed(d: Data): Document {
   const children: (Paragraph | Table)[] = [];
   children.push(heading("LEASE DEED"));
+  children.push(para(`THIS LEASE DEED is executed on this ${d.agreementDateLabel} by and between:`));
+  d.landlords.forEach((l, i) => children.push(landlordPartyParagraph(l, i, d.landlords.length)));
   children.push(
     para(
-      `THIS LEASE DEED is executed on this ${d.agreementDateLabel} by and between:`
-    )
-  );
-  children.push(
-    para(
-      `${v(d.landlordName)}, having its address at ${v(d.landlordAddress)}` +
-        (d.landlordGstin !== BLANK ? `, GSTIN ${d.landlordGstin}` : "") +
-        (d.landlordPan !== BLANK ? `, PAN ${d.landlordPan}` : "") +
-        `, represented by its ${v(d.landlordSignatoryDesignation, "Authorized Signatory")} ${v(d.landlordSignatoryName)}, ${v(d.landlordSignatoryRelation)}, aged ${v(d.landlordSignatoryAge)} years, ${v(d.landlordSignatoryOccupation)}, holding Aadhaar No. ${v(d.landlordSignatoryAadhaar)} (hereinafter referred to as the "LESSOR", which expression shall, unless repugnant to the subject or context thereof, include its successors, executors, administrators and permitted assigns) of the ONE PART;`
+      d.landlords.length > 1
+        ? `The parties above are hereinafter collectively referred to as the "LESSOR" (which expression shall, unless repugnant to the subject or context thereof, include their respective successors, executors, administrators and permitted assigns) of the ONE PART;`
+        : `(Hereinafter referred to as the "LESSOR", which expression shall, unless repugnant to the subject or context thereof, include its successors, executors, administrators and permitted assigns) of the ONE PART;`
     )
   );
   children.push(para("AND"));
   children.push(
     para(
       `${v(d.tenantName)}` +
-        (d.tenantGstin !== BLANK ? `, GSTIN ${d.tenantGstin}` : "") +
-        (d.tenantPan !== BLANK ? `, PAN ${d.tenantPan}` : "") +
-        `, represented by its ${v(d.tenantSignatoryDesignation, "Authorized Signatory")} ${v(d.tenantSignatoryName)}, ${v(d.tenantSignatoryRelation)}, aged ${v(d.tenantSignatoryAge)} years, ${v(d.tenantSignatoryOccupation)}, residing at ${v(d.tenantAddress)}, holding Aadhaar No. ${v(d.tenantSignatoryAadhaar)} (hereinafter referred to as the "LESSEE", which expression shall, unless repugnant to the subject or context thereof, include its successors and permitted assigns) of the OTHER PART.`
+        (d.tenantGstin ? `, GSTIN ${d.tenantGstin}` : "") +
+        (d.tenantPan ? `, PAN ${d.tenantPan}` : "") +
+        `, represented by its ${v(d.tenantSignatoryDesignation, "Authorized Signatory")} ${v(d.tenantSignatoryName)}, ${relationPhrase(d.tenantRelationType, d.tenantRelationName)}, aged ${v(d.tenantSignatoryAge)} years, ${v(d.tenantSignatoryOccupation)}, residing at ${v(d.tenantAddress)}, holding Aadhaar No. ${v(d.tenantAadhaar)} (hereinafter referred to as the "LESSEE", which expression shall, unless repugnant to the subject or context thereof, include its successors and permitted assigns) of the OTHER PART.`
     )
   );
   children.push(para("(The Lessor and the Lessee are hereinafter collectively referred to as the \"Parties\" and individually as a \"Party\").", { italics: true }));
 
   children.push(
     para(
-      `WHEREAS the Lessor is absolutely seized and possessed of and otherwise well and sufficiently entitled to the premises admeasuring ${v(d.totalSqft)} sq.ft., bearing Door No. ${v(d.doorNumber)}, in the building known as "${v(d.propertyName)}", situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber !== BLANK ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, with an undivided share of ${v(d.undividedShare)} (hereinafter referred to as the "Demised Premises", more particularly described in the Schedule to this Lease Deed).`
+      `WHEREAS the Lessor is absolutely seized and possessed of and otherwise well and sufficiently entitled to the premises admeasuring ${v(d.totalSqft)} sq.ft., bearing Door No. ${v(d.doorNumber)}, in the building known as "${v(d.propertyName)}", situated in Survey No. ${v(d.surveyNumber)}${d.subDivisionNumber !== BLANK && d.subDivisionNumber ? "/" + d.subDivisionNumber : ""} of ${v(d.village)} Village, ${v(d.taluk)} Taluk, ${v(d.district)} District, with an undivided share of ${v(d.undividedShare)} (hereinafter referred to as the "Demised Premises", more particularly described in the Schedule to this Lease Deed).`
     )
   );
   children.push(
@@ -380,15 +373,12 @@ function buildLeaseDeed(d: Data): Document {
     const end = d.termMonths;
     let monthsCovered = 0;
     const freqMonths = d.escalationFrequencyYears * 12;
-    while (monthsCovered < end) {
+    while (monthsCovered < end && rows.length < 20) {
       const periodEnd = new Date(periodStart);
       const thisSpan = Math.min(freqMonths, end - monthsCovered);
       periodEnd.setMonth(periodEnd.getMonth() + thisSpan);
       periodEnd.setDate(periodEnd.getDate() - 1);
-      rows.push([
-        `${shortDate(periodStart.toISOString())} to ${shortDate(periodEnd.toISOString())}`,
-        formatINR(Math.round(rent)),
-      ]);
+      rows.push([`${shortDate(periodStart.toISOString())} to ${shortDate(periodEnd.toISOString())}`, formatINR(Math.round(rent))]);
       rent = rent * (1 + d.escalationPercent / 100);
       periodStart = new Date(periodEnd);
       periodStart.setDate(periodStart.getDate() + 1);
@@ -426,7 +416,7 @@ function buildLeaseDeed(d: Data): Document {
   children.push(para("In case the Demised Premises or any part thereof is destroyed or damaged by a force majeure event (fire, riot, civil commotion, or the like) not within the control of the Parties, rendering it wholly or partially unfit for use, the rent (or a proportionate part thereof) shall cease to be payable until the Demised Premises is restored by the Lessor."));
 
   children.push(sectionHeading("10", "NOTICES"));
-  children.push(para(`Any notice under this Lease Deed shall be served in writing at the address of the Lessor (${v(d.landlordAddress)}) or the Lessee (${v(d.tenantAddress)}) as stated herein.`));
+  children.push(para(`Any notice under this Lease Deed shall be served in writing at the address of the Lessor (${v(collectiveLandlordName(d.landlords))}) or the Lessee (${v(d.tenantAddress)}) as stated herein.`));
 
   children.push(sectionHeading("11", "STAMP DUTY AND REGISTRATION CHARGES"));
   children.push(para("This Lease Deed shall be executed and, where required by law, registered. Stamp duty and registration charges shall be borne by the Parties as mutually agreed, in accordance with the applicable State Stamp Act."));
@@ -438,7 +428,7 @@ function buildLeaseDeed(d: Data): Document {
   children.push(para(`This Lease Deed shall be governed by the laws of India. The competent courts at ${v(d.district)} alone shall have jurisdiction over any dispute arising out of this Lease Deed.`));
 
   children.push(para("IN WITNESS WHEREOF the Parties have executed this Lease Deed on the date first mentioned above.", { spacingAfter: 400 }));
-  children.push(signatureBlock("LESSOR", "LESSEE", d.landlordName, d.tenantName));
+  signatureSection(d.landlords, "LESSOR", "LESSEE", d.tenantName, d.tenantSignatoryName, d.tenantSignatoryDesignation).forEach((p) => children.push(p));
 
   children.push(heading("SCHEDULE — Description of Demised Premises"));
   children.push(
@@ -478,7 +468,7 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { tenantId, template }: AgreementRequest = await req.json();
+    const { tenantId, template, landlordAadhaars, tenantAadhaar }: AgreementRequest = await req.json();
     if (!tenantId) {
       return new Response(JSON.stringify({ error: "Tenant ID is required" }), {
         status: 400,
@@ -501,14 +491,42 @@ serve(async (req: Request): Promise<Response> => {
 
     const property = tenant.property;
 
-    let billingAddress: any = null;
-    if (tenant.bill_from_name) {
-      const { data } = await supabase
-        .from("billing_addresses")
-        .select("*")
-        .eq("name", tenant.bill_from_name)
-        .limit(1);
-      billingAddress = data?.[0] || null;
+    // Landlords: the property's saved list, or a single one derived from the tenant's
+    // billing details. Aadhaar is layered in from the request body by index — never the DB.
+    const savedLandlords: any[] = Array.isArray(property?.agreement_landlords)
+      ? property.agreement_landlords
+      : [];
+    let landlords: Landlord[];
+    if (savedLandlords.length > 0) {
+      landlords = savedLandlords.map((l: any, i: number) => ({
+        entityName: l.entity_name || "",
+        signatoryName: l.signatory_name || "",
+        relationType: l.relation_type || "son",
+        relationName: l.relation_name || "",
+        age: l.age?.toString() || "",
+        occupation: l.occupation || "",
+        designation: l.designation || "",
+        address: l.address || "",
+        gstin: l.gstin || "",
+        pan: l.pan || "",
+        aadhaar: (landlordAadhaars && landlordAadhaars[i]) || "",
+      }));
+    } else {
+      landlords = [
+        {
+          entityName: tenant.bill_from_name || "",
+          signatoryName: "",
+          relationType: "son",
+          relationName: "",
+          age: "",
+          occupation: "",
+          designation: "",
+          address: tenant.bill_from_address || "",
+          gstin: tenant.bill_from_gstin || "",
+          pan: tenant.bill_from_pan || "",
+          aadhaar: (landlordAadhaars && landlordAadhaars[0]) || "",
+        },
+      ];
     }
 
     const { data: tenantUnits } = await supabase
@@ -522,28 +540,19 @@ serve(async (req: Request): Promise<Response> => {
 
     const data: Data = {
       agreementDateLabel: dateLabel(new Date().toISOString()),
-
-      landlordName: tenant.bill_from_name || billingAddress?.name || "",
-      landlordAddress: tenant.bill_from_address || billingAddress?.address || "",
-      landlordGstin: tenant.bill_from_gstin || billingAddress?.gstin || "",
-      landlordPan: tenant.bill_from_pan || billingAddress?.pan || "",
-      landlordSignatoryName: billingAddress?.signatory_name || "",
-      landlordSignatoryRelation: billingAddress?.signatory_relation || "",
-      landlordSignatoryAge: billingAddress?.signatory_age?.toString() || "",
-      landlordSignatoryOccupation: billingAddress?.signatory_occupation || "",
-      landlordSignatoryDesignation: billingAddress?.signatory_designation || "",
-      landlordSignatoryAadhaar: billingAddress?.signatory_aadhaar || "",
+      landlords,
 
       tenantName: tenant.bill_to_name || tenant.name || "",
       tenantAddress: tenant.permanent_address || tenant.bill_to_address || "",
       tenantGstin: tenant.bill_to_gstin || "",
       tenantPan: tenant.bill_to_pan || "",
       tenantSignatoryName: tenant.signatory_name || "",
-      tenantSignatoryRelation: tenant.signatory_relation || "",
+      tenantRelationType: tenant.signatory_relation_type || "son",
+      tenantRelationName: tenant.signatory_relation_name || "",
       tenantSignatoryAge: tenant.signatory_age?.toString() || "",
       tenantSignatoryOccupation: tenant.signatory_occupation || "",
       tenantSignatoryDesignation: tenant.signatory_designation || "",
-      tenantSignatoryAadhaar: tenant.signatory_aadhaar || "",
+      tenantAadhaar: tenantAadhaar || "",
 
       propertyName: property?.name || "",
       propertyAddress: property?.address || "",
@@ -562,8 +571,6 @@ serve(async (req: Request): Promise<Response> => {
       corpNumberText,
 
       purposeOfUse: tenant.purpose_of_use || "",
-      leaseStartDateLabel: dateLabel(tenant.lease_start_date),
-      leaseEndDateLabel: dateLabel(tenant.lease_end_date),
       leaseStartShort: shortDate(tenant.lease_start_date),
       leaseEndShort: shortDate(tenant.lease_end_date),
       termMonths: monthsBetween(tenant.lease_start_date, tenant.lease_end_date),

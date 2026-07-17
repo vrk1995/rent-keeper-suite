@@ -1,6 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
+
+// One landlord (lessor/licensor) on a rent agreement. A property can have several — a firm
+// plus an individual co-owner, etc. NEVER holds an Aadhaar number: Aadhaar is typed at
+// generation time and passed transiently, never persisted (Aadhaar Act / DPDP compliance).
+export interface AgreementLandlord {
+  entity_name: string;
+  signatory_name: string;
+  relation_type: string; // "son" | "daughter" | "wife" | "husband" | ""
+  relation_name: string;
+  age: string;
+  occupation: string;
+  designation: string;
+  address: string;
+  gstin: string;
+  pan: string;
+}
 
 export interface Property {
   id: string;
@@ -28,6 +45,8 @@ export interface Property {
   boundary_west: string | null;
   undivided_share: string | null;
   building_tax_by: string | null;
+  // Stored as JSON in the DB; cast to AgreementLandlord[] where consumed (see the agreement dialog).
+  agreement_landlords: Json | null;
   created_at: string;
   updated_at: string;
   property_owner?: {
