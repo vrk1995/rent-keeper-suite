@@ -80,7 +80,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   // Rent being settled in this transaction (before any TDS deduction) — the full remaining
   // due, or a user-chosen portion of it for a partial payment.
   const grossSettled = paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
-  const tdsAmount = tdsApplicable ? Math.round(grossSettled * TDS_RATE * 100) / 100 : 0;
+  const tdsAmount = tdsApplicable ? Math.round(grossSettled * TDS_RATE) : 0;
   const receivedAmount = grossSettled - tdsAmount;
   const newTotalPaid = previouslyPaid + grossSettled;
   const isFullyPaid = newTotalPaid >= totalDue;

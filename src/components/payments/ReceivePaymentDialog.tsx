@@ -43,6 +43,7 @@ const paymentMethods = [
 ];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundToRupee = (n: number) => Math.round(n);
 
 const monthLabel = (p: RentPayment) => {
   if (p.billing_month) {
@@ -130,7 +131,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
 
   const activeAllocations = mode === "custom" ? customAllocations : autoResult.allocations;
   const grossTotal = round2(activeAllocations.reduce((sum, a) => sum + a.amount, 0));
-  const tdsTotal = tdsApplicable ? round2(grossTotal * 0.1) : 0;
+  const tdsTotal = tdsApplicable ? roundToRupee(grossTotal * 0.1) : 0;
   const netTotal = round2(grossTotal - tdsTotal);
 
   const customOverAllocated = mode === "custom" && (outstanding || []).some((p) => {

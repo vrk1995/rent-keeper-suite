@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const TDS_RATE = 0.1;
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundToRupee = (n: number) => Math.round(n);
 
 export interface ReconcileAllocation {
   rentPaymentId: string;
@@ -29,12 +30,12 @@ export const useReconcilePayment = () => {
     mutationFn: async (input: ReconcilePaymentInput) => {
       const { data: { user } } = await supabase.auth.getUser();
       const grossTotal = input.allocations.reduce((sum, a) => sum + a.amount, 0);
-      const tdsTotal = input.tdsApplicable ? round2(grossTotal * TDS_RATE) : 0;
+      const tdsTotal = input.tdsApplicable ? roundToRupee(grossTotal * TDS_RATE) : 0;
 
       const touchedRentPaymentIds: string[] = [];
 
       for (const alloc of input.allocations) {
-        const tdsForAlloc = grossTotal > 0 ? round2((alloc.amount / grossTotal) * tdsTotal) : 0;
+        const tdsForAlloc = grossTotal > 0 ? roundToRupee((alloc.amount / grossTotal) * tdsTotal) : 0;
         const receivedForAlloc = alloc.amount - tdsForAlloc;
 
         const { error: txnError } = await supabase.from("payment_transactions").insert({
