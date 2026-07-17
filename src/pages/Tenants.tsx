@@ -1,7 +1,12 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format, differenceInDays } from "date-fns";
-import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, TrendingUp } from "lucide-react";
+import { Plus, Search, Users, Mail, Phone, Calendar, AlertTriangle, Building2, IndianRupee, Receipt, Trash2, TrendingUp, ChevronDown, Archive } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -40,6 +45,7 @@ const Tenants = () => {
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [incrementTenant, setIncrementTenant] = useState<Tenant | null>(null);
+  const [vacatedOpen, setVacatedOpen] = useState(false);
 
   // Group tenant owner shares by tenant_id
   const ownerSharesByTenant = useMemo(() => {
@@ -92,11 +98,18 @@ const Tenants = () => {
       );
     }
     
-    // Active tenants first, vacated ones at the bottom.
-    return [...filtered].sort(
-      (a, b) => (a.status === "vacated" ? 1 : 0) - (b.status === "vacated" ? 1 : 0)
-    );
+    return filtered;
   }, [tenants, selectedOwnerId, selectedPropertyId, searchQuery, ownerSharesByTenant]);
+
+  // Vacated tenants live in their own collapsed bucket, hidden until the user asks for them.
+  const activeTenants = useMemo(
+    () => filteredTenants.filter((t) => t.status !== "vacated"),
+    [filteredTenants]
+  );
+  const vacatedTenants = useMemo(
+    () => filteredTenants.filter((t) => t.status === "vacated"),
+    [filteredTenants]
+  );
 
   const handleTenantClick = (tenant: Tenant) => {
     setSelectedTenant(tenant);
@@ -116,6 +129,122 @@ const Tenants = () => {
     if (daysLeft < 0) return { label: "Expired", variant: "destructive" as const };
     if (daysLeft <= 30) return { label: `${daysLeft}d left`, variant: "secondary" as const };
     return { label: "Active", variant: "glow" as const };
+  };
+
+  const renderTenantCard = (tenant: Tenant, index: number) => {
+    const leaseStatus = getLeaseStatus(tenant);
+    return (
+      <motion.div
+        key={tenant.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+      >
+        <Card className="hover:border-primary/30 transition-all cursor-pointer" onClick={() => handleTenantClick(tenant)}>
+          <CardHeader className="flex flex-row items-start justify-between pb-2">
+            <div>
+              <CardTitle className="text-lg">{tenant.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {tenant.unit ? (
+                  <span className="flex items-center gap-1">
+                    <Building2 className="w-3 h-3" />
+                    {tenant.unit.building?.name} - {tenant.unit.name}
+                  </span>
+                ) : (
+                  tenant.property?.name
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={leaseStatus.variant}>
+                {leaseStatus.label}
+              </Badge>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Rent increments"
+                  className="h-7 w-7 text-muted-foreground hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIncrementTenant(tenant);
+                  }}
+                  title="Rent Increments"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete tenant"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteId(tenant.id);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Rent Details */}
+            <div className="flex items-center justify-between bg-primary/5 rounded-lg p-2">
+              <div className="flex items-center gap-2">
+                <IndianRupee className="w-4 h-4 text-primary" />
+                <span className="font-semibold">{formatINR(tenant.monthly_rent || 0)}/mo</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                Invoiced: {tenant.rent_due_day || 1}{tenant.rent_due_day === 1 ? "st" : tenant.rent_due_day === 2 ? "nd" : tenant.rent_due_day === 3 ? "rd" : "th"}
+                {tenant.requires_gst && (
+                  <Badge variant="outline" className="text-xs ml-1">
+                    <Receipt className="w-3 h-3 mr-1" />
+                    GST
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Floor info */}
+            {tenant.floor && (
+              <div className="text-sm text-muted-foreground">
+                Floor: {tenant.floor.floor_name}
+              </div>
+            )}
+
+            {tenant.email && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="w-4 h-4" />
+                {tenant.email}
+              </div>
+            )}
+            {tenant.phone && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="w-4 h-4" />
+                {tenant.phone}
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="w-4 h-4" />
+              Lease: {format(new Date(tenant.lease_start_date), "MMM d, yyyy")} - {format(new Date(tenant.lease_end_date), "MMM d, yyyy")}
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-white/5">
+              <span className="text-sm text-muted-foreground">Security Deposit</span>
+              <span className="font-semibold">{formatINR(tenant.security_deposit)}</span>
+            </div>
+            {leaseStatus.variant !== "glow" && (
+              <div className="flex items-center gap-2 text-warning text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                Lease renewal needed
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
   };
 
   return (
@@ -188,127 +317,50 @@ const Tenants = () => {
           )}
         </motion.div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
-        >
-          {filteredTenants?.map((tenant, index) => {
-            const leaseStatus = getLeaseStatus(tenant);
-            return (
-              <motion.div
-                key={tenant.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <Card className="hover:border-primary/30 transition-all cursor-pointer" onClick={() => handleTenantClick(tenant)}>
-                  <CardHeader className="flex flex-row items-start justify-between pb-2">
-                    <div>
-                      <CardTitle className="text-lg">{tenant.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {tenant.unit ? (
-                          <span className="flex items-center gap-1">
-                            <Building2 className="w-3 h-3" />
-                            {tenant.unit.building?.name} - {tenant.unit.name}
-                          </span>
-                        ) : (
-                          tenant.property?.name
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={leaseStatus.variant}>
-                        {leaseStatus.label}
-                      </Badge>
-                      {isAdmin && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Rent increments"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIncrementTenant(tenant);
-                          }}
-                          title="Rent Increments"
-                        >
-                          <TrendingUp className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {isAdmin && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Delete tenant"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteId(tenant.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Rent Details */}
-                    <div className="flex items-center justify-between bg-primary/5 rounded-lg p-2">
-                      <div className="flex items-center gap-2">
-                        <IndianRupee className="w-4 h-4 text-primary" />
-                        <span className="font-semibold">{formatINR(tenant.monthly_rent || 0)}/mo</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        Invoiced: {tenant.rent_due_day || 1}{tenant.rent_due_day === 1 ? "st" : tenant.rent_due_day === 2 ? "nd" : tenant.rent_due_day === 3 ? "rd" : "th"}
-                        {tenant.requires_gst && (
-                          <Badge variant="outline" className="text-xs ml-1">
-                            <Receipt className="w-3 h-3 mr-1" />
-                            GST
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
+        <>
+          {activeTenants.length > 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
+            >
+              {activeTenants.map((tenant, index) => renderTenantCard(tenant, index))}
+            </motion.div>
+          ) : (
+            vacatedTenants.length > 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                No active tenants match your filters.
+              </p>
+            )
+          )}
 
-                    {/* Floor info */}
-                    {tenant.floor && (
-                      <div className="text-sm text-muted-foreground">
-                        Floor: {tenant.floor.floor_name}
-                      </div>
-                    )}
-
-                    {tenant.email && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="w-4 h-4" />
-                        {tenant.email}
-                      </div>
-                    )}
-                    {tenant.phone && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="w-4 h-4" />
-                        {tenant.phone}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      Lease: {format(new Date(tenant.lease_start_date), "MMM d, yyyy")} - {format(new Date(tenant.lease_end_date), "MMM d, yyyy")}
-                    </div>
-                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                      <span className="text-sm text-muted-foreground">Security Deposit</span>
-                      <span className="font-semibold">{formatINR(tenant.security_deposit)}</span>
-                    </div>
-                    {leaseStatus.variant !== "glow" && (
-                      <div className="flex items-center gap-2 text-warning text-sm">
-                        <AlertTriangle className="w-4 h-4" />
-                        Lease renewal needed
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </motion.div>
+          {vacatedTenants.length > 0 && (
+            <Collapsible open={vacatedOpen} onOpenChange={setVacatedOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full sm:w-auto justify-between sm:justify-start gap-2 text-muted-foreground"
+                >
+                  <span className="flex items-center gap-2">
+                    <Archive className="w-4 h-4" />
+                    Vacated Tenants
+                    <Badge variant="secondary" className="ml-1">{vacatedTenants.length}</Badge>
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${vacatedOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-3"
+                >
+                  {vacatedTenants.map((tenant, index) => renderTenantCard(tenant, index))}
+                </motion.div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </>
       )}
 
       <AddTenantDialog
