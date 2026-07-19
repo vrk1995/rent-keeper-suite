@@ -60,7 +60,7 @@ export default function PaymentsLog() {
 
   const filtered = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return expenses.filter((e) => {
+    const list = expenses.filter((e) => {
       if (propertyFilter && e.property_id !== propertyFilter) return false;
       if (categoryFilter && e.category !== categoryFilter) return false;
       if (dateFrom && e.expense_date < dateFrom) return false;
@@ -74,7 +74,23 @@ export default function PaymentsLog() {
       }
       return true;
     });
-  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery]);
+    return list.sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc":
+          return a.expense_date.localeCompare(b.expense_date);
+        case "date_desc":
+          return b.expense_date.localeCompare(a.expense_date);
+        case "amount_desc":
+          return Number(b.amount || 0) - Number(a.amount || 0);
+        case "amount_asc":
+          return Number(a.amount || 0) - Number(b.amount || 0);
+        case "title_asc":
+          return a.title.localeCompare(b.title);
+        default:
+          return 0;
+      }
+    });
+  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery, sortBy]);
 
   const total = useMemo(
     () => filtered.reduce((sum, e) => sum + Number(e.amount || 0), 0),
