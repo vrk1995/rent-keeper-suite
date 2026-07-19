@@ -59,6 +59,7 @@ const DashboardSidebar = () => {
             return (
               <li key={item.href}>
                 <Link
+                  to={item.href}
                   data-tour={`nav-${item.tour}`}
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
