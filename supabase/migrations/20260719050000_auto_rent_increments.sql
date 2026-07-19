@@ -26,7 +26,6 @@ select cron.schedule(
     url := 'https://lqwsnhjavgdrfuzgdywy.supabase.co/functions/v1/apply-due-rent-increments',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer PROJECT_ANON_PUBLISHABLE_KEY',
       'apikey', 'PROJECT_ANON_PUBLISHABLE_KEY'
     ),
     body := '{}'::jsonb
