@@ -96,6 +96,8 @@ const Dashboard = () => {
             </main>
           </div>
           <MobileBottomNav />
+          <ProductTour forceStart={forceTour} onFinish={() => setForceTour(false)} />
+          <HelpChat onRestartTour={() => setForceTour(true)} />
         </div>
       </FinancialYearProvider>
     </OwnerFilterProvider>
