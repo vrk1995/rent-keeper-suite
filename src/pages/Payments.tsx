@@ -316,6 +316,21 @@ const Payments = () => {
             <SelectItem value="overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-52">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="due_desc">Due date (newest)</SelectItem>
+            <SelectItem value="due_asc">Due date (oldest)</SelectItem>
+            <SelectItem value="paid_desc">Paid date (newest)</SelectItem>
+            <SelectItem value="paid_asc">Paid date (oldest)</SelectItem>
+            <SelectItem value="amount_desc">Amount (high to low)</SelectItem>
+            <SelectItem value="amount_asc">Amount (low to high)</SelectItem>
+            <SelectItem value="tenant_asc">Tenant (A–Z)</SelectItem>
+            <SelectItem value="invoice_desc">Invoice # (newest)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Payments Table */}
