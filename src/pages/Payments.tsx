@@ -80,6 +80,7 @@ const Payments = () => {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("due_desc");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, refreshPreview, closePreview } = usePdfPreview();
