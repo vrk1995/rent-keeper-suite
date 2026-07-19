@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forceTour, setForceTour] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
