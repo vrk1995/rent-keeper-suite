@@ -25,6 +25,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { SortMenuButton } from "@/components/ui/sort-menu-button";
+import { useSortState } from "@/hooks/useSortState";
 import { useAllExpenses, useDeleteExpense } from "@/hooks/useExpenses";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
@@ -55,7 +58,7 @@ export default function PaymentsLog() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [sortBy, setSortBy] = useState("date_desc");
+  const sort = useSortState<"date" | "title" | "property" | "amount">("date", "desc");
   const [deleteExpenseData, setDeleteExpenseData] = useState<{ id: string; propertyId: string; title: string } | null>(null);
 
   const filtered = useMemo(() => {
@@ -75,22 +78,20 @@ export default function PaymentsLog() {
       return true;
     });
     return list.sort((a, b) => {
-      switch (sortBy) {
-        case "date_asc":
-          return a.expense_date.localeCompare(b.expense_date);
-        case "date_desc":
-          return b.expense_date.localeCompare(a.expense_date);
-        case "amount_desc":
-          return Number(b.amount || 0) - Number(a.amount || 0);
-        case "amount_asc":
-          return Number(a.amount || 0) - Number(b.amount || 0);
-        case "title_asc":
-          return a.title.localeCompare(b.title);
+      switch (sort.field) {
+        case "date":
+          return sort.dir * a.expense_date.localeCompare(b.expense_date);
+        case "amount":
+          return sort.dir * (Number(a.amount || 0) - Number(b.amount || 0));
+        case "title":
+          return sort.dir * a.title.localeCompare(b.title);
+        case "property":
+          return sort.dir * (a.property?.name || "").localeCompare(b.property?.name || "");
         default:
           return 0;
       }
     });
-  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery, sortBy]);
+  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery, sort.field, sort.dir]);
 
   const total = useMemo(
     () => filtered.reduce((sum, e) => sum + Number(e.amount || 0), 0),
@@ -173,20 +174,19 @@ export default function PaymentsLog() {
                 onChange={(e) => setDateTo(e.target.value)}
               />
             </div>
-            <div className="sm:w-52">
-              <SearchableSelect
-                options={[
-                  { value: "date_desc", label: "Date (newest)" },
-                  { value: "date_asc", label: "Date (oldest)" },
-                  { value: "amount_desc", label: "Amount (high to low)" },
-                  { value: "amount_asc", label: "Amount (low to high)" },
-                  { value: "title_asc", label: "Title (A–Z)" },
-                ]}
-                value={sortBy}
-                onValueChange={setSortBy}
-                placeholder="Sort by"
-              />
-            </div>
+            {/* Desktop sorts via clickable column headers; mobile (no table) gets this menu. */}
+            <SortMenuButton
+              className="w-full sm:hidden"
+              options={[
+                { value: "date", label: "Date" },
+                { value: "title", label: "Title" },
+                { value: "property", label: "Property" },
+                { value: "amount", label: "Amount" },
+              ]}
+              currentField={sort.field}
+              currentDirection={sort.direction}
+              onSort={sort.toggleSort}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -206,15 +206,15 @@ export default function PaymentsLog() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Property</TableHead>
+                      <SortableTableHead label="Date" sortKey="date" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
+                      <SortableTableHead label="Title" sortKey="title" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
+                      <SortableTableHead label="Property" sortKey="property" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                       <TableHead>Category</TableHead>
                       <TableHead>Vendor</TableHead>
                       <TableHead>Paid By</TableHead>
                       <TableHead>Method</TableHead>
 
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead label="Amount" sortKey="amount" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} align="right" />
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>

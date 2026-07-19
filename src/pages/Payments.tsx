@@ -24,6 +24,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { SortMenuButton } from "@/components/ui/sort-menu-button";
+import { useSortState } from "@/hooks/useSortState";
 import {
   Dialog,
   DialogContent,
@@ -80,7 +83,7 @@ const Payments = () => {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("due_desc");
+  const sort = useSortState<"property" | "tenant" | "invoice" | "amount" | "due_date" | "paid_date">("due_date", "desc");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, refreshPreview, closePreview } = usePdfPreview();
@@ -125,23 +128,19 @@ const Payments = () => {
     ?.slice()
     ?.sort((a, b) => {
       const dateVal = (d?: string | null) => (d ? new Date(d).getTime() : 0);
-      switch (sortBy) {
-        case "due_asc":
-          return dateVal(a.due_date) - dateVal(b.due_date);
-        case "due_desc":
-          return dateVal(b.due_date) - dateVal(a.due_date);
-        case "paid_desc":
-          return dateVal(b.paid_date) - dateVal(a.paid_date);
-        case "paid_asc":
-          return dateVal(a.paid_date) - dateVal(b.paid_date);
-        case "amount_desc":
-          return b.amount - a.amount;
-        case "amount_asc":
-          return a.amount - b.amount;
-        case "tenant_asc":
-          return (a.tenant?.name || "").localeCompare(b.tenant?.name || "");
-        case "invoice_desc":
-          return (getInvoiceNumber(b) || "").localeCompare(getInvoiceNumber(a) || "");
+      switch (sort.field) {
+        case "property":
+          return sort.dir * (a.property?.name || "").localeCompare(b.property?.name || "");
+        case "tenant":
+          return sort.dir * (a.tenant?.name || "").localeCompare(b.tenant?.name || "");
+        case "invoice":
+          return sort.dir * (getInvoiceNumber(a) || "").localeCompare(getInvoiceNumber(b) || "");
+        case "amount":
+          return sort.dir * (a.amount - b.amount);
+        case "due_date":
+          return sort.dir * (dateVal(a.due_date) - dateVal(b.due_date));
+        case "paid_date":
+          return sort.dir * (dateVal(a.paid_date) - dateVal(b.paid_date));
         default:
           return 0;
       }
@@ -316,21 +315,21 @@ const Payments = () => {
             <SelectItem value="overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="due_desc">Due date (newest)</SelectItem>
-            <SelectItem value="due_asc">Due date (oldest)</SelectItem>
-            <SelectItem value="paid_desc">Paid date (newest)</SelectItem>
-            <SelectItem value="paid_asc">Paid date (oldest)</SelectItem>
-            <SelectItem value="amount_desc">Amount (high to low)</SelectItem>
-            <SelectItem value="amount_asc">Amount (low to high)</SelectItem>
-            <SelectItem value="tenant_asc">Tenant (A–Z)</SelectItem>
-            <SelectItem value="invoice_desc">Invoice # (newest)</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Desktop sorts via clickable column headers; mobile (no table) gets this menu. */}
+        <SortMenuButton
+          className="w-full sm:hidden"
+          options={[
+            { value: "property", label: "Property" },
+            { value: "tenant", label: "Tenant" },
+            { value: "invoice", label: "Invoice #" },
+            { value: "amount", label: "Amount" },
+            { value: "due_date", label: "Due Date" },
+            { value: "paid_date", label: "Paid Date" },
+          ]}
+          currentField={sort.field}
+          currentDirection={sort.direction}
+          onSort={sort.toggleSort}
+        />
       </div>
 
       {/* Payments Table */}
@@ -364,14 +363,14 @@ const Payments = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Invoice #</TableHead>
+                    <SortableTableHead label="Property" sortKey="property" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
+                    <SortableTableHead label="Tenant" sortKey="tenant" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
+                    <SortableTableHead label="Invoice #" sortKey="invoice" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                     <TableHead>Billing Month</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Due Date</TableHead>
+                    <SortableTableHead label="Amount" sortKey="amount" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
+                    <SortableTableHead label="Due Date" sortKey="due_date" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                     <TableHead>Status</TableHead>
-                    <TableHead>Paid Date</TableHead>
+                    <SortableTableHead label="Paid Date" sortKey="paid_date" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
