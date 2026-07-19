@@ -66,19 +66,41 @@ const Invoices = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState<{ paymentId: string; invoiceId: string } | null>(null);
 
-  const filteredInvoices = invoices?.filter((inv) => {
-    const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
-    const matchesTenant = tenantFilter === "all" || inv.tenant_id === tenantFilter;
-    const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      inv.invoice_number.toLowerCase().includes(query) ||
-      inv.tenant?.name?.toLowerCase().includes(query) ||
-      inv.property?.name?.toLowerCase().includes(query) ||
-      String(inv.amount).includes(query);
-    return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
-  });
+  const filteredInvoices = invoices
+    ?.filter((inv) => {
+      const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
+      const matchesTenant = tenantFilter === "all" || inv.tenant_id === tenantFilter;
+      const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        inv.invoice_number.toLowerCase().includes(query) ||
+        inv.tenant?.name?.toLowerCase().includes(query) ||
+        inv.property?.name?.toLowerCase().includes(query) ||
+        String(inv.amount).includes(query);
+      return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
+    })
+    ?.slice()
+    ?.sort((a, b) => {
+      switch (sortBy) {
+        case "invoice_asc":
+          return a.invoice_number.localeCompare(b.invoice_number);
+        case "invoice_desc":
+          return b.invoice_number.localeCompare(a.invoice_number);
+        case "due_asc":
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        case "due_desc":
+          return new Date(b.due_date).getTime() - new Date(a.due_date).getTime();
+        case "amount_asc":
+          return a.amount - b.amount;
+        case "amount_desc":
+          return b.amount - a.amount;
+        case "tenant_asc":
+          return (a.tenant?.name || "").localeCompare(b.tenant?.name || "");
+        default:
+          return 0;
+      }
+    });
 
   const stats = {
     total: invoices?.length || 0,
