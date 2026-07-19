@@ -55,11 +55,12 @@ export default function PaymentsLog() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState("date_desc");
   const [deleteExpenseData, setDeleteExpenseData] = useState<{ id: string; propertyId: string; title: string } | null>(null);
 
   const filtered = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return expenses.filter((e) => {
+    const list = expenses.filter((e) => {
       if (propertyFilter && e.property_id !== propertyFilter) return false;
       if (categoryFilter && e.category !== categoryFilter) return false;
       if (dateFrom && e.expense_date < dateFrom) return false;
@@ -73,7 +74,23 @@ export default function PaymentsLog() {
       }
       return true;
     });
-  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery]);
+    return list.sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc":
+          return a.expense_date.localeCompare(b.expense_date);
+        case "date_desc":
+          return b.expense_date.localeCompare(a.expense_date);
+        case "amount_desc":
+          return Number(b.amount || 0) - Number(a.amount || 0);
+        case "amount_asc":
+          return Number(a.amount || 0) - Number(b.amount || 0);
+        case "title_asc":
+          return a.title.localeCompare(b.title);
+        default:
+          return 0;
+      }
+    });
+  }, [expenses, propertyFilter, categoryFilter, dateFrom, dateTo, searchQuery, sortBy]);
 
   const total = useMemo(
     () => filtered.reduce((sum, e) => sum + Number(e.amount || 0), 0),
@@ -154,6 +171,20 @@ export default function PaymentsLog() {
                 className="w-full sm:w-40"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
+              />
+            </div>
+            <div className="sm:w-52">
+              <SearchableSelect
+                options={[
+                  { value: "date_desc", label: "Date (newest)" },
+                  { value: "date_asc", label: "Date (oldest)" },
+                  { value: "amount_desc", label: "Amount (high to low)" },
+                  { value: "amount_asc", label: "Amount (low to high)" },
+                  { value: "title_asc", label: "Title (A–Z)" },
+                ]}
+                value={sortBy}
+                onValueChange={setSortBy}
+                placeholder="Sort by"
               />
             </div>
           </div>

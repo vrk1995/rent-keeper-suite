@@ -80,6 +80,7 @@ const Payments = () => {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("due_desc");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, refreshPreview, closePreview } = usePdfPreview();
@@ -108,18 +109,43 @@ const Payments = () => {
   const getInvoiceNumber = (p: RentPayment) =>
     invoiceNumberByPayment.get(`${p.property_id}|${p.tenant_id}|${p.due_date}|${Number(p.amount).toFixed(2)}`) || "";
 
-  const filteredPayments = payments?.filter((p) => {
-    const matchesProperty = propertyFilter === "all" || p.property_id === propertyFilter;
-    const matchesTenant = tenantFilter === "all" || p.tenant_id === tenantFilter;
-    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      p.tenant?.name?.toLowerCase().includes(query) ||
-      p.property?.name?.toLowerCase().includes(query) ||
-      String(p.amount).includes(query);
-    return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
-  });
+  const filteredPayments = payments
+    ?.filter((p) => {
+      const matchesProperty = propertyFilter === "all" || p.property_id === propertyFilter;
+      const matchesTenant = tenantFilter === "all" || p.tenant_id === tenantFilter;
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        p.tenant?.name?.toLowerCase().includes(query) ||
+        p.property?.name?.toLowerCase().includes(query) ||
+        String(p.amount).includes(query);
+      return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
+    })
+    ?.slice()
+    ?.sort((a, b) => {
+      const dateVal = (d?: string | null) => (d ? new Date(d).getTime() : 0);
+      switch (sortBy) {
+        case "due_asc":
+          return dateVal(a.due_date) - dateVal(b.due_date);
+        case "due_desc":
+          return dateVal(b.due_date) - dateVal(a.due_date);
+        case "paid_desc":
+          return dateVal(b.paid_date) - dateVal(a.paid_date);
+        case "paid_asc":
+          return dateVal(a.paid_date) - dateVal(b.paid_date);
+        case "amount_desc":
+          return b.amount - a.amount;
+        case "amount_asc":
+          return a.amount - b.amount;
+        case "tenant_asc":
+          return (a.tenant?.name || "").localeCompare(b.tenant?.name || "");
+        case "invoice_desc":
+          return (getInvoiceNumber(b) || "").localeCompare(getInvoiceNumber(a) || "");
+        default:
+          return 0;
+      }
+    });
 
   const stats = {
     total: payments?.length || 0,
@@ -288,6 +314,21 @@ const Payments = () => {
             <SelectItem value="partial">Partial</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-52">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="due_desc">Due date (newest)</SelectItem>
+            <SelectItem value="due_asc">Due date (oldest)</SelectItem>
+            <SelectItem value="paid_desc">Paid date (newest)</SelectItem>
+            <SelectItem value="paid_asc">Paid date (oldest)</SelectItem>
+            <SelectItem value="amount_desc">Amount (high to low)</SelectItem>
+            <SelectItem value="amount_asc">Amount (low to high)</SelectItem>
+            <SelectItem value="tenant_asc">Tenant (A–Z)</SelectItem>
+            <SelectItem value="invoice_desc">Invoice # (newest)</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -54,6 +54,7 @@ const Invoices = () => {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("invoice_desc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedTenant, setSelectedTenant] = useState("");
@@ -65,19 +66,41 @@ const Invoices = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState<{ paymentId: string; invoiceId: string } | null>(null);
 
-  const filteredInvoices = invoices?.filter((inv) => {
-    const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
-    const matchesTenant = tenantFilter === "all" || inv.tenant_id === tenantFilter;
-    const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      inv.invoice_number.toLowerCase().includes(query) ||
-      inv.tenant?.name?.toLowerCase().includes(query) ||
-      inv.property?.name?.toLowerCase().includes(query) ||
-      String(inv.amount).includes(query);
-    return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
-  });
+  const filteredInvoices = invoices
+    ?.filter((inv) => {
+      const matchesProperty = propertyFilter === "all" || inv.property_id === propertyFilter;
+      const matchesTenant = tenantFilter === "all" || inv.tenant_id === tenantFilter;
+      const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        inv.invoice_number.toLowerCase().includes(query) ||
+        inv.tenant?.name?.toLowerCase().includes(query) ||
+        inv.property?.name?.toLowerCase().includes(query) ||
+        String(inv.amount).includes(query);
+      return matchesProperty && matchesTenant && matchesStatus && matchesSearch;
+    })
+    ?.slice()
+    ?.sort((a, b) => {
+      switch (sortBy) {
+        case "invoice_asc":
+          return a.invoice_number.localeCompare(b.invoice_number);
+        case "invoice_desc":
+          return b.invoice_number.localeCompare(a.invoice_number);
+        case "due_asc":
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        case "due_desc":
+          return new Date(b.due_date).getTime() - new Date(a.due_date).getTime();
+        case "amount_asc":
+          return a.amount - b.amount;
+        case "amount_desc":
+          return b.amount - a.amount;
+        case "tenant_asc":
+          return (a.tenant?.name || "").localeCompare(b.tenant?.name || "");
+        default:
+          return 0;
+      }
+    });
 
   const stats = {
     total: invoices?.length || 0,
@@ -278,6 +301,20 @@ const Invoices = () => {
             <SelectItem value="sent">Sent</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-52">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="invoice_desc">Invoice # (newest)</SelectItem>
+            <SelectItem value="invoice_asc">Invoice # (oldest)</SelectItem>
+            <SelectItem value="due_desc">Due date (newest)</SelectItem>
+            <SelectItem value="due_asc">Due date (oldest)</SelectItem>
+            <SelectItem value="amount_desc">Amount (high to low)</SelectItem>
+            <SelectItem value="amount_asc">Amount (low to high)</SelectItem>
+            <SelectItem value="tenant_asc">Tenant (A–Z)</SelectItem>
           </SelectContent>
         </Select>
       </div>
