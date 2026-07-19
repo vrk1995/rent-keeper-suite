@@ -1720,6 +1720,27 @@ export type Database = {
           },
         ]
       }
+      user_onboarding: {
+        Row: {
+          tour_completed: boolean
+          tour_skipped: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          tour_completed?: boolean
+          tour_skipped?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          tour_completed?: boolean
+          tour_skipped?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_property_access: {
         Row: {
           created_at: string

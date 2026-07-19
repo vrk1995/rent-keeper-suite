@@ -18,16 +18,16 @@ import { cn } from "@/lib/utils";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
-  { icon: Home, label: "Properties", href: "/dashboard/properties" },
-  { icon: Users, label: "Tenants", href: "/dashboard/tenants" },
-  { icon: Calendar, label: "Receipts", href: "/dashboard/payments" },
-  { icon: CreditCard, label: "Payments", href: "/dashboard/payments-log" },
-  { icon: FileText, label: "Invoices", href: "/dashboard/invoices" },
-  { icon: FolderOpen, label: "Documents", href: "/dashboard/documents" },
-  { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
-  { icon: UserCog, label: "Team", href: "/dashboard/team" },
-  { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses" },
+  { icon: LayoutDashboard, label: "Overview", href: "/dashboard", tour: "overview" },
+  { icon: Home, label: "Properties", href: "/dashboard/properties", tour: "properties" },
+  { icon: Users, label: "Tenants", href: "/dashboard/tenants", tour: "tenants" },
+  { icon: Calendar, label: "Receipts", href: "/dashboard/payments", tour: "receipts" },
+  { icon: CreditCard, label: "Payments", href: "/dashboard/payments-log", tour: "payments" },
+  { icon: FileText, label: "Invoices", href: "/dashboard/invoices", tour: "invoices" },
+  { icon: FolderOpen, label: "Documents", href: "/dashboard/documents", tour: "documents" },
+  { icon: Bell, label: "Reminders", href: "/dashboard/reminders", tour: "reminders" },
+  { icon: UserCog, label: "Team", href: "/dashboard/team", tour: "team" },
+  { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses", tour: "billing" },
 ];
 
 const DashboardSidebar = () => {
@@ -60,6 +60,7 @@ const DashboardSidebar = () => {
               <li key={item.href}>
                 <Link
                   to={item.href}
+                  data-tour={`nav-${item.tour}`}
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
                     isActive

@@ -20,11 +20,14 @@ import AdminApprovals from "@/pages/AdminApprovals";
 import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
 import { FinancialYearProvider } from "@/contexts/FinancialYearContext";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
+import ProductTour from "@/components/onboarding/ProductTour";
+import HelpChat from "@/components/onboarding/HelpChat";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [forceTour, setForceTour] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
@@ -93,6 +96,8 @@ const Dashboard = () => {
             </main>
           </div>
           <MobileBottomNav />
+          <ProductTour forceStart={forceTour} onFinish={() => setForceTour(false)} />
+          <HelpChat onRestartTour={() => setForceTour(true)} />
         </div>
       </FinancialYearProvider>
     </OwnerFilterProvider>
