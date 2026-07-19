@@ -384,6 +384,7 @@ const Tenants = () => {
           tenantId={incrementTenant.id}
           tenantName={incrementTenant.name}
           currentRent={incrementTenant.monthly_rent || 0}
+          leaseEndDate={incrementTenant.lease_end_date}
         />
       )}
 

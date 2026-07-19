@@ -6,5 +6,8 @@ verify_jwt = false
 [functions.generate-daily-invoices]
 verify_jwt = false
 
+[functions.apply-due-rent-increments]
+verify_jwt = false
+
 [functions.invite-team-member]
 verify_jwt = true

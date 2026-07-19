@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { format, differenceInDays } from "date-fns";
-import { TrendingUp, Plus, Trash2, History, CalendarIcon, Check, IndianRupee, Percent } from "lucide-react";
+import { format, differenceInDays, addDays } from "date-fns";
+import { TrendingUp, Plus, Trash2, History, CalendarIcon, Check, IndianRupee, Percent, Repeat, Zap } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,40 +39,53 @@ interface RentIncrementDialogProps {
   tenantId: string;
   tenantName: string;
   currentRent: number;
+  /** Used to default a new rule's date to the day after the lease ends. */
+  leaseEndDate?: string;
 }
 
-const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, currentRent }: RentIncrementDialogProps) => {
+const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, currentRent, leaseEndDate }: RentIncrementDialogProps) => {
   const { data: increments = [] } = useRentIncrements(tenantId);
   const { data: history = [] } = useRentIncrementHistory(tenantId);
   const createIncrement = useCreateRentIncrement();
   const deleteIncrement = useDeleteRentIncrement();
   const applyIncrement = useApplyRentIncrement();
 
+  const defaultNextDate = leaseEndDate ? addDays(new Date(leaseEndDate), 1) : undefined;
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [incrementType, setIncrementType] = useState<string>("percentage");
   const [incrementValue, setIncrementValue] = useState("");
+  const [isRecurring, setIsRecurring] = useState(true);
   const [intervalMonths, setIntervalMonths] = useState("12");
   const [nextDate, setNextDate] = useState<Date | undefined>();
   const [applyConfirm, setApplyConfirm] = useState<string | null>(null);
   const [applyNotes, setApplyNotes] = useState("");
   const [deleteIncrementId, setDeleteIncrementId] = useState<string | null>(null);
 
+  const openAddForm = () => {
+    setShowAddForm(true);
+    setNextDate(defaultNextDate);
+  };
+
   const resetForm = () => {
     setShowAddForm(false);
     setIncrementType("percentage");
     setIncrementValue("");
+    setIsRecurring(true);
     setIntervalMonths("12");
     setNextDate(undefined);
   };
 
   const handleAdd = () => {
-    if (!incrementValue || !nextDate || !intervalMonths || parseInt(intervalMonths) < 1) return;
+    if (!incrementValue || !nextDate) return;
+    if (isRecurring && (!intervalMonths || parseInt(intervalMonths) < 1)) return;
     createIncrement.mutate(
       {
         tenant_id: tenantId,
         increment_type: incrementType as "percentage" | "fixed",
         increment_value: parseFloat(incrementValue),
-        interval_months: parseInt(intervalMonths),
+        is_recurring: isRecurring,
+        interval_months: isRecurring ? parseInt(intervalMonths) : null,
         next_increment_date: format(nextDate, "yyyy-MM-dd"),
         is_active: true,
       },
@@ -91,6 +104,7 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
         incrementValue: inc.increment_value,
         nextIncrementDate: inc.next_increment_date,
         intervalMonths: inc.interval_months,
+        isRecurring: inc.is_recurring,
         incrementId: inc.id,
         notes: applyNotes || undefined,
       },
@@ -109,7 +123,7 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
       : currentRent + value;
   };
 
-  const isDirty = showAddForm && (incrementValue !== "" || nextDate !== undefined || intervalMonths !== "12");
+  const isDirty = showAddForm && (incrementValue !== "" || intervalMonths !== "12" || !isRecurring);
   const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
     useUnsavedChangesGuard(isDirty, onOpenChange);
 
@@ -152,13 +166,19 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
                 return (
                   <div key={inc.id} className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {inc.increment_type === "percentage" ? (
                           <Badge variant="secondary"><Percent className="w-3 h-3 mr-1" />{inc.increment_value}%</Badge>
                         ) : (
                           <Badge variant="secondary"><IndianRupee className="w-3 h-3 mr-1" />{formatINR(inc.increment_value)}</Badge>
                         )}
-                        <span className="text-sm text-muted-foreground">every {inc.interval_months} months</span>
+                        {inc.is_recurring ? (
+                          <span className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Repeat className="w-3 h-3" /> every {inc.interval_months} months
+                          </span>
+                        ) : (
+                          <Badge variant="outline"><Zap className="w-3 h-3 mr-1" />One-time</Badge>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
@@ -187,13 +207,16 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
                       <span className="text-muted-foreground">New rent will be</span>
                       <span className="font-semibold text-primary">{formatINR(newRent)}/mo</span>
                     </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Applies automatically on this date — no action needed. Use the button below only to apply it early.
+                    </p>
                     <Button
                       size="sm"
-                      variant="hero"
+                      variant="outline"
                       className="w-full"
                       onClick={() => setApplyConfirm(inc.id)}
                     >
-                      <Check className="w-4 h-4 mr-1" /> Apply Increment Now
+                      <Check className="w-4 h-4 mr-1" /> Apply Now Instead
                     </Button>
                   </div>
                 );
@@ -201,6 +224,28 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
 
               {showAddForm ? (
                 <div className="border rounded-lg p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsRecurring(true)}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-lg border p-2 text-sm transition-colors",
+                        isRecurring ? "border-primary bg-primary/5 font-medium" : "text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <Repeat className="w-3.5 h-3.5" /> Repeats
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsRecurring(false)}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 rounded-lg border p-2 text-sm transition-colors",
+                        !isRecurring ? "border-primary bg-primary/5 font-medium" : "text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <Zap className="w-3.5 h-3.5" /> One-time
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Type</Label>
@@ -222,22 +267,24 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
                       />
                     </div>
                   </div>
+                  {isRecurring && (
+                    <div>
+                      <Label>Interval (months)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        placeholder="e.g. 11"
+                        value={intervalMonths}
+                        onChange={(e) => setIntervalMonths(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        How many months between increments — e.g. 11, 12, 24
+                      </p>
+                    </div>
+                  )}
                   <div>
-                    <Label>Interval (months)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      placeholder="e.g. 11"
-                      value={intervalMonths}
-                      onChange={(e) => setIntervalMonths(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      How many months between increments — e.g. 11, 12, 24
-                    </p>
-                  </div>
-                  <div>
-                    <Label>Next Increment Date</Label>
+                    <Label>{isRecurring ? "Next Increment Date" : "Increase Date"}</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !nextDate && "text-muted-foreground")}>
@@ -249,21 +296,34 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
                         <Calendar mode="single" selected={nextDate} onSelect={setNextDate} initialFocus className={cn("p-3 pointer-events-auto")} />
                       </PopoverContent>
                     </Popover>
+                    {leaseEndDate && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Defaults to the day after the lease ends — change it if needed.
+                      </p>
+                    )}
                   </div>
                   {incrementValue && nextDate && (
                     <div className="bg-secondary/30 rounded p-2 text-sm">
                       Preview: {formatINR(currentRent)} → <strong className="text-primary">{formatINR(previewNewRent(incrementType, parseFloat(incrementValue)))}</strong>/mo
                     </div>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    This will apply itself automatically on the date above — you won't need to come back and click anything.
+                  </p>
                   <div className="flex gap-2">
                     <Button variant="outline" className="flex-1" onClick={resetForm}>Cancel</Button>
-                    <Button variant="hero" className="flex-1" onClick={handleAdd} disabled={!incrementValue || !nextDate || createIncrement.isPending}>
+                    <Button
+                      variant="hero"
+                      className="flex-1"
+                      onClick={handleAdd}
+                      disabled={!incrementValue || !nextDate || (isRecurring && (!intervalMonths || parseInt(intervalMonths) < 1)) || createIncrement.isPending}
+                    >
                       Save Rule
                     </Button>
                   </div>
                 </div>
               ) : (
-                <Button variant="outline" className="w-full" onClick={() => setShowAddForm(true)}>
+                <Button variant="outline" className="w-full" onClick={openAddForm}>
                   <Plus className="w-4 h-4 mr-1" /> Add Increment Rule
                 </Button>
               )}

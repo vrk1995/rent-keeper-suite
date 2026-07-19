@@ -7,7 +7,8 @@ export interface RentIncrement {
   tenant_id: string;
   increment_type: "percentage" | "fixed";
   increment_value: number;
-  interval_months: number;
+  interval_months: number | null;
+  is_recurring: boolean;
   next_increment_date: string;
   is_active: boolean;
   created_at: string;
@@ -126,6 +127,7 @@ export const useApplyRentIncrement = () => {
       incrementValue,
       nextIncrementDate,
       intervalMonths,
+      isRecurring,
       incrementId,
       notes,
     }: {
@@ -134,7 +136,8 @@ export const useApplyRentIncrement = () => {
       incrementType: string;
       incrementValue: number;
       nextIncrementDate: string;
-      intervalMonths: number;
+      intervalMonths: number | null;
+      isRecurring: boolean;
       incrementId: string;
       notes?: string;
     }) => {
@@ -162,17 +165,22 @@ export const useApplyRentIncrement = () => {
         .eq("id", tenantId);
       if (tenantError) throw tenantError;
 
-      // Calculate next increment date
-      const currentDate = new Date(nextIncrementDate);
-      currentDate.setMonth(currentDate.getMonth() + intervalMonths);
-      const nextDate = currentDate.toISOString().split("T")[0];
+      if (isRecurring) {
+        // Calculate next increment date
+        const currentDate = new Date(nextIncrementDate);
+        currentDate.setMonth(currentDate.getMonth() + (intervalMonths || 12));
+        const nextDate = currentDate.toISOString().split("T")[0];
 
-      // Update the increment rule with new next date
-      const { error: incError } = await supabase
-        .from("rent_increments")
-        .update({ next_increment_date: nextDate })
-        .eq("id", incrementId);
-      if (incError) throw incError;
+        const { error: incError } = await supabase
+          .from("rent_increments")
+          .update({ next_increment_date: nextDate })
+          .eq("id", incrementId);
+        if (incError) throw incError;
+      } else {
+        // One-time rule: its job is done and the change is permanently recorded in history.
+        const { error: incError } = await supabase.from("rent_increments").delete().eq("id", incrementId);
+        if (incError) throw incError;
+      }
 
       return { tenantId, newRent };
     },

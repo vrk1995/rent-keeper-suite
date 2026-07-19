@@ -11,6 +11,38 @@ const corsHeaders = {
 // without needing a timezone database.
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
+// The last calendar day of a 'YYYY-MM' billing month, as an ISO date string.
+function lastDayOfBillingMonth(billingMonth: string): string {
+  const [y, m] = billingMonth.split("-").map(Number);
+  // Date.UTC's month argument is 0-indexed, so passing the 1-indexed billing month here
+  // targets the *next* month; day 0 of that rolls back to the last day of the billing month.
+  return new Date(Date.UTC(y, m, 0)).toISOString().split("T")[0];
+}
+
+// What the tenant's rent actually was during a given billing period — NOT necessarily
+// whatever tenant.monthly_rent equals right now. A rent increment can take effect on the
+// same day (or before) an invoice for an *earlier* period is generated — e.g. an increment
+// effective Aug 1st shouldn't retroactively apply to July's rent just because July's invoice
+// happens to be created on Aug 2nd under arrears billing. Resolved from the tenant's own
+// increment history, so it's correct regardless of when the invoice actually gets generated.
+function resolveEffectiveRent(
+  currentMonthlyRent: number,
+  history: { previous_rent: number; new_rent: number; effective_date: string }[],
+  billingMonth: string
+): number {
+  if (!history || history.length === 0) return currentMonthlyRent || 0;
+  const monthEnd = lastDayOfBillingMonth(billingMonth);
+  const applicable = history.filter((h) => h.effective_date <= monthEnd);
+  if (applicable.length > 0) {
+    applicable.sort((a, b) => (a.effective_date < b.effective_date ? 1 : -1));
+    return applicable[0].new_rent;
+  }
+  // No increment had taken effect yet as of this billing period — use the rent that was in
+  // place before the earliest recorded increment.
+  const earliest = [...history].sort((a, b) => (a.effective_date < b.effective_date ? -1 : 1))[0];
+  return earliest.previous_rent;
+}
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -77,13 +109,19 @@ serve(async (req: Request): Promise<Response> => {
         if (existingPayment) {
           paymentId = existingPayment.id;
         } else {
+          const { data: rentHistory } = await supabase
+            .from("rent_increment_history")
+            .select("previous_rent, new_rent, effective_date")
+            .eq("tenant_id", tenant.id);
+          const billingAmount = resolveEffectiveRent(tenant.monthly_rent || 0, rentHistory || [], billingMonth);
+
           const { data: newPayment, error: insertError } = await supabase
             .from("rent_payments")
             .insert({
               tenant_id: tenant.id,
               property_id: tenant.property_id,
               unit_id: tenant.unit_id,
-              amount: tenant.monthly_rent || 0,
+              amount: billingAmount,
               due_date: dueDateStr,
               invoice_date: todayDateStr,
               billing_month: billingMonth,

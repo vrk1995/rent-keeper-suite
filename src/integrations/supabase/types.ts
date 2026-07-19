@@ -1139,8 +1139,9 @@ export type Database = {
           id: string
           increment_type: string
           increment_value: number
-          interval_months: number
+          interval_months: number | null
           is_active: boolean
+          is_recurring: boolean
           next_increment_date: string
           tenant_id: string
           updated_at: string
@@ -1151,8 +1152,9 @@ export type Database = {
           id?: string
           increment_type?: string
           increment_value?: number
-          interval_months?: number
+          interval_months?: number | null
           is_active?: boolean
+          is_recurring?: boolean
           next_increment_date: string
           tenant_id: string
           updated_at?: string
@@ -1163,8 +1165,9 @@ export type Database = {
           id?: string
           increment_type?: string
           increment_value?: number
-          interval_months?: number
+          interval_months?: number | null
           is_active?: boolean
+          is_recurring?: boolean
           next_increment_date?: string
           tenant_id?: string
           updated_at?: string
