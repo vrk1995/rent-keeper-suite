@@ -83,7 +83,7 @@ const Payments = () => {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const sort = useSortState<"property" | "tenant" | "invoice" | "amount" | "due_date" | "paid_date">("due_date", "desc");
+  const sort = useSortState<"property" | "tenant" | "invoice" | "amount" | "invoice_date" | "due_date" | "paid_date">("due_date", "desc");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
   const { preview, loadingId, openInvoice, refreshPreview, closePreview } = usePdfPreview();
@@ -137,6 +137,8 @@ const Payments = () => {
           return sort.dir * (getInvoiceNumber(a) || "").localeCompare(getInvoiceNumber(b) || "");
         case "amount":
           return sort.dir * (a.amount - b.amount);
+        case "invoice_date":
+          return sort.dir * (dateVal(a.invoice_date) - dateVal(b.invoice_date));
         case "due_date":
           return sort.dir * (dateVal(a.due_date) - dateVal(b.due_date));
         case "paid_date":
@@ -323,6 +325,7 @@ const Payments = () => {
             { value: "tenant", label: "Tenant" },
             { value: "invoice", label: "Invoice #" },
             { value: "amount", label: "Amount" },
+            { value: "invoice_date", label: "Invoice Date" },
             { value: "due_date", label: "Due Date" },
             { value: "paid_date", label: "Paid Date" },
           ]}
@@ -368,6 +371,7 @@ const Payments = () => {
                     <SortableTableHead label="Invoice #" sortKey="invoice" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                     <TableHead>Billing Month</TableHead>
                     <SortableTableHead label="Amount" sortKey="amount" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
+                    <SortableTableHead label="Invoice Date" sortKey="invoice_date" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                     <SortableTableHead label="Due Date" sortKey="due_date" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
                     <TableHead>Status</TableHead>
                     <SortableTableHead label="Paid Date" sortKey="paid_date" currentField={sort.field} currentDirection={sort.direction} onSort={sort.toggleSort} />
@@ -397,6 +401,9 @@ const Payments = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-semibold">{formatINR(payment.amount)}</TableCell>
+                        <TableCell>
+                          {payment.invoice_date ? format(new Date(payment.invoice_date), "MMM d, yyyy") : "—"}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {format(new Date(payment.due_date), "MMM d, yyyy")}
@@ -501,6 +508,11 @@ const Payments = () => {
                         {formatBillingMonth(payment.billing_month, payment.due_date)}
                       </Badge>
                     </div>
+                    {payment.invoice_date && (
+                      <div className="text-xs text-muted-foreground mb-1">
+                        Invoice: {format(new Date(payment.invoice_date), "MMM d, yyyy")}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
                       <span className="flex items-center gap-1">
                         Due: {format(new Date(payment.due_date), "MMM d, yyyy")}
