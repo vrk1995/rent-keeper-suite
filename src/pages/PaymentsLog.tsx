@@ -173,6 +173,20 @@ export default function PaymentsLog() {
                 onChange={(e) => setDateTo(e.target.value)}
               />
             </div>
+            <div className="sm:w-52">
+              <SearchableSelect
+                options={[
+                  { value: "date_desc", label: "Date (newest)" },
+                  { value: "date_asc", label: "Date (oldest)" },
+                  { value: "amount_desc", label: "Amount (high to low)" },
+                  { value: "amount_asc", label: "Amount (low to high)" },
+                  { value: "title_asc", label: "Title (A–Z)" },
+                ]}
+                value={sortBy}
+                onValueChange={setSortBy}
+                placeholder="Sort by"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
