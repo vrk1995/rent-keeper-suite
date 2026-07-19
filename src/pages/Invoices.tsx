@@ -54,6 +54,7 @@ const Invoices = () => {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("invoice_desc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
   const [selectedTenant, setSelectedTenant] = useState("");
