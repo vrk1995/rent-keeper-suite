@@ -20,6 +20,8 @@ import AdminApprovals from "@/pages/AdminApprovals";
 import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
 import { FinancialYearProvider } from "@/contexts/FinancialYearContext";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
+import ProductTour from "@/components/onboarding/ProductTour";
+import HelpChat from "@/components/onboarding/HelpChat";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
