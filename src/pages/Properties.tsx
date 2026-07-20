@@ -49,8 +49,9 @@ const Properties = () => {
   const deleteUnit = useDeleteUnit();
   const { isAdmin } = useIsAdmin();
   
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
