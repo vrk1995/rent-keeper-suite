@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Plus, Search, Building2, IndianRupee, TrendingUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
