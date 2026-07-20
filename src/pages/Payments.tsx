@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { CreditCard, CheckCircle, Clock, AlertCircle, Building2, RefreshCw, FileText, Loader2, Calendar, Receipt, Users, Search, Pencil, IndianRupee } from "lucide-react";
@@ -80,9 +81,10 @@ const Payments = () => {
   const { propertyOptions, tenantOptions } = useFilterOptions();
   const generatePayments = useGenerateMonthlyPayments();
   const [searchQuery, setSearchQuery] = useState("");
-  const [propertyFilter, setPropertyFilter] = useState<string>("all");
-  const [tenantFilter, setTenantFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchParams] = useSearchParams();
+  const [propertyFilter, setPropertyFilter] = useState<string>(() => searchParams.get("property") || "all");
+  const [tenantFilter, setTenantFilter] = useState<string>(() => searchParams.get("tenant") || "all");
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") || "all");
   const sort = useSortState<"property" | "tenant" | "invoice" | "amount" | "invoice_date" | "due_date" | "paid_date">("due_date", "desc");
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null);
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false);
