@@ -54,10 +54,11 @@ const Invoices = () => {
   const { propertyOptions, tenantOptions, properties, tenants } = useFilterOptions();
   const createInvoice = useCreateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [propertyFilter, setPropertyFilter] = useState<string>("all");
-  const [tenantFilter, setTenantFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [propertyFilter, setPropertyFilter] = useState<string>(() => searchParams.get("property") || "all");
+  const [tenantFilter, setTenantFilter] = useState<string>(() => searchParams.get("tenant") || "all");
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") || "all");
   const sort = useSortState<"invoice" | "property" | "tenant" | "amount" | "due_date">("invoice", "desc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState("");
