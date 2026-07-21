@@ -34,6 +34,7 @@ import {
   History,
   Copy,
   FileSignature,
+  Percent,
 } from "lucide-react";
 import { Tenant } from "@/hooks/useTenants";
 import { useQuery } from "@tanstack/react-query";
@@ -52,6 +53,7 @@ import { paymentStatusConfig, invoiceStatusConfig } from "@/lib/statusConfig";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { useIsAdmin } from "@/hooks/useTeam";
 import { ActivityLogList } from "@/components/activity/ActivityLogList";
+import { GstTdsLedgerPanel } from "@/components/ledger/GstTdsLedgerPanel";
 
 interface TenantDetailSheetProps {
   tenant: Tenant | null;
@@ -289,7 +291,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
 
           <div className="p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="payments" className="text-xs sm:text-sm">
                   <CreditCard className="w-3 h-3 mr-1 hidden sm:inline" />
                   Payments
@@ -301,6 +303,10 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                 <TabsTrigger value="ledger" className="text-xs sm:text-sm">
                   <IndianRupee className="w-3 h-3 mr-1 hidden sm:inline" />
                   Ledger
+                </TabsTrigger>
+                <TabsTrigger value="gst-tds" className="text-xs sm:text-sm">
+                  <Percent className="w-3 h-3 mr-1 hidden sm:inline" />
+                  GST/TDS
                 </TabsTrigger>
                 <TabsTrigger value="config" className="text-xs sm:text-sm">
                   <Settings className="w-3 h-3 mr-1 hidden sm:inline" />
@@ -476,6 +482,11 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                     </Table>
                   </div>
                 )}
+              </TabsContent>
+
+              {/* GST/TDS Tab */}
+              <TabsContent value="gst-tds" className="mt-4">
+                <GstTdsLedgerPanel scope={{ tenantId: tenant.id }} entityLabel={tenant.name} />
               </TabsContent>
 
               {/* Details/Config Tab */}

@@ -16,6 +16,7 @@ import Documents from "@/pages/Documents";
 import Reminders from "@/pages/Reminders";
 import Team from "@/pages/Team";
 import BillingAddresses from "@/pages/BillingAddresses";
+import GstTdsReports from "@/pages/GstTdsReports";
 import AdminApprovals from "@/pages/AdminApprovals";
 import { OwnerFilterProvider } from "@/contexts/OwnerFilterContext";
 import { FinancialYearProvider } from "@/contexts/FinancialYearContext";
@@ -73,6 +74,7 @@ const Dashboard = () => {
     if (path === "/dashboard/reminders") return <Reminders />;
     if (path === "/dashboard/team") return <Team />;
     if (path === "/dashboard/billing-addresses") return <BillingAddresses />;
+    if (path === "/dashboard/gst-tds") return <GstTdsReports />;
     if (path === "/dashboard/admin" && isSuperAdmin) return <AdminApprovals />;
     return <DashboardOverview />;
   };

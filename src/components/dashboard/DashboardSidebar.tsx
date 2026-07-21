@@ -13,6 +13,7 @@ import {
   Receipt,
   CreditCard,
   ShieldCheck,
+  Percent,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
@@ -28,6 +29,7 @@ const navItems = [
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders", tour: "reminders" },
   { icon: UserCog, label: "Team", href: "/dashboard/team", tour: "team" },
   { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses", tour: "billing" },
+  { icon: Percent, label: "GST/TDS", href: "/dashboard/gst-tds", tour: "gst-tds" },
 ];
 
 const DashboardSidebar = () => {

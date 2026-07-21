@@ -13,6 +13,7 @@ import {
   Receipt,
   CreditCard,
   ShieldCheck,
+  Percent,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const moreNavItems = [
   { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
   { icon: UserCog, label: "Team", href: "/dashboard/team" },
   { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses" },
+  { icon: Percent, label: "GST/TDS", href: "/dashboard/gst-tds" },
 ];
 
 const MobileBottomNav = () => {
