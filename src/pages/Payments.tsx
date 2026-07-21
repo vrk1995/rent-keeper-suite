@@ -450,7 +450,7 @@ const Payments = () => {
                             )}
                             Invoice
                           </Button>
-                          {(payment.status === "paid" || payment.status === "partial") && (
+                          {(payment.status === "paid" || payment.paid_amount > 0) && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -468,7 +468,7 @@ const Payments = () => {
                               onClick={() => handleMarkPaid(payment)}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              {payment.status === "partial" ? "Record Another Payment" : "Record Payment"}
+                              {payment.paid_amount > 0 ? "Record Another Payment" : "Record Payment"}
                             </Button>
                           )}
                         </TableCell>
@@ -552,7 +552,7 @@ const Payments = () => {
                         )}
                         Invoice
                       </Button>
-                      {(payment.status === "paid" || payment.status === "partial") && (
+                      {(payment.status === "paid" || payment.paid_amount > 0) && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -572,7 +572,7 @@ const Payments = () => {
                           onClick={() => handleMarkPaid(payment)}
                         >
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          {payment.status === "partial" ? "Record Another Payment" : "Record Payment"}
+                          {payment.paid_amount > 0 ? "Record Another Payment" : "Record Payment"}
                         </Button>
                       )}
                     </div>

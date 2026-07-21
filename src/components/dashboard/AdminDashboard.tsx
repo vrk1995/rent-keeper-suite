@@ -69,10 +69,14 @@ const AdminDashboard = () => {
     const monthlyExpected = activeTenants.reduce((s, t) => s + (t.monthly_rent || 0), 0);
     const overdue = payments.filter((p) => p.status === "overdue");
     const pending = payments.filter((p) => p.status === "pending");
-    const paid = payments.filter((p) => p.status === "paid");
-    const partial = payments.filter((p) => p.status === "partial");
     const overdueAmt = overdue.reduce((s, p) => s + (p.amount - (p.paid_amount || 0)), 0);
-    const collectedAmt = paid.reduce((s, p) => s + (p.paid_amount || p.amount), 0) + partial.reduce((s, p) => s + (p.paid_amount || 0), 0);
+    // Collected money is tracked by paid_amount regardless of status label — a partial
+    // payment whose due date has since passed becomes "overdue" for its remaining balance,
+    // but the portion already received must still count towards what's been collected.
+    const collectedAmt = payments.reduce(
+      (s, p) => s + (p.paid_amount || (p.status === "paid" ? p.amount : 0)),
+      0
+    );
     const totalDue = payments.reduce((s, p) => s + p.amount, 0);
     const collectionRate = totalDue > 0 ? Math.round((collectedAmt / totalDue) * 100) : 0;
 
@@ -100,9 +104,7 @@ const AdminDashboard = () => {
       const propPayments = payments.filter((p) => p.property_id === prop.id);
       const overdue = propPayments.filter((p) => p.status === "overdue");
       const overdueAmt = overdue.reduce((s, p) => s + (p.amount - (p.paid_amount || 0)), 0);
-      const collected = propPayments
-        .filter((p) => p.status === "paid" || p.status === "partial")
-        .reduce((s, p) => s + (p.paid_amount || 0), 0);
+      const collected = propPayments.reduce((s, p) => s + (p.paid_amount || 0), 0);
       return {
         id: prop.id,
         name: prop.name,

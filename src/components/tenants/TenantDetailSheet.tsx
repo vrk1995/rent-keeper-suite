@@ -359,7 +359,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                                 {loadingId === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3 mr-1" />}
                                 Invoice
                               </Button>
-                              {(payment.status === "paid" || payment.status === "partial") && (
+                              {(payment.status === "paid" || payment.paid_amount > 0) && (
                                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownloadReceipt(payment.id)} disabled={loadingId === payment.id}>
                                   {loadingId === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3 mr-1" />}
                                   Receipt
@@ -369,7 +369,7 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
                               {payment.status !== "paid" && (
                                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setMarkPaidPayment(payment)}>
                                   <CheckCircle className="w-3 h-3 mr-1" />
-                                  {payment.status === "partial" ? "More" : "Receive"}
+                                  {payment.paid_amount > 0 ? "More" : "Receive"}
                                 </Button>
                               )}
                             </div>
