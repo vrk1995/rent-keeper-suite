@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { format, differenceInDays, addDays } from "date-fns";
+import { getISTToday } from "@/lib/istDate";
 import { TrendingUp, Plus, Trash2, History, CalendarIcon, Check, IndianRupee, Percent, Repeat, Zap } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -161,7 +162,7 @@ const RentIncrementDialog = ({ open, onOpenChange, tenantId, tenantName, current
               )}
 
               {increments.map((inc) => {
-                const daysUntil = differenceInDays(new Date(inc.next_increment_date), new Date());
+                const daysUntil = differenceInDays(new Date(inc.next_increment_date), getISTToday());
                 const newRent = previewNewRent(inc.increment_type, inc.increment_value);
                 return (
                   <div key={inc.id} className="border rounded-lg p-3 space-y-2">

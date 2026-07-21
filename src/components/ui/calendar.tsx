@@ -4,6 +4,7 @@ import { DayPicker } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { getISTToday } from "@/lib/istDate";
 import {
   Select,
   SelectContent,
@@ -15,10 +16,10 @@ import {
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
-  const [month, setMonth] = React.useState<Date>(props.month || props.selected as Date || new Date());
+  const [month, setMonth] = React.useState<Date>(props.month || props.selected as Date || getISTToday());
 
   const years = React.useMemo(() => {
-    const currentYear = new Date().getFullYear();
+    const currentYear = getISTToday().getFullYear();
     const startYear = currentYear - 100;
     const endYear = currentYear + 10;
     return Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
@@ -44,6 +45,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      today={getISTToday()}
       month={month}
       onMonthChange={setMonth}
       className={cn("p-3 pointer-events-auto", className)}

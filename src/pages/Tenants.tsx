@@ -19,6 +19,7 @@ import AddTenantDialog from "@/components/tenants/AddTenantDialog";
 import TenantDetailSheet from "@/components/tenants/TenantDetailSheet";
 import RentIncrementDialog from "@/components/tenants/RentIncrementDialog";
 import { formatINR } from "@/lib/currency";
+import { getISTToday } from "@/lib/istDate";
 import { useOwnerFilter } from "@/contexts/OwnerFilterContext";
 import {
   AlertDialog,
@@ -125,7 +126,7 @@ const Tenants = () => {
 
   const getLeaseStatus = (tenant: Tenant) => {
     if (tenant.status === "vacated") return { label: "Vacated", variant: "secondary" as const };
-    const daysLeft = differenceInDays(new Date(tenant.lease_end_date), new Date());
+    const daysLeft = differenceInDays(new Date(tenant.lease_end_date), getISTToday());
     if (daysLeft < 0) return { label: "Expired", variant: "destructive" as const };
     if (daysLeft <= 30) return { label: `${daysLeft}d left`, variant: "secondary" as const };
     return { label: "Active", variant: "glow" as const };

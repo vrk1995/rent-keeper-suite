@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, differenceInDays, isToday, isTomorrow } from "date-fns";
+import { format, differenceInDays, isSameDay, addDays } from "date-fns";
 import {
   AlertCircle,
   Clock,
@@ -23,12 +23,14 @@ import { useInvoices } from "@/hooks/useInvoices";
 import { formatINR, formatINRCompact } from "@/lib/currency";
 import { occupancyStatusConfig } from "@/lib/statusConfig";
 import { MarkPaidDialog } from "@/components/payments/MarkPaidDialog";
+import { getISTToday } from "@/lib/istDate";
 
 const getDueDateLabel = (dueDate: string) => {
   const date = new Date(dueDate);
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
-  const days = differenceInDays(date, new Date());
+  const today = getISTToday();
+  if (isSameDay(date, today)) return "Today";
+  if (isSameDay(date, addDays(today, 1))) return "Tomorrow";
+  const days = differenceInDays(date, today);
   if (days < 0) return `${Math.abs(days)}d overdue`;
   return `In ${days}d`;
 };
@@ -46,7 +48,7 @@ const MemberDashboard = () => {
   const refetchAll = () => { rp(); rt(); rpay(); };
 
   const data = useMemo(() => {
-    const now = new Date();
+    const now = getISTToday();
     const overdue = payments
       .filter((p) => p.status === "overdue")
       .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());

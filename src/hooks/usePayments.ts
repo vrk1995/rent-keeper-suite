@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinancialYear } from "@/contexts/FinancialYearContext";
+import { getISTToday } from "@/lib/istDate";
 import { toast } from "sonner";
 
 export interface RentPayment {
@@ -234,7 +235,7 @@ export const useGenerateMonthlyPayments = () => {
 
   return useMutation({
     mutationFn: async ({ year, month }: { year: number; month: number }) => {
-      const now = new Date();
+      const now = getISTToday();
       const billingMonth = `${year}-${String(month).padStart(2, '0')}`;
 
       // Get active tenants
@@ -356,7 +357,7 @@ export const useRevertPaymentToUnpaid = () => {
         .single();
       if (fetchError) throw fetchError;
 
-      const status = new Date(existing.due_date) < new Date() ? "overdue" : "pending";
+      const status = new Date(existing.due_date) < getISTToday() ? "overdue" : "pending";
 
       // Clear the installment history too — undo is meant to fully wipe the recorded
       // receipt(s) so the payment can be recorded again from scratch.
