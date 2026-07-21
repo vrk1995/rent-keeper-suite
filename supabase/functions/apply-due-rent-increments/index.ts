@@ -92,6 +92,7 @@ serve(async (req: Request): Promise<Response> => {
 
         const { error: histError } = await supabase.from("rent_increment_history").insert({
           tenant_id: inc.tenant_id,
+          workspace_id: tenant.workspace_id,
           previous_rent: currentRent,
           new_rent: newRent,
           increment_type: inc.increment_type,
