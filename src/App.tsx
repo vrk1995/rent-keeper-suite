@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import SetPassword from "./pages/SetPassword";
 import NotFound from "./pages/NotFound";
+import Unsubscribe from "./pages/Unsubscribe";
 import { supabase } from "@/integrations/supabase/client";
 import { getCanonicalCallbackUrl, getCanonicalHashRouteUrl, isCanonicalAppHost } from "@/lib/authRedirect";
 import { useEdgeSwipeToClose } from "@/hooks/useEdgeSwipeToClose";
@@ -112,6 +113,7 @@ const AppRoutes = () => {
         <Route path="/set-password" element={<SetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/*" element={<Dashboard />} />
+        <Route path="/unsubscribe" element={<Unsubscribe />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

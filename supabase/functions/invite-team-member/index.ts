@@ -140,12 +140,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Send branded invite email (best-effort; do not fail the invite on email errors)
+    let emailSent = false;
+    let emailError: string | null = null;
+    try {
+      const { data: ws } = await admin
+        .from("workspaces")
+        .select("name")
+        .eq("id", callerWorkspaceId)
+        .maybeSingle();
+
+      const { error: sendErr } = await admin.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "team-invite",
+          recipientEmail: email,
+          idempotencyKey: `team-invite-${await sha256(inviteToken)}`,
+          templateData: {
+            inviteeName: fullName || null,
+            inviterName: invitedByName,
+            workspaceName: (ws as any)?.name || "Rent Keeper",
+            role,
+            inviteLink,
+            expiresInDays: INVITE_LINK_EXPIRY_DAYS,
+          },
+        },
+      });
+      if (sendErr) {
+        emailError = sendErr.message ?? String(sendErr);
+        console.error("Failed to send invite email", sendErr);
+      } else {
+        emailSent = true;
+      }
+    } catch (e: any) {
+      emailError = e?.message ?? "Unknown error sending email";
+      console.error("Invite email send threw", e);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         user_id: null,
         invited: true,
-        setup_email_sent: false,
+        setup_email_sent: emailSent,
+        email_error: emailError,
         invite_link: inviteLink,
         expires_at: expiresAt,
       }),
