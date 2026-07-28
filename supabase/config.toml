@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.invite-team-member]
 verify_jwt = true
+
+[functions.process-email-queue]
+verify_jwt = true
