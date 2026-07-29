@@ -1,31 +1,25 @@
 project_id = "lqwsnhjavgdrfuzgdywy"
 
-[functions.generate-invoice-pdf]
-verify_jwt = false
-
-[functions.generate-daily-invoices]
-verify_jwt = false
-
-[functions.apply-due-rent-increments]
-verify_jwt = false
-
-[functions.invite-team-member]
-verify_jwt = true
-
-[functions.process-email-queue]
-verify_jwt = true
-
-[functions.send-transactional-email]
-verify_jwt = true
-
-[functions.preview-transactional-email]
-verify_jwt = false
-
-[functions.handle-email-unsubscribe]
-verify_jwt = false
-
-[functions.handle-email-suppression]
-verify_jwt = false
-
-[functions.send-payment-reminders]
-verify_jwt = false
+[functions]
+  [functions.apply-due-rent-increments]
+    verify_jwt = false
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.generate-daily-invoices]
+    verify_jwt = false
+  [functions.generate-invoice-pdf]
+    verify_jwt = false
+  [functions.handle-email-suppression]
+    verify_jwt = false
+  [functions.handle-email-unsubscribe]
+    verify_jwt = false
+  [functions.invite-team-member]
+    verify_jwt = true
+  [functions.preview-transactional-email]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.send-payment-reminders]
+    verify_jwt = false
+  [functions.send-transactional-email]
+    verify_jwt = true
