@@ -110,7 +110,9 @@ const SetPassword = () => {
   if (!ready) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Verifying your invitation…</p>
+        <p className="text-muted-foreground">
+          {inviteToken ? "Verifying your invitation…" : "Verifying your reset link…"}
+        </p>
       </div>
     );
   }
@@ -133,15 +135,19 @@ const SetPassword = () => {
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-display font-bold">Join RentKeeper</h1>
+              <h1 className="text-2xl font-display font-bold">
+                {inviteToken ? "Join RentKeeper" : "Reset your password"}
+              </h1>
               <p className="text-sm text-muted-foreground">{email}</p>
             </div>
           </div>
 
           <p className="mb-6 text-sm text-muted-foreground">
-            {invitedBy
-              ? `${invitedBy} has invited you to sign up on RentKeeper.`
-              : "You have been invited to sign up on RentKeeper."}
+            {inviteToken
+              ? invitedBy
+                ? `${invitedBy} has invited you to sign up on RentKeeper.`
+                : "You have been invited to sign up on RentKeeper."
+              : "Choose a new password for your RentKeeper account."}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -186,7 +192,7 @@ const SetPassword = () => {
               />
             </div>
             <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
-              {loading ? "Saving…" : "Set Password & Continue"}
+              {loading ? "Saving…" : inviteToken ? "Set Password & Continue" : "Update Password"}
             </Button>
           </form>
         </div>
