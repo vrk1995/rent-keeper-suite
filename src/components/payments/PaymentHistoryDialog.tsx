@@ -7,17 +7,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Receipt, FileText, Loader2, History } from "lucide-react";
+import { Receipt, FileText, Loader2, History, Pencil, Undo2 } from "lucide-react";
 import { RentPayment } from "@/hooks/usePayments";
-import { usePaymentTransactions } from "@/hooks/usePaymentTransactions";
+import { PaymentTransaction, usePaymentTransactions, useDeletePaymentTransaction } from "@/hooks/usePaymentTransactions";
+import { EditPaymentTransactionDialog } from "@/components/payments/EditPaymentTransactionDialog";
 import { usePdfPreview } from "@/hooks/usePdfPreview";
 import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { ActivityLogList } from "@/components/activity/ActivityLogList";
 import { formatINR } from "@/lib/currency";
 import { formatIST } from "@/lib/dateFormat";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsAdmin } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 
 interface PaymentHistoryDialogProps {
@@ -35,9 +47,13 @@ const methodLabels: Record<string, string> = {
 };
 
 export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHistoryDialogProps) {
+  const { isAdmin } = useIsAdmin();
   const { data: transactions, isLoading } = usePaymentTransactions(open ? payment?.id : undefined);
   const { preview, loadingId, openReceipt, openStatement, refreshPreview, closePreview } = usePdfPreview();
+  const deleteTransaction = useDeletePaymentTransaction();
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<PaymentTransaction | null>(null);
+  const [undoingTransaction, setUndoingTransaction] = useState<PaymentTransaction | null>(null);
 
   const recorderIds = Array.from(new Set((transactions || []).map((t) => t.created_by).filter(Boolean))) as string[];
   const { data: recorderProfiles } = useQuery({
@@ -71,6 +87,21 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
     openStatement(payment.id).catch((err: Error) =>
       toast.error("Couldn't open statement: " + err.message)
     );
+  };
+
+  const handleConfirmUndo = async () => {
+    if (!undoingTransaction) return;
+    try {
+      await deleteTransaction.mutateAsync({
+        id: undoingTransaction.id,
+        rent_payment_id: undoingTransaction.rent_payment_id,
+      });
+      toast.success("Receipt undone — the payment's totals have been recalculated.");
+    } catch (err) {
+      toast.error("Failed to undo receipt: " + (err as Error).message);
+    } finally {
+      setUndoingTransaction(null);
+    }
   };
 
   return (
@@ -142,22 +173,43 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
                       )}
                       {t.notes && <p className="text-xs text-muted-foreground mt-1">{t.notes}</p>}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() => handleInstallmentReceipt(t.id)}
-                      disabled={loadingId === payment?.id}
-                    >
-                      {loadingId === payment?.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Receipt className="h-4 w-4 mr-1" />
-                          Receipt
-                        </>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleInstallmentReceipt(t.id)}
+                        disabled={loadingId === payment?.id}
+                      >
+                        {loadingId === payment?.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Receipt className="h-4 w-4 mr-1" />
+                            Receipt
+                          </>
+                        )}
+                      </Button>
+                      {isAdmin && (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Edit this receipt"
+                            onClick={() => setEditingTransaction(t)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Undo this receipt"
+                            onClick={() => setUndoingTransaction(t)}
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
-                    </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -188,6 +240,30 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
       </Dialog>
 
       <PdfPreviewDialog preview={preview} onClose={closePreview} onRefresh={refreshPreview} />
+
+      <EditPaymentTransactionDialog
+        transaction={editingTransaction}
+        open={!!editingTransaction}
+        onOpenChange={(o) => !o && setEditingTransaction(null)}
+      />
+
+      <AlertDialog open={!!undoingTransaction} onOpenChange={(o) => !o && setUndoingTransaction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Undo This Receipt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes just this one installment
+              {undoingTransaction ? ` (${formatINR(Number(undoingTransaction.amount))}, ${format(new Date(undoingTransaction.paid_date), "PPP")})` : ""}
+              . The payment's total received and status are recalculated from whatever's left —
+              every other installment recorded against this month's rent is untouched.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmUndo}>Undo Receipt</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
