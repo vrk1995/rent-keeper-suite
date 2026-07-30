@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import { authorizePropertyAccess } from "../_shared/authorizeCaller.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +75,9 @@ serve(async (req: Request): Promise<Response> => {
 
     const tenant = payment.tenant;
     const property = payment.property;
+
+    const authError = await authorizePropertyAccess(req, supabaseUrl, supabaseServiceKey, property?.id);
+    if (authError) return authError;
 
     // Billing details (bank/PAN/GSTIN/corp numbers/owner split) as they stand RIGHT NOW —
     // used only to create a NEW invoice's snapshot, or to backfill an old invoice that

@@ -74,6 +74,16 @@ const SetPassword = () => {
         });
         if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
 
+        // An email that already had an account keeps its existing password — the invite only
+        // grants it access to this workspace, it can't be used to reset someone else's login.
+        if ((data as any)?.account_already_existed) {
+          toast.success("Access granted!", {
+            description: "This email already has an account — log in with your existing password.",
+          });
+          navigate("/auth");
+          return;
+        }
+
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,

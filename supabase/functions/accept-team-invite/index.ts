@@ -82,19 +82,13 @@ Deno.serve(async (req) => {
     const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const existing = list?.users?.find((u: any) => (u.email ?? "").toLowerCase() === email);
 
+    // This email already having an account is never allowed to reset that account's password
+    // or overwrite its profile — otherwise a stray or malicious invite sent to a known email
+    // could be used to take it over. An existing account just gets the invite's workspace
+    // role/access below; it keeps its own password and can log in with that as usual.
+    const accountAlreadyExisted = !!existing;
     let userId = existing?.id as string | undefined;
-    if (userId) {
-      const { error } = await admin.auth.admin.updateUserById(userId, {
-        password,
-        email_confirm: true,
-        user_metadata: {
-          ...(existing.user_metadata ?? {}),
-          full_name: fullName,
-          invited_workspace_id: invite.workspace_id,
-        },
-      });
-      if (error) throw error;
-    } else {
+    if (!userId) {
       const { data: created, error } = await admin.auth.admin.createUser({
         email,
         password,
@@ -106,12 +100,12 @@ Deno.serve(async (req) => {
       });
       if (error || !created.user) throw error ?? new Error("Could not create user");
       userId = created.user.id;
-    }
 
-    await admin.from("profiles").upsert(
-      { user_id: userId, full_name: fullName, is_approved: true },
-      { onConflict: "user_id" },
-    );
+      await admin.from("profiles").upsert(
+        { user_id: userId, full_name: fullName, is_approved: true },
+        { onConflict: "user_id" },
+      );
+    }
 
     // Remove any prior role in this specific workspace, then insert the invite's role.
     await admin
@@ -145,10 +139,14 @@ Deno.serve(async (req) => {
 
     await admin.from("team_invites").update({ accepted_at: new Date().toISOString() }).eq("id", invite.id);
 
-    return new Response(JSON.stringify({ success: true, email }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        email,
+        account_already_existed: accountAlreadyExisted,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e?.message ?? "Unknown error" }), {
       status: 500,

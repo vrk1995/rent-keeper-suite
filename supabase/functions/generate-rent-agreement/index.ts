@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authorizePropertyAccess } from "../_shared/authorizeCaller.ts";
 import {
   Document,
   Packer,
@@ -479,6 +480,9 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const property = tenant.property;
+
+    const authError = await authorizePropertyAccess(req, supabaseUrl, supabaseServiceKey, property?.id);
+    if (authError) return authError;
 
     const savedLandlords: any[] = Array.isArray(property?.agreement_landlords) ? property.agreement_landlords : [];
     let landlords: Party[];

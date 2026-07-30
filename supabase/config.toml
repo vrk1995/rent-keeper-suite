@@ -8,7 +8,11 @@ project_id = "lqwsnhjavgdrfuzgdywy"
   [functions.generate-daily-invoices]
     verify_jwt = false
   [functions.generate-invoice-pdf]
-    verify_jwt = false
+    verify_jwt = true
+  [functions.generate-receipt-pdf]
+    verify_jwt = true
+  [functions.generate-rent-agreement]
+    verify_jwt = true
   [functions.handle-email-suppression]
     verify_jwt = false
   [functions.handle-email-unsubscribe]

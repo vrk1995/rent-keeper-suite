@@ -75,6 +75,9 @@ Deno.serve(async (req) => {
     }
 
     const callerWorkspaceId = (callerRoles ?? [])[0]?.workspace_id;
+    const callerIsSuperAdmin = (callerRoles ?? []).some(
+      (r: any) => r.role === "super_admin" && r.workspace_id === callerWorkspaceId
+    );
     if (!callerWorkspaceId) {
       return new Response(JSON.stringify({ error: "No workspace found for inviter" }), {
         status: 400,
@@ -92,6 +95,15 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Only a super admin may create another admin — an ordinary admin (even an unrestricted
+    // one) inviting someone as "admin" would let that new account mint further admins in turn.
+    if (role === "admin" && !callerIsSuperAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Only a super admin can invite someone as an admin" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // A property-scoped admin can never grant broader access than their own: any requested
