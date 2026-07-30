@@ -23,6 +23,7 @@ import { FinancialYearProvider } from "@/contexts/FinancialYearContext";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
 import ProductTour from "@/components/onboarding/ProductTour";
 import HelpChat from "@/components/onboarding/HelpChat";
+import { useCrossTabAuthSync } from "@/hooks/useCrossTabAuthSync";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -33,25 +34,45 @@ const Dashboard = () => {
   const location = useLocation();
   const { isSuperAdmin, isLoading: superAdminLoading } = useIsSuperAdmin();
 
+  useCrossTabAuthSync();
+
   useEffect(() => {
+    let active = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!active) return;
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        if (!session) navigate("/auth");
+        // Only bounce to /auth on an explicit sign-out. A transient null
+        // session (e.g. token refresh in another tab) must not log the user out.
+        if (!session && event === "SIGNED_OUT") navigate("/auth");
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      let current = session;
+      if (!current) {
+        // Give the client a moment to hydrate/refresh from localStorage
+        // (another tab may have just rotated the token).
+        await new Promise((r) => setTimeout(r, 400));
+        const { data } = await supabase.auth.getSession();
+        current = data.session;
+      }
+      if (!active) return;
+      setSession(current);
+      setUser(current?.user ?? null);
       setLoading(false);
-      if (!session) navigate("/auth");
+      if (!current) navigate("/auth");
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
+
 
   if (loading || superAdminLoading) {
     return (
