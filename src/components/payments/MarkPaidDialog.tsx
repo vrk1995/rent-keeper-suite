@@ -62,6 +62,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [paymentType, setPaymentType] = useState<"full" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const markPaid = useMarkPaymentPaid();
   const createTransaction = useCreatePaymentTransaction();
   const { preview, openReceipt, refreshPreview, closePreview } = usePdfPreview();
@@ -86,55 +87,63 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const isFullyPaid = newTotalPaid >= totalDue;
 
   const handleSubmit = async () => {
-    if (!payment) return;
+    // Guards the whole submission, not just one of its two sequential mutations — a second
+    // click while the first is still creating the transaction (before markPaid even starts,
+    // so markPaid.isPending is still false) would otherwise record the same payment twice.
+    if (!payment || isSubmitting) return;
 
     if (paymentType === "partial" && (grossSettled <= 0 || grossSettled > remainingDue)) {
       toast.error(`Please enter an amount between 1 and ${formatINR(remainingDue)}`);
       return;
     }
 
-    // Record THIS installment as its own history entry first, so nothing is lost even if the
-    // running-total update below fails. Each entry keeps its own date/amount/method.
-    let transactionId: string | undefined;
+    setIsSubmitting(true);
     try {
-      const txn = await createTransaction.mutateAsync({
-        rent_payment_id: payment.id,
-        amount: grossSettled,
-        tds_amount: tdsAmount,
-        received_amount: receivedAmount,
+      // Record THIS installment as its own history entry first, so nothing is lost even if the
+      // running-total update below fails. Each entry keeps its own date/amount/method.
+      let transactionId: string | undefined;
+      try {
+        const txn = await createTransaction.mutateAsync({
+          rent_payment_id: payment.id,
+          amount: grossSettled,
+          tds_amount: tdsAmount,
+          received_amount: receivedAmount,
+          paid_date: format(paidDate, "yyyy-MM-dd"),
+          payment_method: paymentMethod,
+          notes: notes.trim() || undefined,
+        });
+        transactionId = txn.id;
+      } catch (err) {
+        console.error("Failed to record payment installment:", err);
+        toast.error("Failed to record payment: " + (err as Error).message);
+        return;
+      }
+
+      await markPaid.mutateAsync({
+        id: payment.id,
         paid_date: format(paidDate, "yyyy-MM-dd"),
         payment_method: paymentMethod,
         notes: notes.trim() || undefined,
+        paid_amount: newTotalPaid,
+        status: isFullyPaid ? "paid" : "partial",
+        tds_applicable: tdsApplicable,
+        tds_amount: tdsAmount,
       });
-      transactionId = txn.id;
-    } catch (err) {
-      console.error("Failed to record payment installment:", err);
-      toast.error("Failed to record payment: " + (err as Error).message);
-      return;
+
+      // Generate a receipt for THIS installment specifically.
+      try {
+        await openReceipt(payment.id, transactionId);
+        toast.success("Payment recorded!");
+      } catch (err: any) {
+        console.error("Receipt generation error:", err);
+        toast.info("Payment recorded. Receipt could not be generated.");
+      }
+
+      onOpenChange(false);
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
     }
-
-    await markPaid.mutateAsync({
-      id: payment.id,
-      paid_date: format(paidDate, "yyyy-MM-dd"),
-      payment_method: paymentMethod,
-      notes: notes.trim() || undefined,
-      paid_amount: newTotalPaid,
-      status: isFullyPaid ? "paid" : "partial",
-      tds_applicable: tdsApplicable,
-      tds_amount: tdsAmount,
-    });
-
-    // Generate a receipt for THIS installment specifically.
-    try {
-      await openReceipt(payment.id, transactionId);
-      toast.success("Payment recorded!");
-    } catch (err: any) {
-      console.error("Receipt generation error:", err);
-      toast.info("Payment recorded. Receipt could not be generated.");
-    }
-
-    onOpenChange(false);
-    resetForm();
   };
 
   const resetForm = () => {
@@ -333,9 +342,9 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={markPaid.isPending || (paymentType === "partial" && (grossSettled <= 0 || grossSettled > remainingDue))}
+            disabled={isSubmitting || (paymentType === "partial" && (grossSettled <= 0 || grossSettled > remainingDue))}
           >
-            {markPaid.isPending ? "Saving..." : `Record ${formatINR(receivedAmount)}`}
+            {isSubmitting ? "Saving..." : `Record ${formatINR(receivedAmount)}`}
           </Button>
         </DialogFooter>
       </DialogContent>
