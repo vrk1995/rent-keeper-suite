@@ -23,6 +23,7 @@ import { FinancialYearProvider } from "@/contexts/FinancialYearContext";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
 import ProductTour from "@/components/onboarding/ProductTour";
 import HelpChat from "@/components/onboarding/HelpChat";
+import { useCrossTabAuthSync } from "@/hooks/useCrossTabAuthSync";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
