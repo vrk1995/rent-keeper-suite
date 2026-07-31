@@ -14,6 +14,7 @@ import {
   CreditCard,
   ShieldCheck,
   Percent,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
@@ -30,6 +31,7 @@ const navItems = [
   { icon: UserCog, label: "Team", href: "/dashboard/team", tour: "team" },
   { icon: Receipt, label: "Billing", href: "/dashboard/billing-addresses", tour: "billing" },
   { icon: Percent, label: "GST/TDS", href: "/dashboard/gst-tds", tour: "gst-tds" },
+  { icon: Plug, label: "Integrations", href: "/dashboard/integrations", tour: "integrations" },
 ];
 
 const DashboardSidebar = () => {
