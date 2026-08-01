@@ -108,25 +108,30 @@ Deno.serve(async (req) => {
 
     // A property-scoped admin can never grant broader access than their own: any requested
     // properties must be within their scope, and inviting with no explicit selection
-    // defaults to their own scope rather than to unrestricted access.
-    const { data: callerAccess } = await admin
-      .from("user_property_access")
-      .select("property_id")
-      .eq("user_id", userData.user.id)
-      .eq("workspace_id", callerWorkspaceId);
-
-    const callerScope = (callerAccess ?? []).map((r: any) => r.property_id as string);
+    // defaults to their own scope rather than to unrestricted access. Super admins are always
+    // unrestricted (same rule has_property_access() applies everywhere else) regardless of
+    // whatever rows they might happen to have in user_property_access.
     let invitePropertyIds: string[] | null = requestedPropertyIds.length > 0 ? requestedPropertyIds : null;
 
-    if (callerScope.length > 0) {
-      const outOfScope = requestedPropertyIds.filter((id) => !callerScope.includes(id));
-      if (outOfScope.length > 0) {
-        return new Response(
-          JSON.stringify({ error: "You can only grant access to properties you have access to" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (!callerIsSuperAdmin) {
+      const { data: callerAccess } = await admin
+        .from("user_property_access")
+        .select("property_id")
+        .eq("user_id", userData.user.id)
+        .eq("workspace_id", callerWorkspaceId);
+
+      const callerScope = (callerAccess ?? []).map((r: any) => r.property_id as string);
+
+      if (callerScope.length > 0) {
+        const outOfScope = requestedPropertyIds.filter((id) => !callerScope.includes(id));
+        if (outOfScope.length > 0) {
+          return new Response(
+            JSON.stringify({ error: "You can only grant access to properties you have access to" }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        invitePropertyIds = requestedPropertyIds.length > 0 ? requestedPropertyIds : callerScope;
       }
-      invitePropertyIds = requestedPropertyIds.length > 0 ? requestedPropertyIds : callerScope;
     }
 
     const inviteToken = generateToken();
