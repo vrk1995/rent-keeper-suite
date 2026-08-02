@@ -40,13 +40,27 @@ const SITE_NAME = "Rent Keeper Suite"
 const SENDER_DOMAIN = "renter.sahistartup.com"
 const ROOT_DOMAIN = "sahistartup.com"
 const FROM_DOMAIN = "renter.sahistartup.com" // Domain shown in From address (may be root or sender subdomain)
+const CANONICAL_APP_URL = "https://terntripsindia.in"
+
+// Replace the origin of any URL with the canonical app URL so auth emails (password
+// reset, email confirmation, magic links, etc.) always point users to the real app,
+// regardless of the Supabase Auth Site URL / redirect allow-list settings.
+function redirectToCanonicalApp(url: string | undefined): string | undefined {
+  if (!url) return url
+  try {
+    const parsed = new URL(url)
+    return `${CANONICAL_APP_URL}${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return url
+  }
+}
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
 // The sample email uses a fixed placeholder (RFC 6761 .test TLD) so the Go backend
 // can always find-and-replace it with the actual recipient when sending test emails,
 // even if the project's domain has changed since the template was scaffolded.
-const SAMPLE_PROJECT_URL = "https://2cf7794f-c55c-4a19-8171-25f49884cd23.lovableproject.com"
+const SAMPLE_PROJECT_URL = "https://terntripsindia.in"
 const SAMPLE_EMAIL = "user@example.test"
 const SAMPLE_DATA: Record<string, object> = {
   signup: {
@@ -221,9 +235,9 @@ async function handleWebhook(req: Request): Promise<Response> {
   // Build template props from payload.data (HookData structure)
   const templateProps = {
     siteName: SITE_NAME,
-    siteUrl: `https://${ROOT_DOMAIN}`,
+    siteUrl: CANONICAL_APP_URL,
     recipient: payload.data.email,
-    confirmationUrl: payload.data.url,
+    confirmationUrl: redirectToCanonicalApp(payload.data.url),
     token: payload.data.token,
     email: payload.data.email,
     oldEmail: payload.data.old_email,
