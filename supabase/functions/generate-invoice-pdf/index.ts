@@ -271,6 +271,9 @@ serve(async (req: Request): Promise<Response> => {
             property_id: payment.property_id,
             year: fyEndYear,
             last_sequence: 1,
+            // Service role bypasses the current_workspace_id() column default (which
+            // resolves to NULL here), so set the workspace explicitly.
+            workspace_id: payment.workspace_id || property?.workspace_id,
           })
           .select()
           .single();

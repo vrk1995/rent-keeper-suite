@@ -63,7 +63,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const { data: tenants, error: tenantsError } = await supabase
       .from("tenants")
-      .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice")
+      .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice, workspace_id, property:properties(workspace_id)")
       .eq("status", "active");
 
     if (tenantsError) throw tenantsError;
@@ -115,6 +115,13 @@ serve(async (req: Request): Promise<Response> => {
             .eq("tenant_id", tenant.id);
           const billingAmount = resolveEffectiveRent(tenant.monthly_rent || 0, rentHistory || [], billingMonth);
 
+          // This runs under the service role, so the workspace_id column default
+          // (current_workspace_id()) resolves to NULL — carry the tenant's workspace
+          // explicitly, falling back to the property's.
+          const workspaceId =
+            (tenant as any).workspace_id ?? (tenant as any).property?.workspace_id ?? null;
+          if (!workspaceId) throw new Error("Could not resolve workspace for tenant");
+
           const { data: newPayment, error: insertError } = await supabase
             .from("rent_payments")
             .insert({
@@ -125,6 +132,7 @@ serve(async (req: Request): Promise<Response> => {
               due_date: dueDateStr,
               invoice_date: todayDateStr,
               billing_month: billingMonth,
+              workspace_id: workspaceId,
               status: new Date(dueDateStr) < new Date(todayDateStr) ? "overdue" : "pending",
             })
             .select("id")
