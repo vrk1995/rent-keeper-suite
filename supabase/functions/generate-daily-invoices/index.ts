@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { notifyCronFailure } from "../_shared/notifyCronFailure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,7 +64,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const { data: tenants, error: tenantsError } = await supabase
       .from("tenants")
-      .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice, workspace_id, property:properties(workspace_id)")
+      .select("id, name, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice, workspace_id, property:properties(workspace_id)")
       .eq("status", "active");
 
     if (tenantsError) throw tenantsError;
@@ -206,6 +207,19 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
+    if (errors.length > 0) {
+      const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      await notifyCronFailure(createClient(supabaseUrl2, supabaseServiceKey2), {
+        cronName: "Daily Invoice Generation",
+        ranAtIso: new Date().toISOString(),
+        items: errors.map((e) => {
+          const tenant = (tenants || []).find((t) => t.id === e.tenantId);
+          return { label: tenant?.name || e.tenantId, message: e.message };
+        }),
+      });
+    }
+
     return new Response(
       JSON.stringify({
         date: todayDateStr,
@@ -217,6 +231,13 @@ serve(async (req: Request): Promise<Response> => {
     );
   } catch (error) {
     console.error("Error in daily invoice generation:", error);
+    const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    await notifyCronFailure(createClient(supabaseUrl2, supabaseServiceKey2), {
+      cronName: "Daily Invoice Generation",
+      ranAtIso: new Date().toISOString(),
+      topLevelError: (error as Error).message,
+    });
     return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },

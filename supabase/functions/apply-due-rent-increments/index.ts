@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { notifyCronFailure } from "../_shared/notifyCronFailure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,6 +152,20 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
+    if (errors.length > 0) {
+      const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      await notifyCronFailure(createClient(supabaseUrl2, supabaseServiceKey2), {
+        cronName: "Apply Due Rent Increments",
+        ranAtIso: new Date().toISOString(),
+        items: errors.map((e) => {
+          const inc = (dueIncrements || []).find((d) => d.id === e.incrementId);
+          const tenantName = (inc as { tenant?: { name?: string } } | undefined)?.tenant?.name;
+          return { label: tenantName || e.incrementId, message: e.message };
+        }),
+      });
+    }
+
     return new Response(
       JSON.stringify({
         date: todayDateStr,
@@ -162,6 +177,13 @@ serve(async (req: Request): Promise<Response> => {
     );
   } catch (error) {
     console.error("Error applying due rent increments:", error);
+    const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    await notifyCronFailure(createClient(supabaseUrl2, supabaseServiceKey2), {
+      cronName: "Apply Due Rent Increments",
+      ranAtIso: new Date().toISOString(),
+      topLevelError: (error as Error).message,
+    });
     return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
