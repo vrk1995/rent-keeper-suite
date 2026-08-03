@@ -68,31 +68,57 @@ serve(async (req: Request): Promise<Response> => {
 
     if (tenantsError) throw tenantsError;
 
-    const dueTenants = (tenants || []).filter(
-      (t) => Math.min(t.rent_due_day || 1, 28) === todayDay && (t.monthly_rent || 0) > 0
-    );
+    // Every active tenant is invoiced on day `rent_due_day` of each month. Rather than only
+    // handling tenants whose day is exactly today, look back over the last two scheduled
+    // invoice dates so a missed/failed cron run gets caught up on the next run.
+    type Job = { tenant: any; invoiceDateStr: string; billingMonth: string; dueDateStr: string; allowCreate: boolean };
+    const jobs: Job[] = [];
 
-    console.log(`${dueTenants.length} of ${tenants?.length ?? 0} active tenants are invoiced on day ${todayDay}`);
+    // Never back-create rent records for periods older than this — a genuinely missed cron
+    // run is at most a few days old, while anything older is history the owner deliberately
+    // never billed and must not be invented retroactively.
+    const CATCHUP_WINDOW_DAYS = 10;
+    const cutoffObj = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+    cutoffObj.setUTCDate(cutoffObj.getUTCDate() - CATCHUP_WINDOW_DAYS);
+    const cutoffStr = cutoffObj.toISOString().split("T")[0];
+
+    for (const t of tenants || []) {
+      if ((t.monthly_rent || 0) <= 0) continue;
+      const day = Math.min(t.rent_due_day || 1, 28);
+      const offset = t.rent_due_month_offset ?? 0;
+      const grace = t.due_days_after_invoice ?? 0;
+
+      for (const back of [1, 0]) {
+        let m = todayMonth - back;
+        let y = todayYear;
+        if (m < 1) { m += 12; y -= 1; }
+        const invoiceDateStr = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        if (invoiceDateStr > todayDateStr) continue;
+
+        let bm = m - offset;
+        let by = y;
+        if (bm < 1) { bm += 12; by -= 1; }
+        if (bm > 12) { bm -= 12; by += 1; }
+        const billingMonth = `${by}-${String(bm).padStart(2, "0")}`;
+
+        const dueObj = new Date(Date.UTC(y, m - 1, day));
+        dueObj.setUTCDate(dueObj.getUTCDate() + grace);
+        const dueDateStr = dueObj.toISOString().split("T")[0];
+
+        jobs.push({ tenant: t, invoiceDateStr, billingMonth, dueDateStr, allowCreate: invoiceDateStr >= cutoffStr });
+      }
+    }
+
+    console.log(`${jobs.length} scheduled invoice dates to reconcile as of ${todayDateStr}`);
+
+
 
     const generated: string[] = [];
     const errors: { tenantId: string; message: string }[] = [];
 
-    for (const tenant of dueTenants) {
+    for (const job of jobs) {
+      const { tenant, billingMonth, invoiceDateStr, dueDateStr, allowCreate } = job;
       try {
-        // The tenant's offset says which billing period this invoice date belongs to
-        // (e.g. "in arrears" = invoice dated the month AFTER the rent period), so reverse
-        // it against today's month to find that period.
-        const offset = tenant.rent_due_month_offset ?? 0;
-        let billingMonthNum = todayMonth - offset;
-        let billingYear = todayYear;
-        if (billingMonthNum < 1) { billingMonthNum += 12; billingYear -= 1; }
-        if (billingMonthNum > 12) { billingMonthNum -= 12; billingYear += 1; }
-        const billingMonth = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
-
-        const dueDaysAfterInvoice = tenant.due_days_after_invoice ?? 0;
-        const dueDateObj = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
-        dueDateObj.setUTCDate(dueDateObj.getUTCDate() + dueDaysAfterInvoice);
-        const dueDateStr = dueDateObj.toISOString().split("T")[0];
 
         // Find (or create) this billing period's payment record.
         const { data: existingPayment, error: findError } = await supabase
@@ -108,7 +134,19 @@ serve(async (req: Request): Promise<Response> => {
 
         if (existingPayment) {
           paymentId = existingPayment.id;
+          // Already invoiced? Nothing to do for this scheduled date.
+          const { data: existingInvoice } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("tenant_id", tenant.id)
+            .eq("due_date", dueDateStr)
+            .maybeSingle();
+          if (existingInvoice) continue;
+        } else if (!allowCreate) {
+          // Older scheduled date with no rent record — outside the catch-up window, skip.
+          continue;
         } else {
+
           const { data: rentHistory } = await supabase
             .from("rent_increment_history")
             .select("previous_rent, new_rent, effective_date")
@@ -130,10 +168,10 @@ serve(async (req: Request): Promise<Response> => {
               unit_id: tenant.unit_id,
               amount: billingAmount,
               due_date: dueDateStr,
-              invoice_date: todayDateStr,
+              invoice_date: invoiceDateStr,
               billing_month: billingMonth,
               workspace_id: workspaceId,
-              status: new Date(dueDateStr) < new Date(todayDateStr) ? "overdue" : "pending",
+              status: dueDateStr < todayDateStr ? "overdue" : "pending",
             })
             .select("id")
             .single();
@@ -141,6 +179,7 @@ serve(async (req: Request): Promise<Response> => {
           if (insertError) throw insertError;
           paymentId = newPayment.id;
         }
+
 
         // Reuse generate-invoice-pdf's own create-if-needed + freeze logic rather than
         // duplicating it here — this call's PDF response is discarded, we only care that
@@ -170,7 +209,7 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({
         date: todayDateStr,
-        tenantsChecked: dueTenants.length,
+        scheduledDatesChecked: jobs.length,
         invoicesGenerated: generated.length,
         errors,
       }),
