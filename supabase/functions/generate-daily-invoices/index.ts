@@ -68,11 +68,41 @@ serve(async (req: Request): Promise<Response> => {
 
     if (tenantsError) throw tenantsError;
 
-    const dueTenants = (tenants || []).filter(
-      (t) => Math.min(t.rent_due_day || 1, 28) === todayDay && (t.monthly_rent || 0) > 0
-    );
+    // Every active tenant is invoiced on day `rent_due_day` of each month. Rather than only
+    // handling tenants whose day is exactly today, look back over the last two scheduled
+    // invoice dates so a missed/failed cron run gets caught up on the next run.
+    type Job = { tenant: any; invoiceDateStr: string; billingMonth: string; dueDateStr: string };
+    const jobs: Job[] = [];
 
-    console.log(`${dueTenants.length} of ${tenants?.length ?? 0} active tenants are invoiced on day ${todayDay}`);
+    for (const t of tenants || []) {
+      if ((t.monthly_rent || 0) <= 0) continue;
+      const day = Math.min(t.rent_due_day || 1, 28);
+      const offset = t.rent_due_month_offset ?? 0;
+      const grace = t.due_days_after_invoice ?? 0;
+
+      for (const back of [1, 0]) {
+        let m = todayMonth - back;
+        let y = todayYear;
+        if (m < 1) { m += 12; y -= 1; }
+        const invoiceDateStr = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        if (invoiceDateStr > todayDateStr) continue;
+
+        let bm = m - offset;
+        let by = y;
+        if (bm < 1) { bm += 12; by -= 1; }
+        if (bm > 12) { bm -= 12; by += 1; }
+        const billingMonth = `${by}-${String(bm).padStart(2, "0")}`;
+
+        const dueObj = new Date(Date.UTC(y, m - 1, day));
+        dueObj.setUTCDate(dueObj.getUTCDate() + grace);
+        const dueDateStr = dueObj.toISOString().split("T")[0];
+
+        jobs.push({ tenant: t, invoiceDateStr, billingMonth, dueDateStr });
+      }
+    }
+
+    console.log(`${jobs.length} scheduled invoice dates to reconcile as of ${todayDateStr}`);
+
 
     const generated: string[] = [];
     const errors: { tenantId: string; message: string }[] = [];
