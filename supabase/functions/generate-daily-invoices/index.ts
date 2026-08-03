@@ -107,23 +107,9 @@ serve(async (req: Request): Promise<Response> => {
     const generated: string[] = [];
     const errors: { tenantId: string; message: string }[] = [];
 
-    for (const tenant of dueTenants) {
+    for (const job of jobs) {
+      const { tenant, billingMonth, invoiceDateStr, dueDateStr } = job;
       try {
-        // The tenant's offset says which billing period this invoice date belongs to
-        // (e.g. "in arrears" = invoice dated the month AFTER the rent period), so reverse
-        // it against today's month to find that period.
-        const offset = tenant.rent_due_month_offset ?? 0;
-        let billingMonthNum = todayMonth - offset;
-        let billingYear = todayYear;
-        if (billingMonthNum < 1) { billingMonthNum += 12; billingYear -= 1; }
-        if (billingMonthNum > 12) { billingMonthNum -= 12; billingYear += 1; }
-        const billingMonth = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
-
-        const dueDaysAfterInvoice = tenant.due_days_after_invoice ?? 0;
-        const dueDateObj = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
-        dueDateObj.setUTCDate(dueDateObj.getUTCDate() + dueDaysAfterInvoice);
-        const dueDateStr = dueDateObj.toISOString().split("T")[0];
-
         // Find (or create) this billing period's payment record.
         const { data: existingPayment, error: findError } = await supabase
           .from("rent_payments")
@@ -138,6 +124,14 @@ serve(async (req: Request): Promise<Response> => {
 
         if (existingPayment) {
           paymentId = existingPayment.id;
+          // Already invoiced? Nothing to do for this scheduled date.
+          const { data: existingInvoice } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("tenant_id", tenant.id)
+            .eq("due_date", dueDateStr)
+            .maybeSingle();
+          if (existingInvoice) continue;
         } else {
           const { data: rentHistory } = await supabase
             .from("rent_increment_history")
@@ -160,10 +154,10 @@ serve(async (req: Request): Promise<Response> => {
               unit_id: tenant.unit_id,
               amount: billingAmount,
               due_date: dueDateStr,
-              invoice_date: todayDateStr,
+              invoice_date: invoiceDateStr,
               billing_month: billingMonth,
               workspace_id: workspaceId,
-              status: new Date(dueDateStr) < new Date(todayDateStr) ? "overdue" : "pending",
+              status: dueDateStr < todayDateStr ? "overdue" : "pending",
             })
             .select("id")
             .single();
@@ -171,6 +165,7 @@ serve(async (req: Request): Promise<Response> => {
           if (insertError) throw insertError;
           paymentId = newPayment.id;
         }
+
 
         // Reuse generate-invoice-pdf's own create-if-needed + freeze logic rather than
         // duplicating it here — this call's PDF response is discarded, we only care that
