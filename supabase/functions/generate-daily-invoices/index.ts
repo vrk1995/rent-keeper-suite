@@ -142,7 +142,11 @@ serve(async (req: Request): Promise<Response> => {
             .eq("due_date", dueDateStr)
             .maybeSingle();
           if (existingInvoice) continue;
+        } else if (!allowCreate) {
+          // Older scheduled date with no rent record — outside the catch-up window, skip.
+          continue;
         } else {
+
           const { data: rentHistory } = await supabase
             .from("rent_increment_history")
             .select("previous_rent, new_rent, effective_date")
