@@ -63,7 +63,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const { data: tenants, error: tenantsError } = await supabase
       .from("tenants")
-      .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice")
+      .select("id, property_id, unit_id, monthly_rent, rent_due_day, rent_due_month_offset, due_days_after_invoice, workspace_id, property:properties(workspace_id)")
       .eq("status", "active");
 
     if (tenantsError) throw tenantsError;
