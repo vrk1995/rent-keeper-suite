@@ -71,8 +71,16 @@ serve(async (req: Request): Promise<Response> => {
     // Every active tenant is invoiced on day `rent_due_day` of each month. Rather than only
     // handling tenants whose day is exactly today, look back over the last two scheduled
     // invoice dates so a missed/failed cron run gets caught up on the next run.
-    type Job = { tenant: any; invoiceDateStr: string; billingMonth: string; dueDateStr: string };
+    type Job = { tenant: any; invoiceDateStr: string; billingMonth: string; dueDateStr: string; allowCreate: boolean };
     const jobs: Job[] = [];
+
+    // Never back-create rent records for periods older than this — a genuinely missed cron
+    // run is at most a few days old, while anything older is history the owner deliberately
+    // never billed and must not be invented retroactively.
+    const CATCHUP_WINDOW_DAYS = 10;
+    const cutoffObj = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+    cutoffObj.setUTCDate(cutoffObj.getUTCDate() - CATCHUP_WINDOW_DAYS);
+    const cutoffStr = cutoffObj.toISOString().split("T")[0];
 
     for (const t of tenants || []) {
       if ((t.monthly_rent || 0) <= 0) continue;
@@ -97,11 +105,12 @@ serve(async (req: Request): Promise<Response> => {
         dueObj.setUTCDate(dueObj.getUTCDate() + grace);
         const dueDateStr = dueObj.toISOString().split("T")[0];
 
-        jobs.push({ tenant: t, invoiceDateStr, billingMonth, dueDateStr });
+        jobs.push({ tenant: t, invoiceDateStr, billingMonth, dueDateStr, allowCreate: invoiceDateStr >= cutoffStr });
       }
     }
 
     console.log(`${jobs.length} scheduled invoice dates to reconcile as of ${todayDateStr}`);
+
 
 
     const generated: string[] = [];
