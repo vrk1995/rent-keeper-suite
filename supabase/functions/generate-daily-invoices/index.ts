@@ -117,8 +117,9 @@ serve(async (req: Request): Promise<Response> => {
     const errors: { tenantId: string; message: string }[] = [];
 
     for (const job of jobs) {
-      const { tenant, billingMonth, invoiceDateStr, dueDateStr } = job;
+      const { tenant, billingMonth, invoiceDateStr, dueDateStr, allowCreate } = job;
       try {
+
         // Find (or create) this billing period's payment record.
         const { data: existingPayment, error: findError } = await supabase
           .from("rent_payments")
