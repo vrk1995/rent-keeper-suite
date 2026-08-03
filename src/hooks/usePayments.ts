@@ -264,14 +264,18 @@ export const useGenerateMonthlyPayments = () => {
         .map(tenant => {
           const invoiceDay = Math.min(tenant.rent_due_day || 1, 28);
           const offset = (tenant as any).rent_due_month_offset ?? 0;
+          const dueDaysAfterInvoice = (tenant as any).due_days_after_invoice ?? 0;
+          // Build the dates from local calendar fields only — going through toISOString()
+          // converts to UTC and silently shifts the date by a day for IST users.
+          const toISO = (d: Date) =>
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           // Invoice date is in the billing month shifted by the tenant's offset; the due
           // date follows it by the tenant's configured grace period (0 = same day).
           const invoiceDateObj = new Date(year, month - 1 + offset, invoiceDay);
-          const invoiceDate = invoiceDateObj.toISOString().split('T')[0];
-          const dueDaysAfterInvoice = (tenant as any).due_days_after_invoice ?? 0;
+          const invoiceDate = toISO(invoiceDateObj);
           const dueDateObj = new Date(invoiceDateObj);
           dueDateObj.setDate(dueDateObj.getDate() + dueDaysAfterInvoice);
-          const dueDate = dueDateObj.toISOString().split('T')[0];
+          const dueDate = toISO(dueDateObj);
 
           return {
             tenant_id: tenant.id,
@@ -281,9 +285,10 @@ export const useGenerateMonthlyPayments = () => {
             due_date: dueDate,
             invoice_date: invoiceDate,
             billing_month: billingMonth,
-            status: new Date(dueDate) < now ? 'overdue' : 'pending',
+            status: dueDateObj < now ? 'overdue' : 'pending',
           };
         }) || [];
+
 
       if (paymentsToCreate.length === 0) {
         return { created: 0, message: "No new payments to generate" };
