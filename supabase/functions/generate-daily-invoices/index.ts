@@ -195,7 +195,7 @@ serve(async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({
         date: todayDateStr,
-        tenantsChecked: dueTenants.length,
+        scheduledDatesChecked: jobs.length,
         invoicesGenerated: generated.length,
         errors,
       }),
