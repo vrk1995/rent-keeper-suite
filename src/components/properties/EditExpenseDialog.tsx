@@ -1,17 +1,18 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Upload, X } from "lucide-react";
+import { CalendarIcon, ExternalLink, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -21,8 +22,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { ComboboxInput } from "@/components/ui/combobox-input";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -38,7 +39,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useCreateExpense, useExpenseTitleSuggestions, uploadExpenseReceipt } from "@/hooks/useExpenses";
+import {
+  Expense,
+  useUpdateExpense,
+  useExpenseTitleSuggestions,
+  uploadExpenseReceipt,
+  deleteExpenseReceiptFile,
+  getExpenseReceiptViewUrl,
+} from "@/hooks/useExpenses";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -58,8 +66,10 @@ const expenseSchema = z.object({
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
-interface AddExpenseDialogProps {
-  propertyId: string;
+interface EditExpenseDialogProps {
+  expense: Expense | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const expenseCategories = [
@@ -82,15 +92,17 @@ const paymentMethods = [
   { value: "card", label: "Card" },
 ];
 
-export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const createExpense = useCreateExpense();
-  const { data: floorUnits } = useFloorUnitsByProperty(propertyId);
-  const { data: floors } = usePropertyFloors(propertyId);
+export function EditExpenseDialog({ expense, open, onOpenChange }: EditExpenseDialogProps) {
+  const updateExpense = useUpdateExpense();
+  const { data: floorUnits } = useFloorUnitsByProperty(expense?.property_id || "");
+  const { data: floors } = usePropertyFloors(expense?.property_id || "");
   const { data: titleSuggestions } = useExpenseTitleSuggestions();
+
+  const [newReceiptFile, setNewReceiptFile] = useState<File | null>(null);
+  const [removeExistingReceipt, setRemoveExistingReceipt] = useState(false);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [isViewingReceipt, setIsViewingReceipt] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
@@ -107,58 +119,96 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
     },
   });
 
+  // Load this expense's values fresh each time the dialog opens for it.
+  useEffect(() => {
+    if (!open || !expense) return;
+    form.reset({
+      title: expense.title,
+      description: expense.description || "",
+      amount: expense.amount,
+      expense_date: new Date(expense.expense_date),
+      vendor_name: expense.vendor_name || "",
+      vendor_contact: expense.vendor_contact || "",
+      category: expense.category || "general",
+      payment_method: expense.payment_method || "",
+      floor_unit_id: expense.floor_unit_id || "",
+    });
+    setNewReceiptFile(null);
+    setRemoveExistingReceipt(false);
+  }, [open, expense?.id]);
+
+  const handleViewReceipt = async () => {
+    if (!expense?.receipt_url) return;
+    setIsViewingReceipt(true);
+    try {
+      const url = await getExpenseReceiptViewUrl(expense.receipt_url);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error("Couldn't open receipt: " + (err as Error).message);
+    } finally {
+      setIsViewingReceipt(false);
+    }
+  };
+
   const onSubmit = async (data: ExpenseFormData) => {
-    let receiptPath: string | undefined;
-    if (receiptFile) {
+    if (!expense) return;
+
+    const oldPath = expense.receipt_url;
+    let receiptPath: string | null | undefined = oldPath;
+
+    if (newReceiptFile) {
       setIsUploadingReceipt(true);
       try {
-        receiptPath = await uploadExpenseReceipt(receiptFile, propertyId);
+        receiptPath = await uploadExpenseReceipt(newReceiptFile, expense.property_id);
       } catch (err) {
         toast.error("Failed to upload receipt: " + (err as Error).message);
-        return;
-      } finally {
         setIsUploadingReceipt(false);
+        return;
       }
+      setIsUploadingReceipt(false);
+    } else if (removeExistingReceipt) {
+      receiptPath = null;
     }
 
-    await createExpense.mutateAsync({
-      property_id: propertyId,
+    await updateExpense.mutateAsync({
+      id: expense.id,
       floor_unit_id: data.floor_unit_id || null,
       title: data.title,
-      description: data.description,
+      description: data.description || null,
       amount: data.amount,
       expense_date: format(data.expense_date, "yyyy-MM-dd"),
-      vendor_name: data.vendor_name,
-      vendor_contact: data.vendor_contact,
-      category: data.category,
-      payment_method: data.payment_method,
+      vendor_name: data.vendor_name || null,
+      vendor_contact: data.vendor_contact || null,
+      category: data.category || null,
+      payment_method: data.payment_method || null,
       receipt_url: receiptPath,
     });
-    form.reset();
-    setReceiptFile(null);
-    setOpen(false);
+
+    // Only clean up the old file once the row itself has been updated to point elsewhere.
+    if (oldPath && oldPath !== receiptPath) {
+      deleteExpenseReceiptFile(oldPath).catch((err) =>
+        console.error("Failed to delete replaced receipt file:", err)
+      );
+    }
+
+    onOpenChange(false);
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
-    if (!newOpen) setReceiptFile(null);
-  };
-
+  const isDirty =
+    form.formState.isDirty || !!newReceiptFile || removeExistingReceipt;
   const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
-    useUnsavedChangesGuard(form.formState.isDirty || !!receiptFile, handleOpenChange);
+    useUnsavedChangesGuard(isDirty, onOpenChange);
+
+  const hasExistingReceipt = !!expense?.receipt_url && !removeExistingReceipt;
 
   return (
     <>
+    {expense && (
     <Dialog open={open} onOpenChange={guardedOnOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="w-4 h-4 mr-1" />
-          Add Expense
-        </Button>
-      </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Expense</DialogTitle>
+          <DialogTitle>Edit Expense</DialogTitle>
+          <DialogDescription>Update the details for this expense.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -239,7 +289,7 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
@@ -264,7 +314,7 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Payment Method</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select method" />
@@ -349,7 +399,6 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
               />
             )}
 
-
             <FormField
               control={form.control}
               name="description"
@@ -369,29 +418,61 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                onChange={(e) => setNewReceiptFile(e.target.files?.[0] || null)}
                 className="hidden"
                 accept=".pdf,.jpg,.jpeg,.png,.heic,.webp"
               />
-              {receiptFile ? (
+              {newReceiptFile ? (
                 <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                   <div className="flex items-center gap-2 min-w-0">
                     <Upload className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm truncate">{receiptFile.name}</span>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">
-                      ({(receiptFile.size / 1024).toFixed(1)} KB)
-                    </span>
+                    <span className="text-sm truncate">{newReceiptFile.name}</span>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label="Remove selected receipt"
+                    aria-label="Cancel new receipt"
                     className="h-8 w-8 flex-shrink-0"
-                    onClick={() => setReceiptFile(null)}
+                    onClick={() => setNewReceiptFile(null)}
                   >
                     <X className="w-4 h-4" />
                   </Button>
+                </div>
+              ) : hasExistingReceipt ? (
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={handleViewReceipt}
+                    disabled={isViewingReceipt}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1.5" />
+                    {isViewingReceipt ? "Opening..." : "View current receipt"}
+                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Replace
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove receipt"
+                      className="h-8 w-8"
+                      onClick={() => setRemoveExistingReceipt(true)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <Button
@@ -406,18 +487,19 @@ export function AddExpenseDialog({ propertyId }: AddExpenseDialogProps) {
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => guardedOnOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createExpense.isPending || isUploadingReceipt}>
-                {isUploadingReceipt ? "Uploading receipt..." : createExpense.isPending ? "Adding..." : "Add Expense"}
+              <Button type="submit" disabled={updateExpense.isPending || isUploadingReceipt}>
+                {isUploadingReceipt ? "Uploading receipt..." : updateExpense.isPending ? "Saving..." : "Save Changes"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
+    )}
     <UnsavedChangesAlert open={pendingClose} onConfirm={confirmDiscard} onCancel={cancelDiscard} />
     </>
   );

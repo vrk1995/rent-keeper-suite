@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Trash2, Receipt, Search } from "lucide-react";
+import { Trash2, Receipt, Search, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,8 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { SortMenuButton } from "@/components/ui/sort-menu-button";
 import { useSortState } from "@/hooks/useSortState";
-import { useAllExpenses, useDeleteExpense } from "@/hooks/useExpenses";
+import { Expense, useAllExpenses, useDeleteExpense, getExpenseReceiptViewUrl } from "@/hooks/useExpenses";
+import { EditExpenseDialog } from "@/components/properties/EditExpenseDialog";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
 import { AddAdhocPaymentDialog } from "@/components/payments/AddAdhocPaymentDialog";
@@ -59,7 +61,22 @@ export default function PaymentsLog() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const sort = useSortState<"date" | "title" | "property" | "amount">("date", "desc");
-  const [deleteExpenseData, setDeleteExpenseData] = useState<{ id: string; propertyId: string; title: string } | null>(null);
+  const [deleteExpenseData, setDeleteExpenseData] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
+
+  const handleViewReceipt = async (expense: Expense) => {
+    if (!expense.receipt_url) return;
+    setViewingReceiptId(expense.id);
+    try {
+      const url = await getExpenseReceiptViewUrl(expense.receipt_url);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error("Couldn't open receipt: " + (err as Error).message);
+    } finally {
+      setViewingReceiptId(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -245,16 +262,35 @@ export default function PaymentsLog() {
                           {formatINR(Number(e.amount))}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label="Delete payment"
-                            onClick={() =>
-                              setDeleteExpenseData({ id: e.id, propertyId: e.property_id, title: e.title })
-                            }
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-1 justify-end">
+                            {e.receipt_url && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                aria-label="View receipt"
+                                onClick={() => handleViewReceipt(e)}
+                                disabled={viewingReceiptId === e.id}
+                              >
+                                <Receipt className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Edit payment"
+                              onClick={() => setEditingExpense(e)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              aria-label="Delete payment"
+                              onClick={() => setDeleteExpenseData(e)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -288,15 +324,36 @@ export default function PaymentsLog() {
                         <span>{e.vendor_name ? `Vendor: ${e.vendor_name}` : "—"}</span>
                         <span className="capitalize">{e.payment_method?.replace("_", " ") || "—"}</span>
                       </div>
-                      <div className="flex justify-end border-t border-white/5 pt-2">
+                      <div className="flex justify-end gap-1 border-t border-white/5 pt-2">
+                        {e.receipt_url && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs"
+                            aria-label="View receipt"
+                            onClick={() => handleViewReceipt(e)}
+                            disabled={viewingReceiptId === e.id}
+                          >
+                            <Receipt className="w-3 h-3 mr-1" />
+                            Receipt
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          aria-label="Edit payment"
+                          onClick={() => setEditingExpense(e)}
+                        >
+                          <Pencil className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           className="h-8 text-xs text-destructive hover:text-destructive"
                           aria-label="Delete payment"
-                          onClick={() =>
-                            setDeleteExpenseData({ id: e.id, propertyId: e.property_id, title: e.title })
-                          }
+                          onClick={() => setDeleteExpenseData(e)}
                         >
                           <Trash2 className="w-3 h-3 mr-1" />
                           Delete
@@ -324,7 +381,11 @@ export default function PaymentsLog() {
             <AlertDialogAction
               onClick={() => {
                 if (deleteExpenseData) {
-                  deleteExpense.mutate({ id: deleteExpenseData.id, propertyId: deleteExpenseData.propertyId });
+                  deleteExpense.mutate({
+                    id: deleteExpenseData.id,
+                    propertyId: deleteExpenseData.property_id,
+                    receiptPath: deleteExpenseData.receipt_url,
+                  });
                   setDeleteExpenseData(null);
                 }
               }}
@@ -334,6 +395,12 @@ export default function PaymentsLog() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditExpenseDialog
+        expense={editingExpense}
+        open={!!editingExpense}
+        onOpenChange={(o) => !o && setEditingExpense(null)}
+      />
     </div>
   );
 }

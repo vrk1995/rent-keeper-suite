@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -49,7 +50,7 @@ import {
 } from "lucide-react";
 import { Property } from "@/hooks/useProperties";
 import { Tenant } from "@/hooks/useTenants";
-import { useExpensesByProperty, useDeleteExpense } from "@/hooks/useExpenses";
+import { Expense, useExpensesByProperty, useDeleteExpense, getExpenseReceiptViewUrl } from "@/hooks/useExpenses";
 import { useDocumentsByProperty, useDeleteDocument } from "@/hooks/useDocuments";
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usePayments";
@@ -59,6 +60,7 @@ import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
 import { invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { AddExpenseDialog } from "./AddExpenseDialog";
+import { EditExpenseDialog } from "./EditExpenseDialog";
 import { ActivityLogList } from "@/components/activity/ActivityLogList";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
 import AddPropertyDialog from "./AddPropertyDialog";
@@ -87,7 +89,9 @@ export function PropertyDetailSheet({
 }: PropertyDetailSheetProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
-  const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
+  const [deleteExpenseTarget, setDeleteExpenseTarget] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
   const [deleteDocumentData, setDeleteDocumentData] = useState<{ id: string; file_url: string; name: string } | null>(null);
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
 
@@ -201,9 +205,26 @@ export function PropertyDetailSheet({
   };
 
   const handleDeleteExpense = async () => {
-    if (deleteExpenseId && property) {
-      await deleteExpense.mutateAsync({ id: deleteExpenseId, propertyId: property.id });
-      setDeleteExpenseId(null);
+    if (deleteExpenseTarget && property) {
+      await deleteExpense.mutateAsync({
+        id: deleteExpenseTarget.id,
+        propertyId: property.id,
+        receiptPath: deleteExpenseTarget.receipt_url,
+      });
+      setDeleteExpenseTarget(null);
+    }
+  };
+
+  const handleViewExpenseReceipt = async (expense: Expense) => {
+    if (!expense.receipt_url) return;
+    setViewingReceiptId(expense.id);
+    try {
+      const url = await getExpenseReceiptViewUrl(expense.receipt_url);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error("Couldn't open receipt: " + (err as Error).message);
+    } finally {
+      setViewingReceiptId(null);
     }
   };
 
@@ -482,15 +503,36 @@ export function PropertyDetailSheet({
                               <p className="text-lg font-semibold text-destructive">
                                 -{formatINR(expense.amount)}
                               </p>
-                              {isAdmin && !roleLoading && (
+                              {expense.receipt_url && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  aria-label="Delete expense"
-                                  onClick={() => setDeleteExpenseId(expense.id)}
+                                  aria-label="View receipt"
+                                  onClick={() => handleViewExpenseReceipt(expense)}
+                                  disabled={viewingReceiptId === expense.id}
                                 >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                  <Receipt className="w-4 h-4" />
                                 </Button>
+                              )}
+                              {isAdmin && !roleLoading && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Edit expense"
+                                    onClick={() => setEditingExpense(expense)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Delete expense"
+                                    onClick={() => setDeleteExpenseTarget(expense)}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -776,13 +818,20 @@ export function PropertyDetailSheet({
         defaultPropertyId={property.id}
       />
 
+      {/* Edit Expense Dialog */}
+      <EditExpenseDialog
+        expense={editingExpense}
+        open={!!editingExpense}
+        onOpenChange={(o) => !o && setEditingExpense(null)}
+      />
+
       {/* Delete Expense Confirmation */}
-      <AlertDialog open={!!deleteExpenseId} onOpenChange={() => setDeleteExpenseId(null)}>
+      <AlertDialog open={!!deleteExpenseTarget} onOpenChange={() => setDeleteExpenseTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Expense</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this expense? This action cannot be undone.
+              Are you sure you want to delete "{deleteExpenseTarget?.title}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

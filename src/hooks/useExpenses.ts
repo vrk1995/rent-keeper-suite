@@ -73,6 +73,31 @@ export const useAllExpenses = () => {
   });
 };
 
+/** Recently-used expense titles across the whole portfolio, most recent first and
+ *  deduplicated — powers the "type or pick from before" combobox on the Title field. */
+export const useExpenseTitleSuggestions = () => {
+  return useQuery({
+    queryKey: ["expenses", "title-suggestions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("property_expenses")
+        .select("title")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      const seen = new Set<string>();
+      const titles: string[] = [];
+      for (const row of data || []) {
+        const key = row.title.trim();
+        if (!key || seen.has(key.toLowerCase())) continue;
+        seen.add(key.toLowerCase());
+        titles.push(key);
+      }
+      return titles;
+    },
+  });
+};
+
 export const useCreateExpense = () => {
   const queryClient = useQueryClient();
 
@@ -132,9 +157,16 @@ export const useDeleteExpense = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, propertyId }: { id: string; propertyId: string }) => {
+    mutationFn: async ({ id, propertyId, receiptPath }: { id: string; propertyId: string; receiptPath?: string | null }) => {
       const { error } = await supabase.from("property_expenses").delete().eq("id", id);
       if (error) throw error;
+      // Best-effort: the row is already gone either way, and a leftover file with no
+      // referencing row is harmless — never block the delete on cleanup failing.
+      if (receiptPath) {
+        await deleteExpenseReceiptFile(receiptPath).catch((err) =>
+          console.error("Failed to delete receipt file:", err)
+        );
+      }
       return propertyId;
     },
     onSuccess: (propertyId) => {
@@ -146,3 +178,31 @@ export const useDeleteExpense = () => {
     },
   });
 };
+
+const EXPENSE_RECEIPTS_BUCKET = "expense-receipts";
+
+/** Uploads a scanned/photographed bill to the private expense-receipts bucket and returns
+ *  its STORAGE PATH (not a URL — the bucket is private, so viewing always goes through a
+ *  freshly-minted signed URL instead of a stored one that could expire or leak). */
+export async function uploadExpenseReceipt(file: File, propertyId: string): Promise<string> {
+  const ext = file.name.split(".").pop();
+  const path = `${propertyId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}${ext ? `.${ext}` : ""}`;
+  const { error } = await supabase.storage.from(EXPENSE_RECEIPTS_BUCKET).upload(path, file);
+  if (error) throw error;
+  return path;
+}
+
+/** Short-lived signed URL for viewing/downloading a receipt — generated fresh each time
+ *  rather than stored, since the bucket is private. */
+export async function getExpenseReceiptViewUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(EXPENSE_RECEIPTS_BUCKET)
+    .createSignedUrl(path, 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function deleteExpenseReceiptFile(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(EXPENSE_RECEIPTS_BUCKET).remove([path]);
+  if (error) throw error;
+}
