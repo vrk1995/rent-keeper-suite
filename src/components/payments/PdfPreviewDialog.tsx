@@ -5,6 +5,7 @@ import { Download, Pencil } from "lucide-react";
 import { PdfPreviewState } from "@/hooks/usePdfPreview";
 import { useIsAdmin } from "@/hooks/useUserRole";
 import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
+import { InvoiceAuditTrail } from "@/components/invoices/InvoiceAuditTrail";
 
 interface PdfPreviewDialogProps {
   preview: PdfPreviewState | null;
@@ -72,6 +73,14 @@ export function PdfPreviewDialog({ preview, onClose, onRefresh }: PdfPreviewDial
               <iframe src={preview.url} title={preview.title} className="w-full h-full border-0" />
             )}
           </div>
+          {preview?.documentType === "invoice" && (
+            <div className="border-t px-4 py-2 max-h-32 overflow-y-auto">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                Generation audit trail
+              </p>
+              <InvoiceAuditTrail rentPaymentId={preview.paymentId} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -448,6 +448,73 @@ export type Database = {
           },
         ]
       }
+      invoice_generation_log: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_date: string | null
+          invoice_id: string | null
+          invoice_number: string | null
+          outcome: string
+          reason: string | null
+          rent_payment_id: string | null
+          source: string
+          triggered_by: string | null
+          triggered_by_name: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_date?: string | null
+          invoice_id?: string | null
+          invoice_number?: string | null
+          outcome: string
+          reason?: string | null
+          rent_payment_id?: string | null
+          source: string
+          triggered_by?: string | null
+          triggered_by_name?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_date?: string | null
+          invoice_id?: string | null
+          invoice_number?: string | null
+          outcome?: string
+          reason?: string | null
+          rent_payment_id?: string | null
+          source?: string
+          triggered_by?: string | null
+          triggered_by_name?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_generation_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_generation_log_rent_payment_id_fkey"
+            columns: ["rent_payment_id"]
+            isOneToOne: false
+            referencedRelation: "rent_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_generation_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_sequences: {
         Row: {
           created_at: string

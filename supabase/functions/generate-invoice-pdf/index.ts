@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { authorizePropertyAccess } from "../_shared/authorizeCaller.ts";
+import { resolveInvoiceActor, logInvoiceGeneration } from "../_shared/invoiceAudit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,8 @@ const corsHeaders = {
 
 interface InvoiceRequest {
   paymentId: string;
+  /** Why this call happened: a passive PDF preview, or an explicit user action. */
+  source?: "preview" | "manual";
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -23,7 +26,8 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { paymentId }: InvoiceRequest = await req.json();
+    const { paymentId, source }: InvoiceRequest = await req.json();
+    const actor = await resolveInvoiceActor(req, supabaseUrl, supabaseServiceKey, source);
 
     if (!paymentId) {
       return new Response(JSON.stringify({ error: "Payment ID is required" }), {
@@ -176,6 +180,17 @@ serve(async (req: Request): Promise<Response> => {
       invoiceId = existingInvoice.id;
       console.log("Using existing invoice:", invoiceNumber);
 
+      await logInvoiceGeneration(supabase, {
+        workspaceId: payment.workspace_id || property?.workspace_id || null,
+        invoiceId,
+        rentPaymentId: paymentId,
+        invoiceNumber,
+        invoiceDate: existingInvoice.invoice_date,
+        outcome: "reused",
+        reason: "Existing invoice re-rendered (no new invoice created)",
+        actor,
+      });
+
       if (existingInvoice.bill_from_name != null) {
         // Frozen snapshot already captured when this invoice was created — use it as-is,
         // regardless of what the tenant's details say today.
@@ -233,6 +248,14 @@ serve(async (req: Request): Promise<Response> => {
       // reading UTC fields gives today's IST calendar date.
       const istToday = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
       if (invoiceDateFinal > istToday) {
+        await logInvoiceGeneration(supabase, {
+          workspaceId: payment.workspace_id || property?.workspace_id || null,
+          rentPaymentId: paymentId,
+          invoiceDate: invoiceDateFinal,
+          outcome: "blocked",
+          reason: `Requested before its scheduled invoice date (${invoiceDateFinal})`,
+          actor,
+        });
         return new Response(
           JSON.stringify({
             error: `This invoice is scheduled for ${invoiceDateFinal} and cannot be generated before that date.`,
@@ -369,6 +392,17 @@ serve(async (req: Request): Promise<Response> => {
 
       invoiceId = newInvoice.id;
       console.log("Created new invoice:", invoiceNumber);
+
+      await logInvoiceGeneration(supabase, {
+        workspaceId: payment.workspace_id || property?.workspace_id || null,
+        invoiceId,
+        rentPaymentId: paymentId,
+        invoiceNumber,
+        invoiceDate: invoiceDateFinal,
+        outcome: "created",
+        reason: `Invoice minted for billing month ${payment.billing_month || "n/a"}`,
+        actor,
+      });
     }
 
     const ownerShares = snapshot.owner_shares;
