@@ -228,6 +228,21 @@ serve(async (req: Request): Promise<Response> => {
       snapshot = await computeLiveSnapshot();
       invoiceDateFinal = payment.invoice_date || payment.due_date;
 
+      // Never mint an invoice ahead of its scheduled invoice date — numbering must follow
+      // the real issue order. IST is a fixed UTC+5:30 offset, so shifting "now" by it and
+      // reading UTC fields gives today's IST calendar date.
+      const istToday = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().split("T")[0];
+      if (invoiceDateFinal > istToday) {
+        return new Response(
+          JSON.stringify({
+            error: `This invoice is scheduled for ${invoiceDateFinal} and cannot be generated before that date.`,
+            code: "invoice_not_due_yet",
+            invoiceDate: invoiceDateFinal,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       // Prefix belongs to the billing address issuing the invoice, not the property. The
       // invoice's frozen bill_from_name is a copy (not a live FK), so resolve it by name
       // match against billing_addresses; fall back to the property's legacy prefix, then a
