@@ -63,19 +63,21 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [paymentType, setPaymentType] = useState<"full" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
-  const [gstApplicable, setGstApplicable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const markPaid = useMarkPaymentPaid();
   const createTransaction = useCreatePaymentTransaction();
   const { preview, openReceipt, refreshPreview, closePreview } = usePdfPreview();
 
-  // Default the TDS/GST toggles from the tenant's preference each time the dialog opens
+  // Default the TDS toggle from the tenant's preference each time the dialog opens
   useEffect(() => {
     if (open) {
       setTdsApplicable(payment?.tenant?.tds_applicable || false);
-      setGstApplicable(payment?.tenant?.requires_gst || false);
     }
   }, [open, payment?.id]);
+
+  // Not a toggle — GST either applies to this tenant's invoices or it doesn't, per the
+  // tenant's own GST setting. No manual override here.
+  const gstApplicable = payment?.tenant?.requires_gst || false;
 
   const totalDue = payment?.amount || 0;
   const previouslyPaid = payment?.paid_amount || 0;
@@ -168,7 +170,6 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     setPaymentType("full");
     setPartialAmount("");
     setTdsApplicable(false);
-    setGstApplicable(false);
   };
 
   const isDirty =
@@ -177,7 +178,6 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     paymentMethod !== "bank_transfer" ||
     paymentType !== "full" ||
     tdsApplicable !== (payment?.tenant?.tds_applicable || false) ||
-    gstApplicable !== (payment?.tenant?.requires_gst || false) ||
     format(paidDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
   const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
     useUnsavedChangesGuard(isDirty, onOpenChange);
@@ -213,16 +213,12 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             </div>
           </div>
 
-          {/* GST Toggle */}
-          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>GST Applicable</Label>
-              <p className="text-xs text-muted-foreground">
-                18% GST (9% CGST + 9% SGST) is collected on top of rent, payable to the government
-              </p>
+          {/* GST notice — not a toggle, follows the tenant's own GST setting */}
+          {gstApplicable && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+              This tenant is registered for GST, so 18% GST (9% CGST + 9% SGST) is added on top of rent automatically, as on their invoices.
             </div>
-            <Switch checked={gstApplicable} onCheckedChange={setGstApplicable} />
-          </div>
+          )}
 
           {/* TDS Toggle */}
           <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">

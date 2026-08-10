@@ -70,7 +70,6 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [notes, setNotes] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
-  const [gstApplicable, setGstApplicable] = useState(false);
   const [mode, setMode] = useState<"fifo" | "lifo" | "custom">("fifo");
   const [amountReceived, setAmountReceived] = useState("");
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
@@ -87,11 +86,10 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
     setCustomAmounts({});
   }, [open, tenantId]);
 
-  // Default the TDS/GST toggles from the selected tenant's preference.
+  // Default the TDS toggle from the selected tenant's preference.
   useEffect(() => {
     const tenant = allTenants?.find((t) => t.id === selectedTenantId);
     setTdsApplicable(tenant?.tds_applicable || false);
-    setGstApplicable(tenant?.requires_gst || false);
   }, [selectedTenantId, allTenants]);
 
   const tenantOptions = useMemo(() => {
@@ -99,6 +97,10 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
       .slice()
       .sort((a, b) => (a.status === "vacated" ? 1 : 0) - (b.status === "vacated" ? 1 : 0) || a.name.localeCompare(b.name));
   }, [allTenants]);
+
+  // Not a toggle — GST either applies to this tenant's invoices or it doesn't, per the
+  // tenant's own GST setting. No manual override here.
+  const gstApplicable = allTenants?.find((t) => t.id === selectedTenantId)?.requires_gst || false;
 
   const remainingDue = (p: RentPayment) => round2(p.amount - (p.paid_amount || 0));
 
@@ -175,7 +177,6 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
     amountReceived !== "" ||
     Object.keys(customAmounts).length > 0 ||
     tdsApplicable !== (allTenants?.find((t) => t.id === selectedTenantId)?.tds_applicable || false) ||
-    gstApplicable !== (allTenants?.find((t) => t.id === selectedTenantId)?.requires_gst || false) ||
     format(paidDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
   const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
     useUnsavedChangesGuard(isDirty, onOpenChange);
@@ -212,16 +213,12 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
 
           {selectedTenantId && (
             <>
-              {/* GST Toggle */}
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <Label>GST Applicable</Label>
-                  <p className="text-xs text-muted-foreground">
-                    18% GST is added on top of the gross amount and prorated across the invoices it settles
-                  </p>
+              {/* GST notice — not a toggle, follows the tenant's own GST setting */}
+              {gstApplicable && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                  This tenant is registered for GST, so 18% GST is added on top of the gross amount and prorated across the invoices it settles, as on their invoices.
                 </div>
-                <Switch checked={gstApplicable} onCheckedChange={setGstApplicable} />
-              </div>
+              )}
 
               {/* TDS Toggle */}
               <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
