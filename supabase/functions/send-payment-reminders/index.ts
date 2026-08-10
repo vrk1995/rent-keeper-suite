@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
+import { notifyCronFailure } from '../_shared/notifyCronFailure.ts'
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
 
@@ -187,11 +188,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    const failed = summary.filter((s) => s.error)
+    if (failed.length > 0) {
+      await notifyCronFailure(supabase, {
+        cronName: 'Send Payment Reminders',
+        ranAtIso: new Date().toISOString(),
+        items: failed.map((s) => ({
+          label: nameMap.get(s.user_id) || s.user_id,
+          message: String(s.error),
+        })),
+      })
+    }
+
     return new Response(JSON.stringify({ success: true, sent, summary }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     console.error('send-payment-reminders failed', err)
+    await notifyCronFailure(supabase, {
+      cronName: 'Send Payment Reminders',
+      ranAtIso: new Date().toISOString(),
+      topLevelError: (err as Error).message,
+    })
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
