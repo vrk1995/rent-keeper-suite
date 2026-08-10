@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { authorizePropertyAccess } from "../_shared/authorizeCaller.ts";
+import { resolveInvoiceActor, logInvoiceGeneration } from "../_shared/invoiceAudit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,8 @@ const corsHeaders = {
 
 interface InvoiceRequest {
   paymentId: string;
+  /** Why this call happened: a passive PDF preview, or an explicit user action. */
+  source?: "preview" | "manual";
 }
 
 serve(async (req: Request): Promise<Response> => {
