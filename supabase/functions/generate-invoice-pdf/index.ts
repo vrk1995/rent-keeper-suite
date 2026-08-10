@@ -26,7 +26,8 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { paymentId }: InvoiceRequest = await req.json();
+    const { paymentId, source }: InvoiceRequest = await req.json();
+    const actor = await resolveInvoiceActor(req, supabaseUrl, supabaseServiceKey, source);
 
     if (!paymentId) {
       return new Response(JSON.stringify({ error: "Payment ID is required" }), {
