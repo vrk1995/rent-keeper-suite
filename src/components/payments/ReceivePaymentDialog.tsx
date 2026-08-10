@@ -70,6 +70,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [notes, setNotes] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
+  const [gstApplicable, setGstApplicable] = useState(false);
   const [mode, setMode] = useState<"fifo" | "lifo" | "custom">("fifo");
   const [amountReceived, setAmountReceived] = useState("");
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
@@ -86,10 +87,11 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
     setCustomAmounts({});
   }, [open, tenantId]);
 
-  // Default the TDS toggle from the selected tenant's preference.
+  // Default the TDS/GST toggles from the selected tenant's preference.
   useEffect(() => {
     const tenant = allTenants?.find((t) => t.id === selectedTenantId);
     setTdsApplicable(tenant?.tds_applicable || false);
+    setGstApplicable(tenant?.requires_gst || false);
   }, [selectedTenantId, allTenants]);
 
   const tenantOptions = useMemo(() => {
@@ -132,7 +134,8 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
   const activeAllocations = mode === "custom" ? customAllocations : autoResult.allocations;
   const grossTotal = round2(activeAllocations.reduce((sum, a) => sum + a.amount, 0));
   const tdsTotal = tdsApplicable ? roundToRupee(grossTotal * 0.1) : 0;
-  const netTotal = round2(grossTotal - tdsTotal);
+  const gstTotal = gstApplicable ? roundToRupee(grossTotal * 0.18) : 0;
+  const netTotal = round2(grossTotal + gstTotal - tdsTotal);
 
   const customOverAllocated = mode === "custom" && (outstanding || []).some((p) => {
     const entered = parseFloat(customAmounts[p.id] || "0") || 0;
@@ -152,6 +155,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
         paymentMethod,
         notes: notes.trim() || undefined,
         tdsApplicable,
+        gstApplicable,
         allocations: activeAllocations.map((a) => ({ rentPaymentId: a.payment.id, amount: a.amount })),
       });
       toast.success(
@@ -171,6 +175,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
     amountReceived !== "" ||
     Object.keys(customAmounts).length > 0 ||
     tdsApplicable !== (allTenants?.find((t) => t.id === selectedTenantId)?.tds_applicable || false) ||
+    gstApplicable !== (allTenants?.find((t) => t.id === selectedTenantId)?.requires_gst || false) ||
     format(paidDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
   const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
     useUnsavedChangesGuard(isDirty, onOpenChange);
@@ -207,6 +212,17 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
 
           {selectedTenantId && (
             <>
+              {/* GST Toggle */}
+              <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label>GST Applicable</Label>
+                  <p className="text-xs text-muted-foreground">
+                    18% GST is added on top of the gross amount and prorated across the invoices it settles
+                  </p>
+                </div>
+                <Switch checked={gstApplicable} onCheckedChange={setGstApplicable} />
+              </div>
+
               {/* TDS Toggle */}
               <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                 <div className="space-y-0.5">
@@ -332,6 +348,12 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
                     <span className="text-muted-foreground">Gross Amount Settled</span>
                     <span className="font-semibold">{formatINR(grossTotal)}</span>
                   </div>
+                  {gstApplicable && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Add: GST (18%)</span>
+                      <span className="font-semibold text-success">+ {formatINR(gstTotal)}</span>
+                    </div>
+                  )}
                   {tdsApplicable && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Less: TDS Deducted (10%)</span>

@@ -21,6 +21,8 @@ export interface RentPayment {
   paid_amount: number;
   tds_applicable: boolean;
   tds_amount: number;
+  gst_applicable: boolean;
+  gst_amount: number;
   created_at: string;
   updated_at: string;
   property?: {
@@ -35,6 +37,7 @@ export interface RentPayment {
   tenant?: {
     name: string;
     tds_applicable?: boolean;
+    requires_gst?: boolean;
   };
 }
 
@@ -59,7 +62,7 @@ export const usePayments = () => {
           *,
           property:properties(name),
           unit:units(name, building:buildings(name)),
-          tenant:tenants(name, tds_applicable)
+          tenant:tenants(name, tds_applicable, requires_gst)
         `);
 
       if (selectedFY) {
@@ -88,7 +91,7 @@ export const useUpcomingPayments = () => {
           *,
           property:properties(name),
           unit:units(name, building:buildings(name)),
-          tenant:tenants(name, tds_applicable)
+          tenant:tenants(name, tds_applicable, requires_gst)
         `)
         .gte("due_date", today)
         .lte("due_date", thirtyDaysLater)
@@ -168,6 +171,8 @@ export const useMarkPaymentPaid = () => {
       status,
       tds_applicable,
       tds_amount,
+      gst_applicable,
+      gst_amount,
     }: {
       id: string;
       paid_date: string;
@@ -177,6 +182,8 @@ export const useMarkPaymentPaid = () => {
       status: "paid" | "partial";
       tds_applicable: boolean;
       tds_amount: number;
+      gst_applicable: boolean;
+      gst_amount: number;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -190,6 +197,8 @@ export const useMarkPaymentPaid = () => {
           paid_amount,
           tds_applicable,
           tds_amount,
+          gst_applicable,
+          gst_amount,
           marked_by: user?.id,
         } as any)
         .eq("id", id)
@@ -382,6 +391,8 @@ export const useRevertPaymentToUnpaid = () => {
           notes: null,
           tds_applicable: false,
           tds_amount: 0,
+          gst_applicable: false,
+          gst_amount: 0,
           marked_by: null,
         })
         .eq("id", id)

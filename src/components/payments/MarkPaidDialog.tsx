@@ -39,6 +39,7 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
 
 const TDS_RATE = 0.1;
+const GST_RATE = 0.18;
 
 interface MarkPaidDialogProps {
   open: boolean;
@@ -62,15 +63,17 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [paymentType, setPaymentType] = useState<"full" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
+  const [gstApplicable, setGstApplicable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const markPaid = useMarkPaymentPaid();
   const createTransaction = useCreatePaymentTransaction();
   const { preview, openReceipt, refreshPreview, closePreview } = usePdfPreview();
 
-  // Default the TDS toggle from the tenant's preference each time the dialog opens for a payment
+  // Default the TDS/GST toggles from the tenant's preference each time the dialog opens
   useEffect(() => {
     if (open) {
       setTdsApplicable(payment?.tenant?.tds_applicable || false);
+      setGstApplicable(payment?.tenant?.requires_gst || false);
     }
   }, [open, payment?.id]);
 
@@ -78,11 +81,20 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const previouslyPaid = payment?.paid_amount || 0;
   const remainingDue = totalDue - previouslyPaid;
 
-  // Rent being settled in this transaction (before any TDS deduction) — the full remaining
-  // due, or a user-chosen portion of it for a partial payment.
+  // Rent being settled in this transaction (before GST/TDS) — the full remaining due, or a
+  // user-chosen portion of it for a partial payment. This is what rent_payments.paid_amount
+  // tracks against; GST/TDS never change how much of the RENT obligation counts as settled.
   const grossSettled = paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
-  const tdsAmount = tdsApplicable ? Math.round(grossSettled * TDS_RATE) : 0;
-  const receivedAmount = grossSettled - tdsAmount;
+  // The actual cash that changes hands: rent settled, plus GST collected on top of it (which
+  // gets passed on to the government later), minus TDS the tenant deducted at source.
+  const netForGross = (gross: number) => {
+    const gst = gstApplicable ? Math.round(gross * GST_RATE) : 0;
+    const tds = tdsApplicable ? Math.round(gross * TDS_RATE) : 0;
+    return { gst, tds, net: gross + gst - tds };
+  };
+  const { gst: gstAmount, tds: tdsAmount } = netForGross(grossSettled);
+  const receivedAmount = grossSettled + gstAmount - tdsAmount;
+  const fullAmountNet = netForGross(remainingDue).net;
   const newTotalPaid = previouslyPaid + grossSettled;
   const isFullyPaid = newTotalPaid >= totalDue;
 
@@ -107,6 +119,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
           rent_payment_id: payment.id,
           amount: grossSettled,
           tds_amount: tdsAmount,
+          gst_amount: gstAmount,
           received_amount: receivedAmount,
           paid_date: format(paidDate, "yyyy-MM-dd"),
           payment_method: paymentMethod,
@@ -128,6 +141,8 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
         status: isFullyPaid ? "paid" : "partial",
         tds_applicable: tdsApplicable,
         tds_amount: tdsAmount,
+        gst_applicable: gstApplicable,
+        gst_amount: gstAmount,
       });
 
       // Generate a receipt for THIS installment specifically.
@@ -153,6 +168,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     setPaymentType("full");
     setPartialAmount("");
     setTdsApplicable(false);
+    setGstApplicable(false);
   };
 
   const isDirty =
@@ -161,6 +177,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     paymentMethod !== "bank_transfer" ||
     paymentType !== "full" ||
     tdsApplicable !== (payment?.tenant?.tds_applicable || false) ||
+    gstApplicable !== (payment?.tenant?.requires_gst || false) ||
     format(paidDate, "yyyy-MM-dd") !== format(new Date(), "yyyy-MM-dd");
   const { guardedOnOpenChange, pendingClose, confirmDiscard, cancelDiscard } =
     useUnsavedChangesGuard(isDirty, onOpenChange);
@@ -196,6 +213,17 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             </div>
           </div>
 
+          {/* GST Toggle */}
+          <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>GST Applicable</Label>
+              <p className="text-xs text-muted-foreground">
+                18% GST (9% CGST + 9% SGST) is collected on top of rent, payable to the government
+              </p>
+            </div>
+            <Switch checked={gstApplicable} onCheckedChange={setGstApplicable} />
+          </div>
+
           {/* TDS Toggle */}
           <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
@@ -209,7 +237,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
 
           {/* Full / Partial Selection */}
           <div className="space-y-2">
-            <Label>{tdsApplicable ? "Rent Being Settled" : "Amount Received"}</Label>
+            <Label>{tdsApplicable || gstApplicable ? "Rent Being Settled" : "Amount Received"}</Label>
             <RadioGroup
               value={paymentType}
               onValueChange={(v) => setPaymentType(v as "full" | "partial")}
@@ -218,7 +246,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="full" id="full" />
                 <Label htmlFor="full" className="font-normal cursor-pointer">
-                  Full Amount ({formatINR(remainingDue)})
+                  Full Amount ({formatINR(fullAmountNet)})
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
@@ -233,7 +261,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
           {/* Partial Amount Input */}
           {paymentType === "partial" && (
             <div className="space-y-2">
-              <Label>{tdsApplicable ? "Rent Amount Being Settled (₹)" : "Amount Received (₹)"}</Label>
+              <Label>{tdsApplicable || gstApplicable ? "Rent Amount Being Settled (₹)" : "Amount Received (₹)"}</Label>
               <Input
                 type="number"
                 placeholder={`Max ${remainingDue}`}
@@ -242,9 +270,9 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
                 max={remainingDue}
                 min={1}
               />
-              {tdsApplicable && (
+              {(tdsApplicable || gstApplicable) && (
                 <p className="text-xs text-muted-foreground">
-                  This is the rent amount being cleared before TDS; the net cash you'll receive is shown below.
+                  This is the rent amount being cleared, before GST/TDS; the net cash you'll receive is shown below.
                 </p>
               )}
               {grossSettled > 0 && grossSettled <= remainingDue && (
@@ -255,8 +283,8 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             </div>
           )}
 
-          {/* TDS Breakup */}
-          {tdsApplicable && (
+          {/* GST / TDS Breakup */}
+          {(tdsApplicable || gstApplicable) && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Rent Due</span>
@@ -268,10 +296,18 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
                   <span className="font-semibold">{formatINR(grossSettled)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Less: TDS Deducted (10%)</span>
-                <span className="font-semibold text-destructive">- {formatINR(tdsAmount)}</span>
-              </div>
+              {gstApplicable && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Add: GST (18%)</span>
+                  <span className="font-semibold text-success">+ {formatINR(gstAmount)}</span>
+                </div>
+              )}
+              {tdsApplicable && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Less: TDS Deducted (10%)</span>
+                  <span className="font-semibold text-destructive">- {formatINR(tdsAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm border-t border-border pt-2">
                 <span className="text-muted-foreground font-medium">Net Amount Receivable</span>
                 <span className="font-bold text-primary">{formatINR(receivedAmount)}</span>

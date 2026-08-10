@@ -12,6 +12,7 @@ interface Txn {
   id: string;
   amount: number;
   tds_amount: number;
+  gst_amount: number;
   received_amount: number;
   paid_date: string;
   payment_method: string | null;
@@ -81,7 +82,7 @@ serve(async (req: Request): Promise<Response> => {
     // All installments recorded against this rent, oldest first.
     const { data: txnRows } = await supabase
       .from("payment_transactions")
-      .select("id, amount, tds_amount, received_amount, paid_date, payment_method, notes, created_at")
+      .select("id, amount, tds_amount, gst_amount, received_amount, paid_date, payment_method, notes, created_at")
       .eq("rent_payment_id", paymentId)
       .order("paid_date", { ascending: true })
       .order("created_at", { ascending: true });
@@ -225,12 +226,13 @@ serve(async (req: Request): Promise<Response> => {
 
     if (isStatement) {
       // === STATEMENT: table of every installment with a running balance ===
-      const cols = { date: leftMargin + 6, method: leftMargin + 130, amount: leftMargin + 250, tds: leftMargin + 340, bal: leftMargin + 430 };
+      const cols = { date: leftMargin + 6, method: leftMargin + 100, amount: leftMargin + 190, gst: leftMargin + 270, tds: leftMargin + 340, bal: leftMargin + 420 };
       page.drawRectangle({ x: leftMargin, y: yPos - 5, width: rightMargin - leftMargin, height: 22, color: lightGrayColor });
       const headY = yPos + 2;
       drawText("Date", cols.date, headY, fontBold, 9);
       drawText("Method", cols.method, headY, fontBold, 9);
-      drawText("Amount", cols.amount, headY, fontBold, 9);
+      drawText("Rent Amt", cols.amount, headY, fontBold, 9);
+      drawText("GST", cols.gst, headY, fontBold, 9);
       drawText("TDS", cols.tds, headY, fontBold, 9);
       drawText("Balance", cols.bal, headY, fontBold, 9);
       yPos -= 22;
@@ -243,8 +245,9 @@ serve(async (req: Request): Promise<Response> => {
           ? t.payment_method.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
           : "-";
         drawText(new Date(t.paid_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" }), cols.date, yPos, fontRegular, 9);
-        drawText(methodLabel.length > 16 ? methodLabel.slice(0, 15) + "." : methodLabel, cols.method, yPos, fontRegular, 9);
+        drawText(methodLabel.length > 12 ? methodLabel.slice(0, 11) + "." : methodLabel, cols.method, yPos, fontRegular, 9);
         drawText(formatCurrency(Number(t.amount)), cols.amount, yPos, fontRegular, 9);
+        drawText(Number(t.gst_amount) > 0 ? formatCurrency(Number(t.gst_amount)) : "-", cols.gst, yPos, fontRegular, 9, grayColor);
         drawText(Number(t.tds_amount) > 0 ? formatCurrency(Number(t.tds_amount)) : "-", cols.tds, yPos, fontRegular, 9, grayColor);
         drawText(formatCurrency(bal), cols.bal, yPos, fontRegular, 9);
         yPos -= 18;
@@ -266,7 +269,8 @@ serve(async (req: Request): Promise<Response> => {
       // === RECEIPT: one payment (a specific installment, or the whole payment legacy) ===
       const gross = thisTxn ? Number(thisTxn.amount) : Number(payment.paid_amount) || 0;
       const tds = thisTxn ? Number(thisTxn.tds_amount) : (payment.tds_applicable ? Number(payment.tds_amount) || 0 : 0);
-      const net = thisTxn ? Number(thisTxn.received_amount) : gross - tds;
+      const gst = thisTxn ? Number(thisTxn.gst_amount || 0) : (payment.gst_applicable ? Number(payment.gst_amount) || 0 : 0);
+      const net = thisTxn ? Number(thisTxn.received_amount) : gross + gst - tds;
       const method = thisTxn ? thisTxn.payment_method : payment.payment_method;
       const notes = thisTxn ? thisTxn.notes : payment.notes;
 
@@ -291,9 +295,15 @@ serve(async (req: Request): Promise<Response> => {
       drawText(formatCurrency(totalDue), leftMargin + 360, yPos, fontRegular, 10, grayColor);
       yPos -= 20;
 
-      drawText("Amount received (this payment)", leftMargin + 10, yPos, fontRegular, 10);
+      drawText("Rent amount settled (this payment)", leftMargin + 10, yPos, fontRegular, 10);
       drawText(formatCurrency(gross), leftMargin + 360, yPos, fontRegular, 10);
       yPos -= 18;
+
+      if (gst > 0) {
+        drawText("Add: GST @ 18%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
+        drawText(`+ ${formatCurrency(gst)}`, leftMargin + 360, yPos, fontRegular, 10, grayColor);
+        yPos -= 18;
+      }
 
       if (tds > 0) {
         drawText("Less: TDS Deducted @ 10%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
@@ -305,7 +315,7 @@ serve(async (req: Request): Promise<Response> => {
       drawLine(leftMargin, yPos, rightMargin, yPos);
       yPos -= 24;
 
-      drawText(tds > 0 ? "NET RECEIVED" : "AMOUNT RECEIVED", leftMargin + 10, yPos, fontBold, 12);
+      drawText(tds > 0 || gst > 0 ? "NET RECEIVED" : "AMOUNT RECEIVED", leftMargin + 10, yPos, fontBold, 12);
       drawText(formatCurrency(net), leftMargin + 350, yPos, fontBold, 14, primaryColor);
       yPos -= 20;
 

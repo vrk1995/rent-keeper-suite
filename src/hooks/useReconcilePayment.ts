@@ -2,12 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const TDS_RATE = 0.1;
+const GST_RATE = 0.18;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const roundToRupee = (n: number) => Math.round(n);
 
 export interface ReconcileAllocation {
   rentPaymentId: string;
-  /** Gross rent amount (before TDS) being applied to this invoice. */
+  /** Gross rent amount (before GST/TDS) being applied to this invoice. */
   amount: number;
 }
 
@@ -16,13 +17,14 @@ export interface ReconcilePaymentInput {
   paymentMethod: string;
   notes?: string;
   tdsApplicable: boolean;
+  gstApplicable: boolean;
   allocations: ReconcileAllocation[];
 }
 
 /** Applies one lump-sum payment across multiple outstanding invoices (FIFO/LIFO/custom
  *  allocation is decided by the caller — this just executes the resulting per-invoice split).
  *  Each invoice gets its own payment_transactions ledger entry and its paid_amount/status
- *  updated, with TDS prorated proportionally to each invoice's share of the gross total. */
+ *  updated, with GST/TDS prorated proportionally to each invoice's share of the gross total. */
 export const useReconcilePayment = () => {
   const queryClient = useQueryClient();
 
@@ -31,17 +33,20 @@ export const useReconcilePayment = () => {
       const { data: { user } } = await supabase.auth.getUser();
       const grossTotal = input.allocations.reduce((sum, a) => sum + a.amount, 0);
       const tdsTotal = input.tdsApplicable ? roundToRupee(grossTotal * TDS_RATE) : 0;
+      const gstTotal = input.gstApplicable ? roundToRupee(grossTotal * GST_RATE) : 0;
 
       const touchedRentPaymentIds: string[] = [];
 
       for (const alloc of input.allocations) {
         const tdsForAlloc = grossTotal > 0 ? roundToRupee((alloc.amount / grossTotal) * tdsTotal) : 0;
-        const receivedForAlloc = alloc.amount - tdsForAlloc;
+        const gstForAlloc = grossTotal > 0 ? roundToRupee((alloc.amount / grossTotal) * gstTotal) : 0;
+        const receivedForAlloc = alloc.amount + gstForAlloc - tdsForAlloc;
 
         const { error: txnError } = await supabase.from("payment_transactions").insert({
           rent_payment_id: alloc.rentPaymentId,
           amount: alloc.amount,
           tds_amount: tdsForAlloc,
+          gst_amount: gstForAlloc,
           received_amount: receivedForAlloc,
           paid_date: input.paidDate,
           payment_method: input.paymentMethod,
@@ -69,6 +74,8 @@ export const useReconcilePayment = () => {
             notes: input.notes,
             tds_applicable: input.tdsApplicable,
             tds_amount: tdsForAlloc,
+            gst_applicable: input.gstApplicable,
+            gst_amount: gstForAlloc,
             marked_by: user?.id,
           })
           .eq("id", alloc.rentPaymentId);

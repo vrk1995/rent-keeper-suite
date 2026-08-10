@@ -7,6 +7,7 @@ export interface PaymentTransaction {
   rent_payment_id: string;
   amount: number;
   tds_amount: number;
+  gst_amount: number;
   received_amount: number;
   paid_date: string;
   payment_method: string | null;
@@ -19,6 +20,7 @@ export interface CreatePaymentTransactionInput {
   rent_payment_id: string;
   amount: number;
   tds_amount: number;
+  gst_amount: number;
   received_amount: number;
   paid_date: string;
   payment_method?: string;
@@ -72,7 +74,7 @@ export const useCreatePaymentTransaction = () => {
 async function recomputeRentPaymentFromTransactions(rentPaymentId: string) {
   const { data: remaining, error: txError } = await supabase
     .from("payment_transactions")
-    .select("amount, tds_amount, paid_date, payment_method, notes")
+    .select("amount, tds_amount, gst_amount, paid_date, payment_method, notes")
     .eq("rent_payment_id", rentPaymentId)
     .order("paid_date", { ascending: true })
     .order("created_at", { ascending: true });
@@ -109,6 +111,8 @@ async function recomputeRentPaymentFromTransactions(rentPaymentId: string) {
       notes: latest?.notes || null,
       tds_amount: latest ? Number(latest.tds_amount) : 0,
       tds_applicable: latest ? Number(latest.tds_amount) > 0 : false,
+      gst_amount: latest ? Number(latest.gst_amount) : 0,
+      gst_applicable: latest ? Number(latest.gst_amount) > 0 : false,
     })
     .eq("id", rentPaymentId);
   if (updateError) throw updateError;
@@ -138,6 +142,7 @@ export interface UpdatePaymentTransactionInput {
   rent_payment_id: string;
   amount: number;
   tds_amount: number;
+  gst_amount: number;
   paid_date: string;
   payment_method?: string;
   notes?: string;
@@ -150,12 +155,13 @@ export const useUpdatePaymentTransaction = () => {
 
   return useMutation({
     mutationFn: async (input: UpdatePaymentTransactionInput) => {
-      const receivedAmount = input.amount - input.tds_amount;
+      const receivedAmount = input.amount + input.gst_amount - input.tds_amount;
       const { error } = await supabase
         .from("payment_transactions")
         .update({
           amount: input.amount,
           tds_amount: input.tds_amount,
+          gst_amount: input.gst_amount,
           received_amount: receivedAmount,
           paid_date: input.paid_date,
           payment_method: input.payment_method || null,

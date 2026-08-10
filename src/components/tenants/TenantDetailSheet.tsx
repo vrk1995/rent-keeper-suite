@@ -156,10 +156,12 @@ const TenantDetailSheet = ({ tenant, open, onOpenChange }: TenantDetailSheetProp
     if (paidAmount > 0) {
       ledgerRows.push({
         date: p.paid_date || p.due_date,
-        particulars:
-          p.tds_applicable && p.tds_amount
-            ? `Payment received (incl. ${formatINR(p.tds_amount)} TDS)`
-            : "Payment received",
+        particulars: (() => {
+          const notes: string[] = [];
+          if (p.gst_applicable && p.gst_amount) notes.push(`+${formatINR(p.gst_amount)} GST`);
+          if (p.tds_applicable && p.tds_amount) notes.push(`-${formatINR(p.tds_amount)} TDS`);
+          return notes.length ? `Payment received (${notes.join(", ")})` : "Payment received";
+        })(),
         invoiceNumber,
         debit: 0,
         credit: paidAmount,

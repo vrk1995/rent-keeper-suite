@@ -166,9 +166,11 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
                           Recorded by {recorderName(t.created_by)} on {formatIST(t.created_at)}
                         </p>
                       )}
-                      {Number(t.tds_amount) > 0 && (
+                      {(Number(t.tds_amount) > 0 || Number(t.gst_amount) > 0) && (
                         <p className="text-xs text-muted-foreground">
-                          TDS: {formatINR(Number(t.tds_amount))} · Received: {formatINR(Number(t.received_amount))}
+                          {Number(t.gst_amount) > 0 && `GST: +${formatINR(Number(t.gst_amount))} · `}
+                          {Number(t.tds_amount) > 0 && `TDS: -${formatINR(Number(t.tds_amount))} · `}
+                          Received: {formatINR(Number(t.received_amount))}
                         </p>
                       )}
                       {t.notes && <p className="text-xs text-muted-foreground mt-1">{t.notes}</p>}

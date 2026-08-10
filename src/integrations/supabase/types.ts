@@ -724,6 +724,7 @@ export type Database = {
           amount: number
           created_at: string
           created_by: string | null
+          gst_amount: number
           id: string
           notes: string | null
           paid_date: string
@@ -737,6 +738,7 @@ export type Database = {
           amount: number
           created_at?: string
           created_by?: string | null
+          gst_amount?: number
           id?: string
           notes?: string | null
           paid_date: string
@@ -750,6 +752,7 @@ export type Database = {
           amount?: number
           created_at?: string
           created_by?: string | null
+          gst_amount?: number
           id?: string
           notes?: string | null
           paid_date?: string
@@ -1324,6 +1327,8 @@ export type Database = {
           billing_month: string | null
           created_at: string
           due_date: string
+          gst_amount: number
+          gst_applicable: boolean
           id: string
           invoice_date: string | null
           marked_by: string | null
@@ -1346,6 +1351,8 @@ export type Database = {
           billing_month?: string | null
           created_at?: string
           due_date: string
+          gst_amount?: number
+          gst_applicable?: boolean
           id?: string
           invoice_date?: string | null
           marked_by?: string | null
@@ -1368,6 +1375,8 @@ export type Database = {
           billing_month?: string | null
           created_at?: string
           due_date?: string
+          gst_amount?: number
+          gst_applicable?: boolean
           id?: string
           invoice_date?: string | null
           marked_by?: string | null
