@@ -24,7 +24,8 @@ export interface TdsLedgerEntry {
   gross_amount: number;
   tds_amount: number;
   tds_rate: number; // derived (tds_amount / gross_amount), for readability only — not stored
-  received_amount: number;
+  gst_amount: number;
+  received_amount: number; // gross_amount + gst_amount - tds_amount
   payment_method: string | null;
 }
 
@@ -69,6 +70,7 @@ interface TdsTransactionRow {
   paid_date: string;
   amount: number;
   tds_amount: number;
+  gst_amount: number;
   received_amount: number;
   payment_method: string | null;
 }
@@ -156,7 +158,7 @@ export const useTdsLedger = (scope: LedgerScope) => {
       const paymentIds = payments.map((p) => p.id);
       const { data: transactionsData, error: txError } = await supabase
         .from("payment_transactions")
-        .select("id, rent_payment_id, paid_date, amount, tds_amount, received_amount, payment_method")
+        .select("id, rent_payment_id, paid_date, amount, tds_amount, gst_amount, received_amount, payment_method")
         .in("rent_payment_id", paymentIds)
         .gt("tds_amount", 0);
       if (txError) throw txError;
@@ -197,6 +199,7 @@ export const useTdsLedger = (scope: LedgerScope) => {
           gross_amount: gross,
           tds_amount: tds,
           tds_rate: gross ? Math.round((tds / gross) * 1000) / 10 : 0,
+          gst_amount: Number(t.gst_amount) || 0,
           received_amount: Number(t.received_amount) || 0,
           payment_method: t.payment_method,
         };

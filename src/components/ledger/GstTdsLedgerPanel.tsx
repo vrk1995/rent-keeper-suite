@@ -59,9 +59,10 @@ export function GstTdsLedgerPanel({ scope, showEntityColumns = false, entityLabe
     (acc, e) => ({
       gross: acc.gross + e.gross_amount,
       tds: acc.tds + e.tds_amount,
+      gst: acc.gst + e.gst_amount,
       received: acc.received + e.received_amount,
     }),
-    { gross: 0, tds: 0, received: 0 }
+    { gross: 0, tds: 0, gst: 0, received: 0 }
   );
 
   const handleDownloadGst = () => {
@@ -88,7 +89,7 @@ export function GstTdsLedgerPanel({ scope, showEntityColumns = false, entityLabe
     const headers = [
       "Date", "Invoice #",
       ...(showEntityColumns ? ["Tenant", "Property"] : []),
-      "Gross Amount", "TDS Amount", "TDS %", "Received Amount", "Payment Method",
+      "Gross Amount", "TDS Amount", "TDS %", "GST Amount", "Received Amount", "Payment Method",
     ];
     const rows = filteredTds.map((e) => [
       e.date,
@@ -97,6 +98,7 @@ export function GstTdsLedgerPanel({ scope, showEntityColumns = false, entityLabe
       e.gross_amount.toFixed(2),
       e.tds_amount.toFixed(2),
       `${e.tds_rate}%`,
+      e.gst_amount.toFixed(2),
       e.received_amount.toFixed(2),
       e.payment_method || "—",
     ]);
@@ -207,6 +209,7 @@ export function GstTdsLedgerPanel({ scope, showEntityColumns = false, entityLabe
                     <TableHead className="text-right">Gross Amount</TableHead>
                     <TableHead className="text-right">TDS Amount</TableHead>
                     <TableHead className="text-right">TDS %</TableHead>
+                    <TableHead className="text-right">GST Amount</TableHead>
                     <TableHead className="text-right">Received</TableHead>
                     <TableHead>Method</TableHead>
                   </TableRow>
@@ -221,6 +224,7 @@ export function GstTdsLedgerPanel({ scope, showEntityColumns = false, entityLabe
                       <TableCell className="text-right">{formatINR(e.gross_amount)}</TableCell>
                       <TableCell className="text-right font-medium">{formatINR(e.tds_amount)}</TableCell>
                       <TableCell className="text-right text-muted-foreground">{e.tds_rate}%</TableCell>
+                      <TableCell className="text-right">{e.gst_amount > 0 ? formatINR(e.gst_amount) : "—"}</TableCell>
                       <TableCell className="text-right font-semibold">{formatINR(e.received_amount)}</TableCell>
                       <TableCell className="capitalize">{e.payment_method?.replace("_", " ") || "—"}</TableCell>
                     </TableRow>
@@ -232,6 +236,7 @@ export function GstTdsLedgerPanel({ scope, showEntityColumns = false, entityLabe
                     <TableCell className="text-right">{formatINR(tdsTotals.gross)}</TableCell>
                     <TableCell className="text-right">{formatINR(tdsTotals.tds)}</TableCell>
                     <TableCell />
+                    <TableCell className="text-right">{formatINR(tdsTotals.gst)}</TableCell>
                     <TableCell className="text-right">{formatINR(tdsTotals.received)}</TableCell>
                     <TableCell />
                   </TableRow>
