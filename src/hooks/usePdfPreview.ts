@@ -73,8 +73,9 @@ export function usePdfPreview() {
     }
   };
 
-  const openInvoice = (paymentId: string) =>
-    generate("generate-invoice-pdf", paymentId, "Invoice", "Invoice.pdf", "invoice");
+  /** `source` is recorded in the invoice audit log: a passive preview vs. a deliberate action. */
+  const openInvoice = (paymentId: string, source: "preview" | "manual" = "preview") =>
+    generate("generate-invoice-pdf", paymentId, "Invoice", "Invoice.pdf", "invoice", { source });
 
   /** Receipt for a single installment (transactionId), or the whole payment when omitted. */
   const openReceipt = (paymentId: string, transactionId?: string) =>
