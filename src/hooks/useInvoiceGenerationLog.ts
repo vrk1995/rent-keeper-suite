@@ -42,3 +42,19 @@ export const useInvoiceGenerationLog = (rentPaymentId?: string | null) =>
     },
     enabled: !!rentPaymentId,
   });
+
+/** Workspace-wide audit trail of invoice generation events (most recent first). */
+export const useWorkspaceInvoiceGenerationLog = (enabled = true) =>
+  useQuery({
+    queryKey: ["invoice-generation-log", "workspace"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("invoice_generation_log")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data as InvoiceGenerationLogEntry[];
+    },
+    enabled,
+  });
