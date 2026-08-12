@@ -12,6 +12,9 @@ export interface CallerScope {
   workspaceId: string | null;
   /** null = unrestricted (sees the whole workspace) */
   propertyIds: string[] | null;
+  /** Mirrors can_record_payments() — true for super_admin/admin/member, false for viewer
+   *  (or any account with no role at all). Gates write tools; read tools ignore it. */
+  canRecordPayments: boolean;
 }
 
 export async function resolveCallerScope(
@@ -25,12 +28,14 @@ export async function resolveCallerScope(
     .order("created_at", { ascending: true });
 
   const workspaceId = (roles as any[] ?? [])[0]?.workspace_id ?? null;
-  if (!workspaceId) return { workspaceId: null, propertyIds: [] };
+  if (!workspaceId) return { workspaceId: null, propertyIds: [], canRecordPayments: false };
 
-  const isSuperAdmin = (roles as any[] ?? []).some(
-    (r) => r.role === "super_admin" && r.workspace_id === workspaceId
+  const rolesInWorkspace = (roles as any[] ?? []).filter((r) => r.workspace_id === workspaceId);
+  const isSuperAdmin = rolesInWorkspace.some((r) => r.role === "super_admin");
+  const canRecordPayments = rolesInWorkspace.some((r) =>
+    ["super_admin", "admin", "member"].includes(r.role)
   );
-  if (isSuperAdmin) return { workspaceId, propertyIds: null };
+  if (isSuperAdmin) return { workspaceId, propertyIds: null, canRecordPayments };
 
   const { data: access } = await admin
     .from("user_property_access")
@@ -39,5 +44,5 @@ export async function resolveCallerScope(
     .eq("workspace_id", workspaceId);
 
   const scoped = (access as any[] ?? []).map((r) => r.property_id as string);
-  return { workspaceId, propertyIds: scoped.length > 0 ? scoped : null };
+  return { workspaceId, propertyIds: scoped.length > 0 ? scoped : null, canRecordPayments };
 }

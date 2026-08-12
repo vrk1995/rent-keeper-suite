@@ -7,12 +7,37 @@ const corsHeaders = {
 };
 
 const SERVER_NAME = "rent-keeper-suite";
-const SERVER_VERSION = "1.0.0";
+const SERVER_VERSION = "1.1.0";
+
+const SERVER_INSTRUCTIONS = `This server lets you look up properties, tenants, and rent payments, and — for one
+specific workflow — record a payment.
+
+Recording a payment from a pasted bank message (SMS/email showing money received):
+1. Call find_matching_payment with the amount (and tenant name if the message gives one).
+2. For each candidate, tell the user the tenant, property, and rent PERIOD (the month the
+   rent is for, e.g. "July 2026" — not the month the invoice was raised) along with the
+   amount. If a candidate's breakdown involves GST/TDS, say so plainly (e.g. "rent minus
+   10% TDS").
+3. Wait for the user to explicitly confirm which one it is (or that none are right) before
+   doing anything else. Never call mark_payment_received on your own judgement alone.
+4. If none of the candidates are right, ask the user which month the rent being paid is
+   for, then call list_due_payments_for_month with that month and present the results as
+   a numbered list for them to pick from.
+5. Once confirmed, call mark_payment_received with confirmed:true. If it reports
+   duplicate_warning, tell the user and only retry with force:true if they say to record
+   it anyway.
+
+mark_payment_received requires the account to have payment-recording permission
+(super_admin/admin/member, not viewer) and only ever touches properties the caller
+already has access to — it will reject anything else.`;
 
 // ---------------------------------------------------------------------------
-// Tool schemas — read-only by design. None of these can create, edit, or
-// delete anything; they only ever run SELECT queries scoped to the caller's
-// own workspace and property access (see resolveCallerScope).
+// Tool schemas. Most of these are read-only, scoped to the caller's own
+// workspace and property access (see resolveCallerScope). The three
+// payment-matching tools at the end are the one write path this server
+// offers — mark_payment_received is gated on scope.canRecordPayments and on
+// an explicit confirmed:true flag, so it can never fire without both a
+// permission check and the calling model having gotten the human's go-ahead.
 // ---------------------------------------------------------------------------
 const TOOLS = [
   {
@@ -66,6 +91,56 @@ const TOOLS = [
         limit: { type: "number", description: "How many recent payments to return (default 12, max 50)." },
       },
       required: ["tenant_name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "find_matching_payment",
+    description:
+      "Use this when the user pastes a bank payment notification (SMS/email) reporting money received, so you can figure out which tenant's rent it settles. Pass the amount the bank credited; add tenant_name_hint if the message names anyone. Returns candidate unpaid rent payments (pending/overdue/partial) in the caller's scope, each with tenant, property, rent PERIOD (the month the rent is for — not when the invoice was raised), amount due, remaining due, and the plausible cash breakdowns given that tenant's GST/TDS settings (e.g. rent alone, rent minus TDS, rent plus GST). Always show the tenant, property, and period back to the user for confirmation before calling mark_payment_received — never guess and commit silently. If none of the candidates look right, don't force a match: ask the user which month the rent is for and call list_due_payments_for_month instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        amount: { type: "number", description: "The cash amount the bank message reports as credited." },
+        tenant_name_hint: { type: "string", description: "Tenant name if the message mentions one (optional)." },
+      },
+      required: ["amount"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "list_due_payments_for_month",
+    description:
+      "Fallback for when find_matching_payment's candidates don't look right to the user. Ask the user which month the rent being paid is FOR (not the invoice month), then call this with that month to list every unpaid rent payment (pending/overdue/partial) due in it, in the caller's scope. Present the results as a numbered list (tenant, property, amount due) and have the user pick one before calling mark_payment_received.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        month: { type: "string", description: "The rent period as YYYY-MM, e.g. '2026-07' for July 2026." },
+      },
+      required: ["month"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "mark_payment_received",
+    description:
+      "Records a payment against a specific rent_payment row. ONLY call this after the user has explicitly confirmed, in this conversation, which payment it is and which cash breakdown is correct (confirmed must be true, or the call is rejected) — never as the first response to a pasted bank message. gross_rent_settled is the RENT portion being cleared (before GST/TDS), capped at that payment's remaining due; pass tds_amount/gst_amount only if the confirmed breakdown includes them. If the tool reports duplicate_warning (a very similar transaction was already recorded recently), tell the user and only retry with force:true if they explicitly say to record it anyway.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        payment_id: { type: "string", description: "The rent_payments id from find_matching_payment or list_due_payments_for_month." },
+        gross_rent_settled: { type: "number", description: "Rent amount being settled, before GST/TDS. Must be > 0 and <= remaining due." },
+        tds_applicable: { type: "boolean", description: "Whether TDS was deducted from this receipt. Default false." },
+        tds_amount: { type: "number", description: "TDS amount deducted, if tds_applicable. Default 0." },
+        gst_applicable: { type: "boolean", description: "Whether GST was collected on top of this receipt. Default false." },
+        gst_amount: { type: "number", description: "GST amount collected, if gst_applicable. Default 0." },
+        paid_date: { type: "string", description: "Date the payment was received, YYYY-MM-DD." },
+        payment_method: { type: "string", description: "Defaults to 'bank_transfer' — this tool is for bank payment notifications." },
+        notes: { type: "string", description: "Optional note, e.g. a snippet of the bank message." },
+        confirmed: { type: "boolean", description: "Must be true. Confirms the human has approved this exact match and amount in the conversation." },
+        force: { type: "boolean", description: "Set true only after the user has been warned about a likely duplicate and still wants to proceed." },
+      },
+      required: ["payment_id", "gross_rent_settled", "paid_date", "confirmed"],
       additionalProperties: false,
     },
   },
@@ -230,7 +305,252 @@ async function getPaymentHistory(admin: Admin, scope: CallerScope, args: any) {
   };
 }
 
-async function callTool(admin: Admin, scope: CallerScope, name: string, args: any) {
+const TDS_RATE = 0.1;
+const GST_RATE = 0.18;
+const roundRupee = (n: number) => Math.round(n);
+
+/** The month rent is FOR, e.g. "July 2026" — from billing_month if set, else the due
+ *  date's month. Deliberately not the invoice date, which can differ (e.g. arrears billing). */
+function periodLabel(billingMonth: string | null | undefined, dueDate: string): string {
+  if (billingMonth) {
+    const [y, m] = billingMonth.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+  }
+  return new Date(dueDate).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+/** Plausible cash amounts for settling `remaining` in full, given a tenant's GST/TDS
+ *  defaults — used both to explain a candidate to the user and to score how well a bank
+ *  amount matches it. */
+function settlementVariants(remaining: number, tdsApplicable: boolean, gstApplicable: boolean) {
+  const variants: { label: string; cash_amount: number }[] = [
+    { label: "Rent only (no GST/TDS)", cash_amount: roundRupee(remaining) },
+  ];
+  const tds = roundRupee(remaining * TDS_RATE);
+  const gst = roundRupee(remaining * GST_RATE);
+  if (tdsApplicable) variants.push({ label: "Rent minus 10% TDS", cash_amount: remaining - tds });
+  if (gstApplicable) variants.push({ label: "Rent plus 18% GST", cash_amount: remaining + gst });
+  if (tdsApplicable && gstApplicable) {
+    variants.push({ label: "Rent plus GST minus TDS", cash_amount: remaining + gst - tds });
+  }
+  return variants;
+}
+
+async function findMatchingPayment(admin: Admin, scope: CallerScope, args: any) {
+  const amount = Number(args?.amount);
+  if (!amount || amount <= 0) throw new Error("amount is required and must be greater than 0");
+
+  let q = admin
+    .from("rent_payments")
+    .select(
+      "id, due_date, billing_month, amount, paid_amount, tenant:tenants(name, tds_applicable, requires_gst), property:properties(name)"
+    )
+    .eq("workspace_id", scope.workspaceId!)
+    .in("status", ["pending", "overdue", "partial"]);
+  if (scope.propertyIds) q = q.in("property_id", scope.propertyIds);
+  const { data, error } = await q.order("due_date", { ascending: true }).limit(300);
+  if (error) throw error;
+
+  let rows = (data as any[]) ?? [];
+  if (args?.tenant_name_hint) {
+    const needle = String(args.tenant_name_hint).toLowerCase();
+    rows = rows.filter((r) => r.tenant?.name?.toLowerCase().includes(needle));
+  }
+
+  const scored = rows.map((r) => {
+    const remaining = Number(r.amount) - Number(r.paid_amount || 0);
+    const variants = settlementVariants(remaining, !!r.tenant?.tds_applicable, !!r.tenant?.requires_gst);
+    const bestDiff = Math.min(...variants.map((v) => Math.abs(v.cash_amount - amount)));
+    let match: "exact" | "close" | "partial_possible" | null = null;
+    if (bestDiff <= 1) match = "exact";
+    else if (bestDiff / Math.max(remaining, 1) <= 0.02) match = "close";
+    else if (amount > 0 && amount < remaining) match = "partial_possible";
+    return { r, remaining, variants, bestDiff, match };
+  });
+
+  const ranked = scored
+    .filter((s) => s.match !== null)
+    .sort((a, b) => {
+      const order = { exact: 0, close: 1, partial_possible: 2 } as const;
+      const oa = order[a.match as keyof typeof order];
+      const ob = order[b.match as keyof typeof order];
+      if (oa !== ob) return oa - ob;
+      return a.bestDiff - b.bestDiff;
+    })
+    .slice(0, 8);
+
+  return {
+    candidates: ranked.map(({ r, remaining, variants, match }) => ({
+      payment_id: r.id,
+      tenant: r.tenant?.name ?? null,
+      property: r.property?.name ?? null,
+      period: periodLabel(r.billing_month, r.due_date),
+      due_date: r.due_date,
+      amount_due: Number(r.amount),
+      already_paid: Number(r.paid_amount || 0),
+      remaining_due: remaining,
+      tds_applicable_default: !!r.tenant?.tds_applicable,
+      gst_applicable_default: !!r.tenant?.requires_gst,
+      possible_breakdowns: variants,
+      match_quality: match,
+    })),
+    guidance:
+      ranked.length === 0
+        ? "No unpaid rent payment in scope plausibly matches this amount. Ask the user which month the rent is for, then call list_due_payments_for_month."
+        : "Show the tenant, property, and period (the rent month, not invoice month) back to the user and get explicit confirmation of the amount breakdown before calling mark_payment_received.",
+  };
+}
+
+async function listDuePaymentsForMonth(admin: Admin, scope: CallerScope, args: any) {
+  const month = String(args?.month ?? "").trim();
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("month is required as YYYY-MM, e.g. 2026-07");
+
+  let q = admin
+    .from("rent_payments")
+    .select(
+      "id, due_date, billing_month, amount, paid_amount, tenant:tenants(name), property:properties(name)"
+    )
+    .eq("workspace_id", scope.workspaceId!)
+    .in("status", ["pending", "overdue", "partial"]);
+  if (scope.propertyIds) q = q.in("property_id", scope.propertyIds);
+  const { data, error } = await q.order("due_date", { ascending: true });
+  if (error) throw error;
+
+  const rows = ((data as any[]) ?? []).filter((r) => {
+    if (r.billing_month) return r.billing_month === month;
+    return String(r.due_date).slice(0, 7) === month;
+  });
+
+  return {
+    payments: rows.map((r) => ({
+      payment_id: r.id,
+      tenant: r.tenant?.name ?? null,
+      property: r.property?.name ?? null,
+      period: periodLabel(r.billing_month, r.due_date),
+      due_date: r.due_date,
+      amount_due: Number(r.amount),
+      already_paid: Number(r.paid_amount || 0),
+      remaining_due: Number(r.amount) - Number(r.paid_amount || 0),
+    })),
+  };
+}
+
+async function markPaymentReceived(admin: Admin, scope: CallerScope, userId: string, args: any) {
+  if (!scope.canRecordPayments) {
+    throw new Error("This account doesn't have permission to record payments.");
+  }
+  if (args?.confirmed !== true) {
+    throw new Error("confirmed must be true — only call this after the user has explicitly confirmed the match and amount.");
+  }
+  const paymentId = String(args?.payment_id ?? "");
+  const grossSettled = Number(args?.gross_rent_settled);
+  const paidDate = String(args?.paid_date ?? "");
+  if (!paymentId) throw new Error("payment_id is required");
+  if (!grossSettled || grossSettled <= 0) throw new Error("gross_rent_settled must be greater than 0");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) throw new Error("paid_date is required as YYYY-MM-DD");
+
+  let q = admin
+    .from("rent_payments")
+    .select("id, property_id, tenant_id, due_date, amount, paid_amount, workspace_id")
+    .eq("id", paymentId)
+    .eq("workspace_id", scope.workspaceId!);
+  if (scope.propertyIds) q = q.in("property_id", scope.propertyIds);
+  const { data: payment, error: fetchError } = await q.maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!payment) throw new Error("No such payment in your scope. Re-check with find_matching_payment or list_due_payments_for_month.");
+
+  const remaining = Number(payment.amount) - Number(payment.paid_amount || 0);
+  if (grossSettled > remaining + 0.01) {
+    throw new Error(`gross_rent_settled (${grossSettled}) exceeds the remaining due (${remaining}). Ask the user to confirm the right amount.`);
+  }
+
+  const tdsApplicable = !!args?.tds_applicable;
+  const tdsAmount = tdsApplicable ? Number(args?.tds_amount) || 0 : 0;
+  const gstApplicable = !!args?.gst_applicable;
+  const gstAmount = gstApplicable ? Number(args?.gst_amount) || 0 : 0;
+  const paymentMethod = args?.payment_method || "bank_transfer";
+  const notes = args?.notes || undefined;
+
+  // Guard against the same bank message being pasted (and confirmed) twice — same
+  // rent_payment, same date, same rent amount recorded in the last 15 minutes.
+  if (!args?.force) {
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { data: recent } = await admin
+      .from("payment_transactions")
+      .select("id, amount, paid_date, created_at")
+      .eq("rent_payment_id", paymentId)
+      .eq("paid_date", paidDate)
+      .eq("amount", grossSettled)
+      .gte("created_at", cutoff);
+    if (recent && recent.length > 0) {
+      return {
+        duplicate_warning: true,
+        message: "A very similar payment (same amount and date) was already recorded against this rent payment in the last 15 minutes. Ask the user whether to record it anyway before retrying with force:true.",
+        existing_transaction: recent[0],
+      };
+    }
+  }
+
+  const receivedAmount = grossSettled + gstAmount - tdsAmount;
+  const { error: txnError } = await admin.from("payment_transactions").insert({
+    rent_payment_id: paymentId,
+    amount: grossSettled,
+    tds_amount: tdsAmount,
+    gst_amount: gstAmount,
+    received_amount: receivedAmount,
+    paid_date: paidDate,
+    payment_method: paymentMethod,
+    notes,
+    workspace_id: scope.workspaceId!,
+    created_by: userId,
+  });
+  if (txnError) throw txnError;
+
+  const newPaidAmount = Number(payment.paid_amount || 0) + grossSettled;
+  const newStatus = newPaidAmount >= Number(payment.amount) ? "paid" : "partial";
+
+  const { error: updateError } = await admin
+    .from("rent_payments")
+    .update({
+      paid_amount: newPaidAmount,
+      status: newStatus,
+      paid_date: paidDate,
+      payment_method: paymentMethod,
+      notes,
+      tds_applicable: tdsApplicable,
+      tds_amount: tdsAmount,
+      gst_applicable: gstApplicable,
+      gst_amount: gstAmount,
+      marked_by: userId,
+    })
+    .eq("id", paymentId);
+  if (updateError) throw updateError;
+
+  // Best-effort invoice status sync, same natural-key match used throughout the app.
+  try {
+    await admin
+      .from("invoices")
+      .update({ status: newStatus === "paid" ? "paid" : "partial" })
+      .eq("property_id", payment.property_id)
+      .eq("tenant_id", payment.tenant_id)
+      .eq("due_date", payment.due_date);
+  } catch (syncError) {
+    console.error("Failed to sync invoice status:", syncError);
+  }
+
+  return {
+    success: true,
+    payment_id: paymentId,
+    gross_rent_settled: grossSettled,
+    tds_amount: tdsAmount,
+    gst_amount: gstAmount,
+    cash_received: receivedAmount,
+    new_status: newStatus,
+    remaining_after: Number(payment.amount) - newPaidAmount,
+  };
+}
+
+async function callTool(admin: Admin, scope: CallerScope, userId: string, name: string, args: any) {
   switch (name) {
     case "list_properties":
       return listProperties(admin, scope);
@@ -242,6 +562,12 @@ async function callTool(admin: Admin, scope: CallerScope, name: string, args: an
       return listOverduePayments(admin, scope, args);
     case "get_payment_history":
       return getPaymentHistory(admin, scope, args);
+    case "find_matching_payment":
+      return findMatchingPayment(admin, scope, args);
+    case "list_due_payments_for_month":
+      return listDuePaymentsForMonth(admin, scope, args);
+    case "mark_payment_received":
+      return markPaymentReceived(admin, scope, userId, args);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -312,6 +638,7 @@ Deno.serve(async (req: Request) => {
         protocolVersion: params?.protocolVersion || "2024-11-05",
         capabilities: { tools: {} },
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
+        instructions: SERVER_INSTRUCTIONS,
       };
       return json(jsonRpcResult(id, result));
     }
@@ -371,7 +698,7 @@ Deno.serve(async (req: Request) => {
       const toolName = params?.name;
       const toolArgs = params?.arguments ?? {};
       try {
-        const toolResult = await callTool(admin, scope, toolName, toolArgs);
+        const toolResult = await callTool(admin, scope, tokenRow.user_id as string, toolName, toolArgs);
         return json(jsonRpcResult(id, {
           content: [{ type: "text", text: JSON.stringify(toolResult, null, 2) }],
         }));
