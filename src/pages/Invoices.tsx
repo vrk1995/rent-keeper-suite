@@ -48,6 +48,7 @@ import { PdfPreviewDialog } from "@/components/payments/PdfPreviewDialog";
 import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 import { useIsAdmin } from "@/hooks/useUserRole";
 import { ErrorState } from "@/components/ui/error-state";
+import { InvoiceAuditLogPanel } from "@/components/invoices/InvoiceAuditLogPanel";
 
 const Invoices = () => {
   const { data: invoices, isLoading, isError, refetch } = useInvoices();
@@ -445,6 +446,8 @@ const Invoices = () => {
       )}
 
       {/* Create Ad-hoc Invoice Dialog */}
+      <InvoiceAuditLogPanel />
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
