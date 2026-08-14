@@ -91,11 +91,17 @@ Deno.serve(async (req) => {
       .select('user_id, property_id, workspace_id')
       .in('workspace_id', workspaceIds)
 
-    // Map user -> property restriction set (empty = unrestricted)
+    // Map (user, workspace) -> property restriction set (no rows for that workspace =
+    // unrestricted IN THAT WORKSPACE). Keyed by workspace as well as user: a user with
+    // restricted access in one workspace but none in another must still be treated as
+    // unrestricted in the second — has_property_access()'s rule is per-workspace, and a
+    // plain user_id key here would wrongly carry restrictions across workspace boundaries.
+    const restrictKey = (userId: string, workspaceId: string) => `${userId}|${workspaceId}`
     const restrictedProps = new Map<string, Set<string>>()
     for (const a of access || []) {
-      if (!restrictedProps.has(a.user_id)) restrictedProps.set(a.user_id, new Set())
-      restrictedProps.get(a.user_id)!.add(a.property_id)
+      const key = restrictKey(a.user_id, a.workspace_id)
+      if (!restrictedProps.has(key)) restrictedProps.set(key, new Set())
+      restrictedProps.get(key)!.add(a.property_id)
     }
 
     const { data: workspaces } = await supabase
@@ -128,7 +134,9 @@ Deno.serve(async (req) => {
       // Super admins are always unrestricted, same as has_property_access() everywhere else
       // in the app — any user_property_access rows on a super admin are leftovers from
       // before they were promoted and must not narrow what they're notified about.
-      const restrict = role.role === 'super_admin' ? undefined : restrictedProps.get(role.user_id)
+      const restrict = role.role === 'super_admin'
+        ? undefined
+        : restrictedProps.get(restrictKey(role.user_id, role.workspace_id))
       const userPayments = relevant.filter((p) => {
         if (p.workspace_id !== role.workspace_id) return false
         if (restrict && restrict.size > 0 && !restrict.has(p.property_id)) return false
