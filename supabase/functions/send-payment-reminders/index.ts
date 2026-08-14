@@ -125,7 +125,10 @@ Deno.serve(async (req) => {
       const email = emailMap.get(role.user_id)
       if (!email) continue
 
-      const restrict = restrictedProps.get(role.user_id)
+      // Super admins are always unrestricted, same as has_property_access() everywhere else
+      // in the app — any user_property_access rows on a super admin are leftovers from
+      // before they were promoted and must not narrow what they're notified about.
+      const restrict = role.role === 'super_admin' ? undefined : restrictedProps.get(role.user_id)
       const userPayments = relevant.filter((p) => {
         if (p.workspace_id !== role.workspace_id) return false
         if (restrict && restrict.size > 0 && !restrict.has(p.property_id)) return false
