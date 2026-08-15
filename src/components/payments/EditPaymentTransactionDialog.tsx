@@ -48,6 +48,7 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
   const [amount, setAmount] = useState("");
   const [tdsAmount, setTdsAmount] = useState("");
   const [gstAmount, setGstAmount] = useState("");
+  const [gstPendingAmount, setGstPendingAmount] = useState("");
   const [paidDate, setPaidDate] = useState<Date | undefined>();
   const [paymentMethod, setPaymentMethod] = useState("");
   const [notes, setNotes] = useState("");
@@ -57,6 +58,7 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
     setAmount(String(transaction.amount));
     setTdsAmount(String(transaction.tds_amount || 0));
     setGstAmount(String(transaction.gst_amount || 0));
+    setGstPendingAmount(String(transaction.gst_pending_amount || 0));
     setPaidDate(new Date(transaction.paid_date));
     setPaymentMethod(transaction.payment_method || "");
     setNotes(transaction.notes || "");
@@ -65,6 +67,7 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
   const amountNum = parseFloat(amount) || 0;
   const tdsNum = parseFloat(tdsAmount) || 0;
   const gstNum = parseFloat(gstAmount) || 0;
+  const gstPendingNum = parseFloat(gstPendingAmount) || 0;
   const receivedAmount = amountNum + gstNum - tdsNum;
 
   const handleSave = async () => {
@@ -81,6 +84,10 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
       toast.error("GST amount cannot be negative");
       return;
     }
+    if (gstPendingNum < 0) {
+      toast.error("GST pending amount cannot be negative");
+      return;
+    }
     if (!paidDate) {
       toast.error("Paid date is required");
       return;
@@ -93,6 +100,7 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
         amount: amountNum,
         tds_amount: tdsNum,
         gst_amount: gstNum,
+        gst_pending_amount: gstPendingNum,
         paid_date: format(paidDate, "yyyy-MM-dd"),
         payment_method: paymentMethod || undefined,
         notes: notes.trim() || undefined,
@@ -109,6 +117,7 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
     (amount !== String(transaction.amount) ||
       tdsAmount !== String(transaction.tds_amount || 0) ||
       gstAmount !== String(transaction.gst_amount || 0) ||
+      gstPendingAmount !== String(transaction.gst_pending_amount || 0) ||
       (paidDate ? format(paidDate, "yyyy-MM-dd") : "") !== transaction.paid_date ||
       paymentMethod !== (transaction.payment_method || "") ||
       notes !== (transaction.notes || ""));
@@ -141,9 +150,14 @@ export function EditPaymentTransactionDialog({ transaction, open, onOpenChange }
                 <Label>TDS Amount (₹)</Label>
                 <Input type="number" step="any" value={tdsAmount} onChange={(e) => setTdsAmount(e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <Label>GST Pending (₹)</Label>
+                <Input type="number" step="any" value={gstPendingAmount} onChange={(e) => setGstPendingAmount(e.target.value)} />
+              </div>
             </div>
             <p className="text-xs text-muted-foreground -mt-2">
               Received amount (Amount + GST − TDS): {formatINR(receivedAmount)}
+              {gstPendingNum > 0 && ` · GST Pending: ${formatINR(gstPendingNum)}`}
             </p>
 
             <div className="space-y-2">

@@ -23,6 +23,9 @@ export interface RentPayment {
   tds_amount: number;
   gst_applicable: boolean;
   gst_amount: number;
+  /** GST still owed for this billing period even though rent/TDS are settled — the tenant
+   *  paid rent net of TDS without including GST this time. 0 = nothing pending. */
+  gst_pending_amount: number;
   created_at: string;
   updated_at: string;
   property?: {
@@ -173,6 +176,7 @@ export const useMarkPaymentPaid = () => {
       tds_amount,
       gst_applicable,
       gst_amount,
+      gst_pending_amount,
     }: {
       id: string;
       paid_date: string;
@@ -184,6 +188,7 @@ export const useMarkPaymentPaid = () => {
       tds_amount: number;
       gst_applicable: boolean;
       gst_amount: number;
+      gst_pending_amount?: number;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -199,6 +204,7 @@ export const useMarkPaymentPaid = () => {
           tds_amount,
           gst_applicable,
           gst_amount,
+          gst_pending_amount: gst_pending_amount ?? 0,
           marked_by: user?.id,
         } as any)
         .eq("id", id)
@@ -393,6 +399,7 @@ export const useRevertPaymentToUnpaid = () => {
           tds_amount: 0,
           gst_applicable: false,
           gst_amount: 0,
+          gst_pending_amount: 0,
           marked_by: null,
         })
         .eq("id", id)

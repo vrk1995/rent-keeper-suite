@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RentPayment, useMarkPaymentPaid } from "@/hooks/usePayments";
 import { useCreatePaymentTransaction } from "@/hooks/usePaymentTransactions";
@@ -37,7 +37,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
-import { settlementFromGross, settlementFromReceived } from "@/lib/paymentMath";
+import { settlementFromGross, settlementFromReceived, looksLikeGstPending } from "@/lib/paymentMath";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface MarkPaidDialogProps {
   open: boolean;
@@ -61,6 +62,10 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const [paymentType, setPaymentType] = useState<"full" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
   const [tdsApplicable, setTdsApplicable] = useState(false);
+  // When a partial receipt looks like "full rent minus TDS, no GST", we assume GST is
+  // pending by default — this flips that assumption off if the user says GST really was
+  // included and the match was just a coincidence.
+  const [gstIncludedOverride, setGstIncludedOverride] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const markPaid = useMarkPaymentPaid();
   const createTransaction = useCreatePaymentTransaction();
@@ -70,6 +75,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   useEffect(() => {
     if (open) {
       setTdsApplicable(payment?.tenant?.tds_applicable || false);
+      setGstIncludedOverride(false);
     }
   }, [open, payment?.id]);
 
@@ -91,12 +97,24 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const fullAmountNet = fullSettlement.receivedAmount;
 
   const partialReceived = parseFloat(partialAmount) || 0;
+
+  // Common real-world pattern: a tenant pays the full rent net of TDS on time but settles
+  // GST separately/later. If a partial receipt lands within 1% of exactly that figure,
+  // assume that's what happened rather than treating it as a smaller, GST-inclusive
+  // partial payment — the user can say otherwise via the override below.
+  const gstPendingDetected =
+    paymentType === "partial" && gstApplicable && looksLikeGstPending(partialReceived, tdsApplicable, remainingDue);
+  const treatGstAsPending = gstPendingDetected && !gstIncludedOverride;
+
   const settlement =
     paymentType === "full"
       ? fullSettlement
-      : settlementFromReceived(partialReceived, tdsApplicable, gstApplicable);
+      : treatGstAsPending
+        ? settlementFromGross(remainingDue, tdsApplicable, false)
+        : settlementFromReceived(partialReceived, tdsApplicable, gstApplicable);
 
   const { grossSettled, tdsAmount, gstAmount, receivedAmount } = settlement;
+  const gstPendingAmount = treatGstAsPending ? settlementFromGross(remainingDue, false, true).gstAmount : 0;
   const newTotalPaid = previouslyPaid + grossSettled;
   const isFullyPaid = newTotalPaid >= totalDue;
 
@@ -122,6 +140,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
           amount: grossSettled,
           tds_amount: tdsAmount,
           gst_amount: gstAmount,
+          gst_pending_amount: gstPendingAmount,
           received_amount: receivedAmount,
           paid_date: format(paidDate, "yyyy-MM-dd"),
           payment_method: paymentMethod,
@@ -145,6 +164,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
         tds_amount: tdsAmount,
         gst_applicable: gstApplicable,
         gst_amount: gstAmount,
+        gst_pending_amount: gstPendingAmount,
       });
 
       // Generate a receipt for THIS installment specifically.
@@ -170,6 +190,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     setPaymentType("full");
     setPartialAmount("");
     setTdsApplicable(false);
+    setGstIncludedOverride(false);
   };
 
   const isDirty =
@@ -277,6 +298,30 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
             </div>
           )}
 
+          {/* GST-pending detection — a partial receipt that looks like full rent net of
+              TDS but with no GST added */}
+          {gstPendingDetected && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+              <div className="flex gap-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>
+                  This looks like the full rent{tdsApplicable ? " (net of TDS)" : ""} without GST. We're recording the
+                  rent as fully settled and TDS as accounted for, with GST tracked as pending separately.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="gst-included-override"
+                  checked={gstIncludedOverride}
+                  onCheckedChange={(v) => setGstIncludedOverride(v === true)}
+                />
+                <Label htmlFor="gst-included-override" className="font-normal cursor-pointer text-xs">
+                  Actually, GST was included in this payment
+                </Label>
+              </div>
+            </div>
+          )}
+
           {/* GST / TDS Breakup */}
           {(tdsApplicable || gstApplicable) && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
@@ -290,10 +335,16 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
                   <span className="font-semibold">{formatINR(grossSettled)}</span>
                 </div>
               )}
-              {gstApplicable && (
+              {gstApplicable && !treatGstAsPending && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Add: GST (18%)</span>
                   <span className="font-semibold text-success">+ {formatINR(gstAmount)}</span>
+                </div>
+              )}
+              {treatGstAsPending && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">GST Pending (not collected)</span>
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">{formatINR(gstPendingAmount)}</span>
                 </div>
               )}
               {tdsApplicable && (

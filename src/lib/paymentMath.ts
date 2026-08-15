@@ -52,3 +52,21 @@ export function settlementFromReceived(
   }
   return best;
 }
+
+/** How close a partial receipt needs to land to "full rent minus TDS" before it's treated
+ *  as a likely GST-skipped payment, as a fraction of the rent due. */
+export const GST_PENDING_TOLERANCE = 0.01;
+
+/** True when a partial receipt looks like the tenant paid the FULL rent (net of TDS if
+ *  applicable) but simply didn't add GST — a common real-world pattern where GST gets
+ *  settled separately/later rather than with the rent itself. Only meaningful when GST
+ *  actually applies to the tenant; the caller is expected to check that first. */
+export function looksLikeGstPending(
+  receivedAmount: number,
+  tdsApplicable: boolean,
+  remainingDue: number
+): boolean {
+  if (receivedAmount <= 0 || remainingDue <= 0) return false;
+  const withoutGst = settlementFromGross(remainingDue, tdsApplicable, false);
+  return Math.abs(receivedAmount - withoutGst.receivedAmount) <= remainingDue * GST_PENDING_TOLERANCE;
+}

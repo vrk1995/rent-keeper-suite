@@ -13,6 +13,7 @@ interface Txn {
   amount: number;
   tds_amount: number;
   gst_amount: number;
+  gst_pending_amount: number;
   received_amount: number;
   paid_date: string;
   payment_method: string | null;
@@ -82,7 +83,7 @@ serve(async (req: Request): Promise<Response> => {
     // All installments recorded against this rent, oldest first.
     const { data: txnRows } = await supabase
       .from("payment_transactions")
-      .select("id, amount, tds_amount, gst_amount, received_amount, paid_date, payment_method, notes, created_at")
+      .select("id, amount, tds_amount, gst_amount, gst_pending_amount, received_amount, paid_date, payment_method, notes, created_at")
       .eq("rent_payment_id", paymentId)
       .order("paid_date", { ascending: true })
       .order("created_at", { ascending: true });
@@ -261,7 +262,14 @@ serve(async (req: Request): Promise<Response> => {
       yPos -= 16;
       drawText("Total Received", leftMargin + 6, yPos, fontRegular, 10, grayColor);
       drawText(formatCurrency(totalReceivedGross), cols.bal, yPos, fontRegular, 10, primaryColor);
-      yPos -= 20;
+      yPos -= 16;
+      const totalGstPending = transactions.reduce((s, t) => s + Number(t.gst_pending_amount || 0), 0);
+      if (totalGstPending > 0) {
+        drawText("GST Pending (not yet collected)", leftMargin + 6, yPos, fontRegular, 10, rgb(0.75, 0.5, 0.05));
+        drawText(formatCurrency(totalGstPending), cols.bal, yPos, fontRegular, 10, rgb(0.75, 0.5, 0.05));
+        yPos -= 16;
+      }
+      yPos -= 4;
       const balance = totalDue - totalReceivedGross;
       drawText(balance <= 0 ? "FULLY PAID" : "BALANCE DUE", leftMargin + 6, yPos, fontBold, 12, balance <= 0 ? primaryColor : rgb(0.8, 0.3, 0.1));
       drawText(formatCurrency(Math.max(0, balance)), leftMargin + 350, yPos, fontBold, 12, balance <= 0 ? primaryColor : rgb(0.8, 0.3, 0.1));
@@ -270,6 +278,7 @@ serve(async (req: Request): Promise<Response> => {
       const gross = thisTxn ? Number(thisTxn.amount) : Number(payment.paid_amount) || 0;
       const tds = thisTxn ? Number(thisTxn.tds_amount) : (payment.tds_applicable ? Number(payment.tds_amount) || 0 : 0);
       const gst = thisTxn ? Number(thisTxn.gst_amount || 0) : (payment.gst_applicable ? Number(payment.gst_amount) || 0 : 0);
+      const gstPending = thisTxn ? Number(thisTxn.gst_pending_amount || 0) : Number(payment.gst_pending_amount) || 0;
       const net = thisTxn ? Number(thisTxn.received_amount) : gross + gst - tds;
       const method = thisTxn ? thisTxn.payment_method : payment.payment_method;
       const notes = thisTxn ? thisTxn.notes : payment.notes;
@@ -308,6 +317,13 @@ serve(async (req: Request): Promise<Response> => {
       if (tds > 0) {
         drawText("Less: TDS Deducted @ 10%", leftMargin + 10, yPos, fontRegular, 10, grayColor);
         drawText(`- ${formatCurrency(tds)}`, leftMargin + 360, yPos, fontRegular, 10, grayColor);
+        yPos -= 18;
+      }
+
+      if (gstPending > 0) {
+        const amberColor = rgb(0.75, 0.5, 0.05);
+        drawText("GST Pending (not collected with this payment)", leftMargin + 10, yPos, fontRegular, 10, amberColor);
+        drawText(formatCurrency(gstPending), leftMargin + 360, yPos, fontRegular, 10, amberColor);
         yPos -= 18;
       }
 

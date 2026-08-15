@@ -792,6 +792,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           gst_amount: number
+          gst_pending_amount: number
           id: string
           notes: string | null
           paid_date: string
@@ -806,6 +807,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           gst_amount?: number
+          gst_pending_amount?: number
           id?: string
           notes?: string | null
           paid_date: string
@@ -820,6 +822,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           gst_amount?: number
+          gst_pending_amount?: number
           id?: string
           notes?: string | null
           paid_date?: string
@@ -1396,6 +1399,7 @@ export type Database = {
           due_date: string
           gst_amount: number
           gst_applicable: boolean
+          gst_pending_amount: number
           id: string
           invoice_date: string | null
           marked_by: string | null
@@ -1420,6 +1424,7 @@ export type Database = {
           due_date: string
           gst_amount?: number
           gst_applicable?: boolean
+          gst_pending_amount?: number
           id?: string
           invoice_date?: string | null
           marked_by?: string | null
@@ -1444,6 +1449,7 @@ export type Database = {
           due_date?: string
           gst_amount?: number
           gst_applicable?: boolean
+          gst_pending_amount?: number
           id?: string
           invoice_date?: string | null
           marked_by?: string | null

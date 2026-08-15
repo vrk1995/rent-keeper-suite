@@ -8,6 +8,9 @@ export interface PaymentTransaction {
   amount: number;
   tds_amount: number;
   gst_amount: number;
+  /** GST that looks outstanding for this installment — rent/TDS settled, GST not
+   *  collected this time (paid separately/later). 0 = nothing pending. */
+  gst_pending_amount: number;
   received_amount: number;
   paid_date: string;
   payment_method: string | null;
@@ -21,6 +24,7 @@ export interface CreatePaymentTransactionInput {
   amount: number;
   tds_amount: number;
   gst_amount: number;
+  gst_pending_amount?: number;
   received_amount: number;
   paid_date: string;
   payment_method?: string;
@@ -74,7 +78,7 @@ export const useCreatePaymentTransaction = () => {
 async function recomputeRentPaymentFromTransactions(rentPaymentId: string) {
   const { data: remaining, error: txError } = await supabase
     .from("payment_transactions")
-    .select("amount, tds_amount, gst_amount, paid_date, payment_method, notes")
+    .select("amount, tds_amount, gst_amount, gst_pending_amount, paid_date, payment_method, notes")
     .eq("rent_payment_id", rentPaymentId)
     .order("paid_date", { ascending: true })
     .order("created_at", { ascending: true });
@@ -113,6 +117,7 @@ async function recomputeRentPaymentFromTransactions(rentPaymentId: string) {
       tds_applicable: latest ? Number(latest.tds_amount) > 0 : false,
       gst_amount: latest ? Number(latest.gst_amount) : 0,
       gst_applicable: latest ? Number(latest.gst_amount) > 0 : false,
+      gst_pending_amount: latest ? Number(latest.gst_pending_amount) : 0,
     })
     .eq("id", rentPaymentId);
   if (updateError) throw updateError;
@@ -143,6 +148,7 @@ export interface UpdatePaymentTransactionInput {
   amount: number;
   tds_amount: number;
   gst_amount: number;
+  gst_pending_amount?: number;
   paid_date: string;
   payment_method?: string;
   notes?: string;
@@ -162,6 +168,7 @@ export const useUpdatePaymentTransaction = () => {
           amount: input.amount,
           tds_amount: input.tds_amount,
           gst_amount: input.gst_amount,
+          gst_pending_amount: input.gst_pending_amount ?? 0,
           received_amount: receivedAmount,
           paid_date: input.paid_date,
           payment_method: input.payment_method || null,

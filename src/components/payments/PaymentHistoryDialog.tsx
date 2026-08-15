@@ -173,6 +173,11 @@ export function PaymentHistoryDialog({ payment, open, onOpenChange }: PaymentHis
                           Received: {formatINR(Number(t.received_amount))}
                         </p>
                       )}
+                      {Number(t.gst_pending_amount) > 0 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          GST Pending: {formatINR(Number(t.gst_pending_amount))} (not collected with this payment)
+                        </p>
+                      )}
                       {t.notes && <p className="text-xs text-muted-foreground mt-1">{t.notes}</p>}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
