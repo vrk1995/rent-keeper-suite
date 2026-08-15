@@ -33,6 +33,7 @@ import { useOutstandingPaymentsForTenant, RentPayment } from "@/hooks/usePayment
 import { useReconcilePayment } from "@/hooks/useReconcilePayment";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
+import { settlementFromGross, settlementFromReceived } from "@/lib/paymentMath";
 
 const paymentMethods = [
   { value: "cash", label: "Cash" },
@@ -43,7 +44,6 @@ const paymentMethods = [
 ];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const roundToRupee = (n: number) => Math.round(n);
 
 const monthLabel = (p: RentPayment) => {
   if (p.billing_month) {
@@ -112,9 +112,17 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
     return [...list].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
   }, [outstanding, mode]);
 
+  // amountReceived is the actual cash the user got (matches their bank statement) — work
+  // backward to the rent portion it represents before allocating, same reasoning as the
+  // single-invoice Mark Paid flow: FIFO/LIFO needs to walk rent-scale invoice dues, not cash.
+  const grossToAllocate = useMemo(() => {
+    const cash = parseFloat(amountReceived) || 0;
+    return settlementFromReceived(cash, tdsApplicable, gstApplicable).grossSettled;
+  }, [amountReceived, tdsApplicable, gstApplicable]);
+
   // FIFO/LIFO: walk the sorted list, filling each invoice's remaining due before moving on.
   const autoResult = useMemo(() => {
-    let remaining = parseFloat(amountReceived) || 0;
+    let remaining = grossToAllocate;
     const allocations: { payment: RentPayment; amount: number }[] = [];
     for (const p of sortedForMode) {
       if (remaining <= 0.001) break;
@@ -125,7 +133,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
       remaining -= applied;
     }
     return { allocations, leftover: round2(Math.max(remaining, 0)) };
-  }, [amountReceived, sortedForMode]);
+  }, [grossToAllocate, sortedForMode]);
 
   const customAllocations = useMemo(() => {
     return (outstanding || [])
@@ -135,9 +143,11 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
 
   const activeAllocations = mode === "custom" ? customAllocations : autoResult.allocations;
   const grossTotal = round2(activeAllocations.reduce((sum, a) => sum + a.amount, 0));
-  const tdsTotal = tdsApplicable ? roundToRupee(grossTotal * 0.1) : 0;
-  const gstTotal = gstApplicable ? roundToRupee(grossTotal * 0.18) : 0;
-  const netTotal = round2(grossTotal + gstTotal - tdsTotal);
+  const { tdsAmount: tdsTotal, gstAmount: gstTotal, receivedAmount: netTotal } = settlementFromGross(
+    grossTotal,
+    tdsApplicable,
+    gstApplicable
+  );
 
   const customOverAllocated = mode === "custom" && (outstanding || []).some((p) => {
     const entered = parseFloat(customAmounts[p.id] || "0") || 0;
@@ -315,6 +325,11 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
                       onChange={(e) => setAmountReceived(e.target.value)}
                       min={0.01}
                     />
+                    {(tdsApplicable || gstApplicable) && (
+                      <p className="text-xs text-muted-foreground">
+                        Enter the actual amount that landed in your account — we'll work out how much rent that clears before allocating it across invoices.
+                      </p>
+                    )}
                   </div>
                   {grossTotal > 0 && (
                     <div className="space-y-1 rounded-lg border p-3 bg-muted/30">
@@ -330,7 +345,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
                       ))}
                       {autoResult.leftover > 0.001 && (
                         <p className="text-xs text-destructive pt-1">
-                          {formatINR(autoResult.leftover)} could not be allocated — it exceeds this tenant's total outstanding dues. Reduce the amount.
+                          {formatINR(settlementFromGross(autoResult.leftover, tdsApplicable, gstApplicable).receivedAmount)} of what you entered could not be allocated — it exceeds this tenant's total outstanding dues. Reduce the amount.
                         </p>
                       )}
                     </div>
@@ -342,7 +357,7 @@ export const ReceivePaymentDialog = ({ open, onOpenChange, tenantId }: ReceivePa
               {grossTotal > 0 && (
                 <div className="rounded-lg bg-secondary/50 p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Gross Amount Settled</span>
+                    <span className="text-muted-foreground">Rent Being Cleared</span>
                     <span className="font-semibold">{formatINR(grossTotal)}</span>
                   </div>
                   {gstApplicable && (

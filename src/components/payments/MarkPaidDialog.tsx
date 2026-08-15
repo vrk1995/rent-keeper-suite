@@ -37,9 +37,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
-
-const TDS_RATE = 0.1;
-const GST_RATE = 0.18;
+import { settlementFromGross, settlementFromReceived } from "@/lib/paymentMath";
 
 interface MarkPaidDialogProps {
   open: boolean;
@@ -83,20 +81,22 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
   const previouslyPaid = payment?.paid_amount || 0;
   const remainingDue = totalDue - previouslyPaid;
 
-  // Rent being settled in this transaction (before GST/TDS) — the full remaining due, or a
-  // user-chosen portion of it for a partial payment. This is what rent_payments.paid_amount
-  // tracks against; GST/TDS never change how much of the RENT obligation counts as settled.
-  const grossSettled = paymentType === "full" ? remainingDue : parseFloat(partialAmount) || 0;
-  // The actual cash that changes hands: rent settled, plus GST collected on top of it (which
-  // gets passed on to the government later), minus TDS the tenant deducted at source.
-  const netForGross = (gross: number) => {
-    const gst = gstApplicable ? Math.round(gross * GST_RATE) : 0;
-    const tds = tdsApplicable ? Math.round(gross * TDS_RATE) : 0;
-    return { gst, tds, net: gross + gst - tds };
-  };
-  const { gst: gstAmount, tds: tdsAmount } = netForGross(grossSettled);
-  const receivedAmount = grossSettled + gstAmount - tdsAmount;
-  const fullAmountNet = netForGross(remainingDue).net;
+  // "Full Amount" clears the exact remaining due, so its rent portion is known outright.
+  // "Partial Amount" instead takes the actual cash the person received — what they can
+  // read off their bank statement — and works BACKWARD to the rent portion it clears,
+  // since that's what rent_payments.paid_amount tracks against. Solving it the other way
+  // (asking the user for a pre-GST/TDS rent figure) would ask them to do arithmetic they
+  // don't have the inputs for.
+  const fullSettlement = settlementFromGross(remainingDue, tdsApplicable, gstApplicable);
+  const fullAmountNet = fullSettlement.receivedAmount;
+
+  const partialReceived = parseFloat(partialAmount) || 0;
+  const settlement =
+    paymentType === "full"
+      ? fullSettlement
+      : settlementFromReceived(partialReceived, tdsApplicable, gstApplicable);
+
+  const { grossSettled, tdsAmount, gstAmount, receivedAmount } = settlement;
   const newTotalPaid = previouslyPaid + grossSettled;
   const isFullyPaid = newTotalPaid >= totalDue;
 
@@ -107,7 +107,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
     if (!payment || isSubmitting) return;
 
     if (paymentType === "partial" && (grossSettled <= 0 || grossSettled > remainingDue)) {
-      toast.error(`Please enter an amount between 1 and ${formatINR(remainingDue)}`);
+      toast.error(`Please enter an amount received between ₹1 and ${formatINR(fullAmountNet)} (the maximum receivable against the remaining rent due)`);
       return;
     }
 
@@ -233,7 +233,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
 
           {/* Full / Partial Selection */}
           <div className="space-y-2">
-            <Label>{tdsApplicable || gstApplicable ? "Rent Being Settled" : "Amount Received"}</Label>
+            <Label>Amount Received</Label>
             <RadioGroup
               value={paymentType}
               onValueChange={(v) => setPaymentType(v as "full" | "partial")}
@@ -257,20 +257,18 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
           {/* Partial Amount Input */}
           {paymentType === "partial" && (
             <div className="space-y-2">
-              <Label>{tdsApplicable || gstApplicable ? "Rent Amount Being Settled (₹)" : "Amount Received (₹)"}</Label>
+              <Label>Amount Received (₹)</Label>
               <Input
                 type="number"
-                placeholder={`Max ${remainingDue}`}
+                placeholder={`Max ${fullAmountNet}`}
                 value={partialAmount}
                 onChange={(e) => setPartialAmount(e.target.value)}
-                max={remainingDue}
+                max={fullAmountNet}
                 min={1}
               />
-              {(tdsApplicable || gstApplicable) && (
-                <p className="text-xs text-muted-foreground">
-                  This is the rent amount being cleared, before GST/TDS; the net cash you'll receive is shown below.
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Enter the actual amount that landed in your account — we'll work out how much of the rent due that clears.
+              </p>
               {grossSettled > 0 && grossSettled <= remainingDue && (
                 <p className="text-xs text-muted-foreground">
                   Balance after this payment: {formatINR(remainingDue - grossSettled)}
@@ -288,7 +286,7 @@ export const MarkPaidDialog = ({ open, onOpenChange, payment }: MarkPaidDialogPr
               </div>
               {paymentType === "partial" && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Amount Being Settled</span>
+                  <span className="text-muted-foreground">Rent Being Cleared</span>
                   <span className="font-semibold">{formatINR(grossSettled)}</span>
                 </div>
               )}
