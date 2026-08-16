@@ -42,14 +42,27 @@ const ROOT_DOMAIN = "sahistartup.com"
 const FROM_DOMAIN = "renter.sahistartup.com" // Domain shown in From address (may be root or sender subdomain)
 const CANONICAL_APP_URL = "https://terntripsindia.in"
 
-// Replace the origin of any URL with the canonical app URL so auth emails (password
-// reset, email confirmation, magic links, etc.) always point users to the real app,
-// regardless of the Supabase Auth Site URL / redirect allow-list settings.
+// The verification link's own host + path (.../auth/v1/verify) must stay pointing at the
+// Supabase project's Auth API — that's the only place that can actually validate the
+// token. Swapping it for the app's own domain (as this used to do) produces a link that
+// 404s, since a static site can't serve that endpoint. All that ever needed fixing is
+// where Supabase sends the user AFTER verifying — the redirect_to query param — in case
+// that ever points somewhere other than the real app (e.g. a stale Site URL). Every call
+// site in this app already requests the canonical URL directly (see
+// src/lib/authRedirect.ts), so this is now a defensive normalization rather than a
+// required rewrite.
 function redirectToCanonicalApp(url: string | undefined): string | undefined {
   if (!url) return url
   try {
     const parsed = new URL(url)
-    return `${CANONICAL_APP_URL}${parsed.pathname}${parsed.search}${parsed.hash}`
+    const redirectTo = parsed.searchParams.get('redirect_to')
+    if (redirectTo) {
+      const target = new URL(redirectTo, CANONICAL_APP_URL)
+      if (target.origin !== CANONICAL_APP_URL) {
+        parsed.searchParams.set('redirect_to', `${CANONICAL_APP_URL}${target.pathname}${target.search}${target.hash}`)
+      }
+    }
+    return parsed.toString()
   } catch {
     return url
   }
