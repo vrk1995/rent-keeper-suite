@@ -47,6 +47,8 @@ const reminderTypeLabels: Record<string, string> = {
   lease_renewal: "Lease Renewal",
   maintenance: "Maintenance",
   custom: "Custom",
+  rent_increment: "Rent Increment",
+  expense_expiry: "Coverage Expiry",
 };
 
 const reminderTypeColors: Record<string, "glow" | "secondary" | "destructive" | "outline"> = {
@@ -54,6 +56,8 @@ const reminderTypeColors: Record<string, "glow" | "secondary" | "destructive" | 
   lease_renewal: "secondary",
   maintenance: "destructive",
   custom: "outline",
+  rent_increment: "glow",
+  expense_expiry: "destructive",
 };
 
 const Reminders = () => {

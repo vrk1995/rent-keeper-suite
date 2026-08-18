@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
+import { useIncompleteReminderCount } from "@/hooks/useReminders";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard", tour: "overview" },
@@ -37,6 +38,7 @@ const navItems = [
 const DashboardSidebar = () => {
   const location = useLocation();
   const { isSuperAdmin } = useIsSuperAdmin();
+  const { data: reminderCount } = useIncompleteReminderCount();
 
   return (
     <motion.aside
@@ -74,6 +76,11 @@ const DashboardSidebar = () => {
                 >
                   <item.icon className="w-5 h-5" />
                   {item.label}
+                  {item.href === "/dashboard/reminders" && !!reminderCount && (
+                    <span className="ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs font-semibold flex items-center justify-center">
+                      {reminderCount > 9 ? "9+" : reminderCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             );

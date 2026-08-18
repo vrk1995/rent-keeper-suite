@@ -998,6 +998,7 @@ export type Database = {
           created_by: string
           description: string | null
           expense_date: string
+          expiry_alerts_sent: string[]
           floor_unit_id: string | null
           id: string
           paid_by: string | null
@@ -1019,6 +1020,7 @@ export type Database = {
           created_by: string
           description?: string | null
           expense_date?: string
+          expiry_alerts_sent?: string[]
           floor_unit_id?: string | null
           id?: string
           paid_by?: string | null
@@ -1040,6 +1042,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           expense_date?: string
+          expiry_alerts_sent?: string[]
           floor_unit_id?: string | null
           id?: string
           paid_by?: string | null
@@ -1223,6 +1226,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          expense_id: string | null
           id: string
           is_completed: boolean | null
           property_id: string | null
@@ -1236,6 +1240,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          expense_id?: string | null
           id?: string
           is_completed?: boolean | null
           property_id?: string | null
@@ -1249,6 +1254,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          expense_id?: string | null
           id?: string
           is_completed?: boolean | null
           property_id?: string | null
@@ -1260,6 +1266,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reminders_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "property_expenses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reminders_property_id_fkey"
             columns: ["property_id"]

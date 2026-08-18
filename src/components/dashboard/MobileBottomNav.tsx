@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsSuperAdmin } from "@/hooks/useUserRole";
+import { useIncompleteReminderCount } from "@/hooks/useReminders";
 import { motion, AnimatePresence } from "framer-motion";
 
 const primaryNavItems = [
@@ -42,6 +43,7 @@ const moreNavItems = [
 const MobileBottomNav = () => {
   const location = useLocation();
   const { isSuperAdmin } = useIsSuperAdmin();
+  const { data: reminderCount } = useIncompleteReminderCount();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isMoreActive = moreNavItems.some(item => location.pathname === item.href) ||
@@ -89,7 +91,14 @@ const MobileBottomNav = () => {
                           : "text-muted-foreground hover:bg-white/5"
                       )}
                     >
-                      <item.icon className="w-5 h-5" />
+                      <div className="relative">
+                        <item.icon className="w-5 h-5" />
+                        {item.href === "/dashboard/reminders" && !!reminderCount && (
+                          <span className="absolute -top-1.5 -right-2 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-semibold flex items-center justify-center">
+                            {reminderCount > 9 ? "9+" : reminderCount}
+                          </span>
+                        )}
+                      </div>
                       {item.label}
                     </Link>
                   );
@@ -143,7 +152,12 @@ const MobileBottomNav = () => {
               isMoreActive ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <MoreHorizontal className={cn("w-5 h-5", isMoreActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.5)]")} />
+            <div className="relative">
+              <MoreHorizontal className={cn("w-5 h-5", isMoreActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.5)]")} />
+              {!!reminderCount && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" />
+              )}
+            </div>
             More
           </button>
         </div>

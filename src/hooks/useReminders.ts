@@ -6,6 +6,7 @@ export interface Reminder {
   id: string;
   property_id: string | null;
   tenant_id: string | null;
+  expense_id: string | null;
   user_id: string;
   title: string;
   description: string | null;
@@ -69,6 +70,22 @@ export const useUpcomingReminders = () => {
 
       if (error) throw error;
       return data as Reminder[];
+    },
+  });
+};
+
+/** Lightweight count for the nav badge — not the full list, just how many need attention. */
+export const useIncompleteReminderCount = () => {
+  return useQuery({
+    queryKey: ["reminders", "incomplete-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("reminders")
+        .select("id", { count: "exact", head: true })
+        .eq("is_completed", false);
+
+      if (error) throw error;
+      return count || 0;
     },
   });
 };
