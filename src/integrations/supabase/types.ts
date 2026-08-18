@@ -330,6 +330,67 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_documents: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          expense_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          property_id: string
+          uploaded_by: string
+          workspace_id: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          expense_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          property_id: string
+          uploaded_by?: string
+          workspace_id?: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          expense_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          property_id?: string
+          uploaded_by?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_documents_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "property_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_documents_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_documents_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_units: {
         Row: {
           area_sqft: number

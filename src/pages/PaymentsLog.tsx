@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Trash2, Receipt, Search, Pencil } from "lucide-react";
+import { Trash2, Receipt, Search, Pencil, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import { SortMenuButton } from "@/components/ui/sort-menu-button";
 import { useSortState } from "@/hooks/useSortState";
 import { Expense, useAllExpenses, useDeleteExpense, getExpenseReceiptViewUrl } from "@/hooks/useExpenses";
 import { EditExpenseDialog } from "@/components/properties/EditExpenseDialog";
+import { ExpenseDocumentsDialog } from "@/components/properties/ExpenseDocumentsDialog";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
 import { formatExpensePeriod } from "@/lib/expensePeriod";
@@ -64,6 +65,7 @@ export default function PaymentsLog() {
   const sort = useSortState<"date" | "title" | "property" | "amount">("date", "desc");
   const [deleteExpenseData, setDeleteExpenseData] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [documentsExpense, setDocumentsExpense] = useState<Expense | null>(null);
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
 
   const handleViewReceipt = async (expense: Expense) => {
@@ -285,6 +287,14 @@ export default function PaymentsLog() {
                             <Button
                               size="icon"
                               variant="ghost"
+                              aria-label="View documents"
+                              onClick={() => setDocumentsExpense(e)}
+                            >
+                              <Paperclip className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               aria-label="Edit payment"
                               onClick={() => setEditingExpense(e)}
                             >
@@ -355,6 +365,16 @@ export default function PaymentsLog() {
                           size="sm"
                           variant="ghost"
                           className="h-8 text-xs"
+                          aria-label="View documents"
+                          onClick={() => setDocumentsExpense(e)}
+                        >
+                          <Paperclip className="w-3 h-3 mr-1" />
+                          Docs
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
                           aria-label="Edit payment"
                           onClick={() => setEditingExpense(e)}
                         >
@@ -413,6 +433,12 @@ export default function PaymentsLog() {
         expense={editingExpense}
         open={!!editingExpense}
         onOpenChange={(o) => !o && setEditingExpense(null)}
+      />
+
+      <ExpenseDocumentsDialog
+        expense={documentsExpense}
+        open={!!documentsExpense}
+        onOpenChange={(o) => !o && setDocumentsExpense(null)}
       />
     </div>
   );

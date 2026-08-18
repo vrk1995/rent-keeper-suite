@@ -53,6 +53,7 @@ import {
   Plus,
   User,
   History,
+  Paperclip,
 } from "lucide-react";
 import { Property } from "@/hooks/useProperties";
 import { Tenant } from "@/hooks/useTenants";
@@ -68,6 +69,7 @@ import { formatExpensePeriod } from "@/lib/expensePeriod";
 import { invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { EditExpenseDialog } from "./EditExpenseDialog";
+import { ExpenseDocumentsDialog } from "./ExpenseDocumentsDialog";
 import { ActivityLogList } from "@/components/activity/ActivityLogList";
 import { UploadDocumentDialog } from "./UploadDocumentDialog";
 import AddPropertyDialog from "./AddPropertyDialog";
@@ -101,6 +103,7 @@ export function PropertyDetailSheet({
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
   const [deleteDocumentData, setDeleteDocumentData] = useState<{ id: string; file_url: string; name: string } | null>(null);
   const [historyExpense, setHistoryExpense] = useState<Expense | null>(null);
+  const [documentsExpense, setDocumentsExpense] = useState<Expense | null>(null);
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
   const { canAddExpenses, isLoading: expenseRoleLoading } = useCanAddExpenses();
   const { data: currentUserId } = useCurrentUserId();
@@ -530,6 +533,14 @@ export function PropertyDetailSheet({
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label="View expense documents"
+                                onClick={() => setDocumentsExpense(expense)}
+                              >
+                                <Paperclip className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 aria-label="View expense history"
                                 onClick={() => setHistoryExpense(expense)}
                               >
@@ -844,6 +855,13 @@ export function PropertyDetailSheet({
         expense={editingExpense}
         open={!!editingExpense}
         onOpenChange={(o) => !o && setEditingExpense(null)}
+      />
+
+      {/* Expense Documents */}
+      <ExpenseDocumentsDialog
+        expense={documentsExpense}
+        open={!!documentsExpense}
+        onOpenChange={(o) => !o && setDocumentsExpense(null)}
       />
 
       {/* Expense Edit History */}
