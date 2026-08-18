@@ -1002,6 +1002,8 @@ export type Database = {
           id: string
           paid_by: string | null
           payment_method: string | null
+          period_from: string | null
+          period_to: string | null
           property_id: string
           receipt_url: string | null
           title: string
@@ -1021,6 +1023,8 @@ export type Database = {
           id?: string
           paid_by?: string | null
           payment_method?: string | null
+          period_from?: string | null
+          period_to?: string | null
           property_id: string
           receipt_url?: string | null
           title: string
@@ -1040,6 +1044,8 @@ export type Database = {
           id?: string
           paid_by?: string | null
           payment_method?: string | null
+          period_from?: string | null
+          period_to?: string | null
           property_id?: string
           receipt_url?: string | null
           title?: string

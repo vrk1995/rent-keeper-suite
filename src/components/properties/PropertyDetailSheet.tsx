@@ -64,6 +64,7 @@ import { useIsAdmin, useCanAddExpenses, useCurrentUserId } from "@/hooks/useUser
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
+import { formatExpensePeriod } from "@/lib/expensePeriod";
 import { invoiceStatusConfig, occupancyStatusConfig } from "@/lib/statusConfig";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { EditExpenseDialog } from "./EditExpenseDialog";
@@ -505,6 +506,9 @@ export function PropertyDetailSheet({
                               <div className="text-sm text-muted-foreground mt-1">
                                 <p>Date: {expense.expense_date}</p>
                                 {expense.vendor_name && <p>Vendor: {expense.vendor_name}</p>}
+                                {expense.period_from && expense.period_to && (
+                                  <p>Period: {formatExpensePeriod(expense.period_from, expense.period_to)}</p>
+                                )}
                                 {expense.description && <p className="mt-1">{expense.description}</p>}
                               </div>
                             </div>

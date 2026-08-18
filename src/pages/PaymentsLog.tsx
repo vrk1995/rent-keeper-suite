@@ -33,6 +33,7 @@ import { Expense, useAllExpenses, useDeleteExpense, getExpenseReceiptViewUrl } f
 import { EditExpenseDialog } from "@/components/properties/EditExpenseDialog";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { formatINR } from "@/lib/currency";
+import { formatExpensePeriod } from "@/lib/expensePeriod";
 import { AddAdhocPaymentDialog } from "@/components/payments/AddAdhocPaymentDialog";
 import { RowListSkeleton } from "@/components/ui/list-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -241,7 +242,14 @@ export default function PaymentsLog() {
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(e.expense_date), "dd MMM yyyy")}
                         </TableCell>
-                        <TableCell className="font-medium">{e.title}</TableCell>
+                        <TableCell className="font-medium">
+                          {e.title}
+                          {e.period_from && e.period_to && (
+                            <p className="text-xs font-normal text-muted-foreground">
+                              {formatExpensePeriod(e.period_from, e.period_to)}
+                            </p>
+                          )}
+                        </TableCell>
                         <TableCell>{e.property?.name || "—"}</TableCell>
                         <TableCell>
                           {e.category ? (
@@ -307,6 +315,11 @@ export default function PaymentsLog() {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm truncate">{e.title}</p>
                           <p className="text-xs text-muted-foreground truncate">{e.property?.name || "—"}</p>
+                          {e.period_from && e.period_to && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {formatExpensePeriod(e.period_from, e.period_to)}
+                            </p>
+                          )}
                         </div>
                         {e.category && (
                           <Badge variant="secondary" className="text-xs ml-2 shrink-0 capitalize">

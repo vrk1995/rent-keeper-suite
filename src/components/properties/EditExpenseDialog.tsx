@@ -51,6 +51,7 @@ import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { usePropertyFloors } from "@/hooks/usePropertyFloors";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesAlert } from "@/components/ui/unsaved-changes-alert";
+import { ExpensePeriodFields } from "./ExpensePeriodFields";
 
 const expenseSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -62,6 +63,11 @@ const expenseSchema = z.object({
   category: z.string().optional(),
   payment_method: z.string().optional(),
   floor_unit_id: z.string().optional(),
+  period_from: z.date().optional(),
+  period_to: z.date().optional(),
+}).refine((data) => !data.period_from || !data.period_to || data.period_to >= data.period_from, {
+  message: "To date must be on or after the From date",
+  path: ["period_to"],
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
@@ -116,6 +122,8 @@ export function EditExpenseDialog({ expense, open, onOpenChange }: EditExpenseDi
       category: "general",
       payment_method: "",
       floor_unit_id: "",
+      period_from: undefined,
+      period_to: undefined,
     },
   });
 
@@ -132,6 +140,8 @@ export function EditExpenseDialog({ expense, open, onOpenChange }: EditExpenseDi
       category: expense.category || "general",
       payment_method: expense.payment_method || "",
       floor_unit_id: expense.floor_unit_id || "",
+      period_from: expense.period_from ? new Date(expense.period_from) : undefined,
+      period_to: expense.period_to ? new Date(expense.period_to) : undefined,
     });
     setNewReceiptFile(null);
     setRemoveExistingReceipt(false);
@@ -182,6 +192,8 @@ export function EditExpenseDialog({ expense, open, onOpenChange }: EditExpenseDi
       category: data.category || null,
       payment_method: data.payment_method || null,
       receipt_url: receiptPath,
+      period_from: data.period_from ? format(data.period_from, "yyyy-MM-dd") : null,
+      period_to: data.period_to ? format(data.period_to, "yyyy-MM-dd") : null,
     });
 
     // Only clean up the old file once the row itself has been updated to point elsewhere.
@@ -397,6 +409,20 @@ export function EditExpenseDialog({ expense, open, onOpenChange }: EditExpenseDi
                   </FormItem>
                 )}
               />
+            )}
+
+            <ExpensePeriodFields
+              periodFrom={form.watch("period_from")}
+              periodTo={form.watch("period_to")}
+              onChange={(from, to) => {
+                form.setValue("period_from", from, { shouldDirty: true });
+                form.setValue("period_to", to, { shouldDirty: true, shouldValidate: true });
+              }}
+            />
+            {form.formState.errors.period_to && (
+              <p className="text-sm font-medium text-destructive -mt-2">
+                {form.formState.errors.period_to.message}
+              </p>
             )}
 
             <FormField

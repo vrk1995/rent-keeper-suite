@@ -16,6 +16,8 @@ export interface Expense {
   payment_method: string | null;
   paid_by: string | null;
   receipt_url: string | null;
+  period_from: string | null;
+  period_to: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -34,6 +36,8 @@ export interface CreateExpenseInput {
   payment_method?: string;
   paid_by?: string;
   receipt_url?: string;
+  period_from?: string | null;
+  period_to?: string | null;
 }
 
 
