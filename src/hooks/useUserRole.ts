@@ -38,3 +38,18 @@ export const useIsSuperAdmin = () => {
   const { data: role, isLoading } = useUserRole();
   return { isSuperAdmin: role === 'super_admin', isLoading };
 };
+
+export const useCanAddExpenses = () => {
+  const { data: role, isLoading } = useUserRole();
+  return { canAddExpenses: role === 'super_admin' || role === 'admin' || role === 'member', isLoading };
+};
+
+export const useCurrentUserId = () => {
+  return useQuery({
+    queryKey: ["current-user-id"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id ?? null;
+    },
+  });
+};

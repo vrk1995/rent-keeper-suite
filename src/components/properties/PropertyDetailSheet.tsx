@@ -32,6 +32,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Building2,
   Users,
   Receipt,
@@ -54,7 +60,7 @@ import { Expense, useExpensesByProperty, useDeleteExpense, getExpenseReceiptView
 import { useDocumentsByProperty, useDeleteDocument } from "@/hooks/useDocuments";
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usePayments";
-import { useIsAdmin } from "@/hooks/useUserRole";
+import { useIsAdmin, useCanAddExpenses, useCurrentUserId } from "@/hooks/useUserRole";
 import { useFloorUnitsByProperty } from "@/hooks/useFloorUnits";
 import { useAllTenantFloorUnits } from "@/hooks/useTenantFloorUnits";
 import { formatINR } from "@/lib/currency";
@@ -93,7 +99,10 @@ export function PropertyDetailSheet({
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null);
   const [deleteDocumentData, setDeleteDocumentData] = useState<{ id: string; file_url: string; name: string } | null>(null);
+  const [historyExpense, setHistoryExpense] = useState<Expense | null>(null);
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
+  const { canAddExpenses, isLoading: expenseRoleLoading } = useCanAddExpenses();
+  const { data: currentUserId } = useCurrentUserId();
 
   const { data: expenses } = useExpensesByProperty(property?.id || "");
   const { data: documents, refetch: refetchDocuments } = useDocumentsByProperty(property?.id || "");
@@ -473,7 +482,7 @@ export function PropertyDetailSheet({
                     <p className="text-sm text-muted-foreground">Total Expenses</p>
                     <p className="text-xl font-bold text-destructive">{formatINR(totalExpenses)}</p>
                   </div>
-                  {isAdmin && !roleLoading && <AddExpenseDialog propertyId={property.id} />}
+                  {canAddExpenses && !expenseRoleLoading && <AddExpenseDialog propertyId={property.id} />}
                 </div>
 
                 {(!expenses || expenses.length === 0) ? (
@@ -514,25 +523,33 @@ export function PropertyDetailSheet({
                                   <Receipt className="w-4 h-4" />
                                 </Button>
                               )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="View expense history"
+                                onClick={() => setHistoryExpense(expense)}
+                              >
+                                <History className="w-4 h-4" />
+                              </Button>
+                              {(isAdmin || (canAddExpenses && expense.created_by === currentUserId)) && !roleLoading && !expenseRoleLoading && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Edit expense"
+                                  onClick={() => setEditingExpense(expense)}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              )}
                               {isAdmin && !roleLoading && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Edit expense"
-                                    onClick={() => setEditingExpense(expense)}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Delete expense"
-                                    onClick={() => setDeleteExpenseTarget(expense)}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                </>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Delete expense"
+                                  onClick={() => setDeleteExpenseTarget(expense)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -824,6 +841,22 @@ export function PropertyDetailSheet({
         open={!!editingExpense}
         onOpenChange={(o) => !o && setEditingExpense(null)}
       />
+
+      {/* Expense Edit History */}
+      <Dialog open={!!historyExpense} onOpenChange={(o) => !o && setHistoryExpense(null)}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Expense History</DialogTitle>
+          </DialogHeader>
+          {historyExpense && (
+            <ActivityLogList
+              entityType="property_expenses"
+              entityId={historyExpense.id}
+              emptyLabel="No changes recorded on this expense yet."
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Expense Confirmation */}
       <AlertDialog open={!!deleteExpenseTarget} onOpenChange={() => setDeleteExpenseTarget(null)}>

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type ActivityEntityType = "tenants" | "properties" | "rent_payments" | "invoices" | "payment_transactions";
+export type ActivityEntityType = "tenants" | "properties" | "rent_payments" | "invoices" | "payment_transactions" | "property_expenses";
 
 export interface ActivityLogEntry {
   id: string;
